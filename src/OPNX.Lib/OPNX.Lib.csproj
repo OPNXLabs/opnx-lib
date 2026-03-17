@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Company>OPNX</Company>
+    <Authors>OPNX</Authors>
+    <Description>OPNX platform SDK for networking, media processing, and streaming infrastructure.</Description>
+    <Version>1.0.0-dev.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" />
+    <ProjectReference Include="..\OPNX.Lib.Data\OPNX.Lib.Data.csproj" />
+    <ProjectReference Include="..\OPNX.Lib.Media\OPNX.Lib.Media.csproj" />
+    <ProjectReference Include="..\OPNX.Lib.Network\OPNX.Lib.Network.csproj" />
+    <ProjectReference Include="..\OPNX.Lib.Streaming\OPNX.Lib.Streaming.csproj" />
+  </ItemGroup>
+
+</Project>

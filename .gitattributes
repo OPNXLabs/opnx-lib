@@ -1,0 +1,2 @@
+src/OPNX.Lib.Media/FFMpeg/Lib/x64/*.dll filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text

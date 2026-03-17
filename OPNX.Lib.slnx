@@ -1,0 +1,25 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/솔루션 항목/">
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Project Path="src/OPNX.Lib.Common/OPNX.Lib.Common.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="src/OPNX.Lib.Data/OPNX.Lib.Data.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="src/OPNX.Lib.Media/OPNX.Lib.Media.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="src/OPNX.Lib.Network/OPNX.Lib.Network.csproj" Id="b6ad1d7d-ec1b-4efe-ba2d-b9d6656fa6c5">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
+  <Project Path="src/OPNX.Lib.Streaming/OPNX.Lib.Streaming.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="src/OPNX.Lib/OPNX.Lib.csproj" />
+</Solution>

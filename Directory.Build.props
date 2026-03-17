@@ -1,0 +1,16 @@
+<Project>
+
+  <PropertyGroup>
+
+    <!-- C# 기본 설정 -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!-- 공통 메타 정보 -->
+    <Company>OPNX</Company>
+    <Authors>OPNX</Authors>
+
+  </PropertyGroup>
+
+</Project>

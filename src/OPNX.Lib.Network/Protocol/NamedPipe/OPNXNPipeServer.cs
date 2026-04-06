@@ -32,6 +32,9 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
         private int _isStarted;
+        private CancellationTokenSource? _acceptLoopCts;
+        private Task? _acceptLoopTask;
+        private TaskCompletionSource<bool>? _connectionClosedSignal;
 
         private readonly ProtocolOptions _options;
         #endregion
@@ -67,7 +70,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         #region Public Methods
         public void Start()
         {
-            Task.Run(() => StartAsync());
+            _ = StartAsync();
         }
 
 
@@ -76,9 +79,9 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             if (Interlocked.Exchange(ref _isStarted, 1) != 0)
                 return;
 
-            var token = _workCts!.Token;
-
-            _ = _npAcceptor.WaitForConnectionAsync(token);
+            _acceptLoopCts = new CancellationTokenSource();
+            _acceptLoopTask = RunAcceptLoopAsync(_acceptLoopCts.Token);
+            await Task.CompletedTask;
         }
 
         public async ValueTask<bool> SendDataAsync<T>(PacketHeader header, T data, CancellationToken cancellationToken = default)
@@ -235,6 +238,29 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         #endregion
 
         #region Private / Protected Methods
+        private Channel<Packet> CreateInboundChannel() => CreatePacketChannel(_options.InboundChannelCapacity);
+
+        private Channel<Packet> CreateOutboundChannel() => CreatePacketChannel(_options.OutboundChannelCapacity);
+
+        private Channel<Packet> CreatePacketChannel(int capacity)
+        {
+            if (capacity <= 0)
+            {
+                return Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+                {
+                    SingleReader = true,
+                    SingleWriter = false
+                });
+            }
+
+            return Channel.CreateBounded<Packet>(new BoundedChannelOptions(capacity)
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                FullMode = _options.ChannelFullMode
+            });
+        }
+
         private async void NPAcceptor_Disconnected(object? sender, DisconnectedEventArgs e)
         {
             Task? readTask, recvTask, sendTask;
@@ -245,6 +271,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             try
             {
                 _workCts?.Cancel();
+                _connectionClosedSignal?.TrySetResult(true);
 
                 // 스냅샷
                 readTask = _readLoopTask;
@@ -297,6 +324,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                 LogManager.Error(ex);
             }
 
+            _connectionClosedSignal?.TrySetResult(true);
             Disconnected?.Invoke(this, new DisconnectedEventArgs(SessionID, e.Reason));
         }
 
@@ -305,20 +333,12 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             await _connectionLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                _outboundChannel = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false
-                });
-
-                _inboundChannel = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false
-                });
+                _outboundChannel = CreateOutboundChannel();
+                _inboundChannel = CreateInboundChannel();
 
                 _workCts = new CancellationTokenSource();
                 var token = _workCts.Token;
+                _connectionClosedSignal = CreateSignal();
 
                 _readLoopTask = ReadPacketProcessorAsync(token);
                 _sendLoopTask = SendPacketProcessorAsync(token);
@@ -336,6 +356,44 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
 
             Connected?.Invoke(this, new ConnectedEventArgs(SessionID));
         }
+
+        private async Task RunAcceptLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && !IsDisposed)
+            {
+                try
+                {
+                    await _npAcceptor.WaitForConnectionAsync(token).ConfigureAwait(false);
+
+                    Task waitForDisconnect = (_connectionClosedSignal ?? CreateSignal()).Task;
+                    await waitForDisconnect.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogManager.Error($"Named pipe accept loop failed: {ex}");
+
+                    try
+                    {
+                        await Task.Delay(250, token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        private static TaskCompletionSource<bool> CreateSignal()
+            => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private static Packet ProcessPacket(PacketHeader header, ReadOnlySequence<byte> payload)
         {
@@ -650,6 +708,8 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             try
             {
                 _workCts?.Cancel();
+                _connectionClosedSignal?.TrySetResult(true);
+                _acceptLoopCts?.Cancel();
 
                 if (_npAcceptor != null)
                 {
@@ -663,7 +723,8 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
 
                 await Task.WhenAll(_readLoopTask ?? Task.CompletedTask,
                                    _receiveLoopTask ?? Task.CompletedTask,
-                                   _sendLoopTask ?? Task.CompletedTask
+                                   _sendLoopTask ?? Task.CompletedTask,
+                                   _acceptLoopTask ?? Task.CompletedTask
                                    ).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -672,6 +733,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             finally
             {
+                _acceptLoopCts?.Dispose();
                 _workCts?.Dispose();
             }
 

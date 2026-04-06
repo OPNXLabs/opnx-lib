@@ -9,6 +9,7 @@
     <Authors>OPNX</Authors>
     <Description>OPNX platform SDK for networking, media processing, and streaming infrastructure.</Description>
     <Version>1.0.0-dev.1</Version>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

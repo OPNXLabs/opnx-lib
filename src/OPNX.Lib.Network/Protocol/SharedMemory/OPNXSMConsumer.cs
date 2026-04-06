@@ -43,9 +43,10 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
 
             _options = options ?? ProtocolOptions.Default;
             _endPoint = endPoint;
+            ValidateEndPoint(_endPoint);
 
             string mapName = _endPoint.MapName;
-            long bufferSize = _endPoint.MaxMessageLength;
+            long bufferSize = _endPoint.BufferCapacity;
             SharedMemoryLayout layout = _endPoint.Layout;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -256,7 +257,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
 
                 _accessor.Read(Layout.HeadOffset, out long head);
                 _accessor.Read(Layout.TailOffset, out long tail);
-                long dataBufferSize = _endPoint.MaxMessageLength;
+                long dataBufferSize = _endPoint.BufferCapacity;
 
                 // 수정된 사용 공간 계산
                 long used = (head >= tail) ? (head - tail) : (dataBufferSize - tail + head);
@@ -378,6 +379,23 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             int idx = WaitHandle.WaitAny([producer, token.WaitHandle], timeoutMs);
             if (idx == 1) throw new OperationCanceledException(token);
             return idx == 0; // true면 producer signaled
+        }
+
+        private static void ValidateEndPoint(SharedMemoryEndPoint endPoint)
+        {
+            if (endPoint.MaxMessageLength <= 0)
+                throw new ArgumentOutOfRangeException(nameof(endPoint), "MaxMessageLength must be greater than zero.");
+
+            if (endPoint.BufferCapacity <= 0)
+                throw new ArgumentOutOfRangeException(nameof(endPoint), "BufferCapacity must be greater than zero.");
+
+            int minimumCapacity = checked(endPoint.Layout.MessageHeaderSize + PacketHeader.Size + endPoint.MaxMessageLength);
+            if (endPoint.BufferCapacity < minimumCapacity)
+            {
+                throw new ArgumentException(
+                    $"BufferCapacity must be at least {minimumCapacity} bytes to hold one framed message.",
+                    nameof(endPoint));
+            }
         }
 
         protected override async ValueTask OnDisposeAsync()

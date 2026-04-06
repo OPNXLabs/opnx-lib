@@ -5,13 +5,15 @@
         int ReceiveTimeoutMs,
         int SendTimeoutMs,
         bool EnableReconnect,
-        int ReconnectDelayMs)
+        int ReconnectDelayMs,
+        bool EnableDiagnostics = false)
     {
         public static ConnectionOptions Default => new(
             ConnectTimeoutMs: 3000,
             ReceiveTimeoutMs: 5000,
             SendTimeoutMs: 3000,
             EnableReconnect: false,
-            ReconnectDelayMs: 1000);
+            ReconnectDelayMs: 1000,
+            EnableDiagnostics: false);
     }
 }

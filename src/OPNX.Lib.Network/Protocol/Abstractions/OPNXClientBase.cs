@@ -31,6 +31,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
         private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
         private readonly ProtocolOptions _options;
+        private readonly ProtocolDiagnostics _diagnostics = new();
         #endregion
 
         #region Constructors
@@ -55,6 +56,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
         public Guid SessionID { get; } = Guid.NewGuid();
         public PipeReader? Reader => _connection?.Reader;
         public PipeWriter? Writer => _connection?.Writer;
+        public ProtocolDiagnostics Diagnostics => _diagnostics;
         #endregion
 
         #region Public Methods
@@ -114,9 +116,13 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 }
 
                 if (outbound.Writer.TryWrite(packet))
+                {
+                    MarkOutboundQueued(packet.Payload.Length);
                     return true;
+                }
 
                 await outbound.Writer.WriteAsync(packet, cancellationToken).ConfigureAwait(false);
+                MarkOutboundQueued(packet.Payload.Length);
                 return true;
             }
             catch (ChannelClosedException)
@@ -194,9 +200,13 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 }
 
                 if (outbound.Writer.TryWrite(packet))
+                {
+                    MarkOutboundQueued(packet.Payload.Length);
                     return true;
+                }
 
                 packet.Dispose();
+                MarkDroppedPacket();
                 LogManager.Error("SendData: Channel full or closed.");
                 return false;
             }
@@ -313,6 +323,67 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
         protected virtual bool ShouldTerminate(CancellationToken token) => token.IsCancellationRequested || IsDisposed || !IsConnected;
 
+        private bool DiagnosticsEnabled => _options.EnableDiagnostics;
+
+        private Channel<Packet> CreateInboundChannel() => CreatePacketChannel(_options.InboundChannelCapacity);
+
+        private Channel<Packet> CreateOutboundChannel() => CreatePacketChannel(_options.OutboundChannelCapacity);
+
+        private Channel<Packet> CreatePacketChannel(int capacity)
+        {
+            if (capacity <= 0)
+            {
+                return Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+                {
+                    SingleReader = true,
+                    SingleWriter = false
+                });
+            }
+
+            return Channel.CreateBounded<Packet>(new BoundedChannelOptions(capacity)
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                FullMode = _options.ChannelFullMode
+            });
+        }
+
+        private void MarkConnected()
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkConnected();
+        }
+
+        private void MarkDisconnected()
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkDisconnected();
+        }
+
+        private void MarkOutboundQueued(int bytes)
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkOutboundQueued(bytes);
+        }
+
+        private void MarkOutboundSent()
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkOutboundSent();
+        }
+
+        private void MarkInboundProcessed(int bytes)
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkInboundProcessed(bytes);
+        }
+
+        private void MarkDroppedPacket()
+        {
+            if (DiagnosticsEnabled)
+                _diagnostics.MarkDroppedPacket();
+        }
+
         private async void Connection_Disconnected(object? sender, DisconnectedEventArgs e)
         {
             Task? readTask, recvTask, sendTask;
@@ -375,6 +446,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 LogManager.Error(ex);
             }
 
+            MarkDisconnected();
             Disconnected?.Invoke(this, new DisconnectedEventArgs(SessionID, e.Reason));
         }
 
@@ -383,17 +455,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             await _connectionLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                _outboundChannel = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false
-                });
-
-                _inboundChannel = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false
-                });
+                _outboundChannel = CreateOutboundChannel();
+                _inboundChannel = CreateInboundChannel();
 
                 _workCts = new CancellationTokenSource();
                 var token = _workCts.Token;
@@ -412,6 +475,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 _connectionLock.Release();
             }
 
+            MarkConnected();
             Connected?.Invoke(this, new ConnectedEventArgs(SessionID));
         }
 
@@ -428,9 +492,12 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
             try
             {
+                byte[] malformedHeaderBuffer = new byte[PacketHeader.Size];
                 while (!ShouldTerminate(cancelToken))
                 {
                     ReadResult result;
+                    bool stopProcessing = false;
+                    bool protocolErrorDetected = false;
                     try
                     {
                         result = await reader.ReadAsync(cancelToken).ConfigureAwait(false);
@@ -450,6 +517,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
                         var original = result.Buffer;
                         var remaining = original;
+                        long originalLength = original.Length;
 
                         var inbound = _inboundChannel;
                         if (inbound is null)
@@ -490,6 +558,18 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                             }
                         }
 
+                        if (remaining.Length == originalLength && remaining.Length >= PacketHeader.Size)
+                        {
+                            remaining.Slice(0, PacketHeader.Size).CopyTo(malformedHeaderBuffer);
+                            if (!malformedHeaderBuffer.AsSpan().TryReadPacketHeader(out _))
+                            {
+                                disconnectReason = DisconnectReason.Error;
+                                protocolErrorDetected = true;
+                                consumed = buffer.End;
+                                LogManager.Warning("Malformed packet header detected. Closing connection.");
+                            }
+                        }
+
                         consumed = original.GetPosition(original.Length - remaining.Length);
                     }
                     catch (Exception ex)
@@ -498,17 +578,28 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     }
                     finally
                     {
-                        reader.AdvanceTo(consumed, buffer.End);
+                        try
+                        {
+                            reader.AdvanceTo(consumed, buffer.End);
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            LogManager.Warning($"Reader advance skipped during shutdown: {ex.Message}");
+                            stopProcessing = true;
+                        }
                     }
+
+                    if (stopProcessing)
+                        break;
+
+                    if (protocolErrorDetected)
+                        break;
 
                     if (result.IsCompleted)
                         break;
                 }
             }
-            catch (OperationCanceledException)
-            {
-                LogManager.Error("Packet processing operation cancelled");
-            }
+            catch (OperationCanceledException) { }
             catch (IOException)
             {
                 disconnectReason = DisconnectReason.Broken;
@@ -548,44 +639,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 {
                     if (IsDisposed || !IsConnected)
                     {
-                        try
-                        {
-                            var inbound = _inboundChannel;
-                            if (inbound != null)
-                            {
-                                var header = (PacketHeader)packet.Header;
-                                var packetType = header.PacketType == PacketType.Request ? PacketType.Response : header.PacketType;
-                                var newHeader = new PacketHeader(header.Flags, packetType, header.PayloadType, header.PayloadLength);
-
-                                Packet? newPacket = null;
-                                try
-                                {
-                                    newPacket = new Packet(newHeader, packet.Payload);
-
-                                    if (inbound.Writer.TryWrite(newPacket))
-                                    {
-                                        newPacket = null; // 소유권 이동
-                                    }
-                                    else
-                                    {
-                                        await inbound.Writer.WriteAsync(newPacket, cancelToken).ConfigureAwait(false);
-                                        newPacket = null; // 소유권 이동
-                                    }
-                                }
-                                finally
-                                {
-                                    newPacket?.Dispose(); // enqueue 실패시에만 dispose
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            LogManager.Warning($"Packet ignored due to disconnection: {ex.Message}");
-                        }
-                        finally
-                        {
-                            packet.Dispose();
-                        }
+                        MarkDroppedPacket();
+                        packet.Dispose();
                         break;
                     }
 
@@ -600,6 +655,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     {
                         packet.WriteTo(writer);
                     }
+                    MarkOutboundSent();
 
                     FlushResult result = await writer.FlushAsync(cancelToken).ConfigureAwait(false);
                     if (result.IsCanceled)
@@ -650,6 +706,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     {
                         try
                         {
+                            MarkInboundProcessed(packet.Payload.Length);
                             PacketReceived?.Invoke(this, new PacketReceivedEventArgs(_connection.SessionID, packet.Header, packet.Payload));
                         }
                         catch (Exception ex)

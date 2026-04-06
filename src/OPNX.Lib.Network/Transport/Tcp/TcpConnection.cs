@@ -28,6 +28,10 @@ namespace OPNX.Lib.Network.Transport.Tcp
         private volatile bool _reconnectEnabled = false;
         private readonly CancellationTokenSource _reconnectCts = new();
         private Task? _reconnectTask;
+        private long _connectAttemptCount;
+        private long _successfulConnectCount;
+        private long _disconnectCount;
+        private long _reconnectAttemptCount;
         #endregion
 
         #region Properties
@@ -41,6 +45,10 @@ namespace OPNX.Lib.Network.Transport.Tcp
         public PipeWriter? Writer => _writer;
 
         public IPEndPoint? IPEndPoint => _ipEndPoint;
+        public long ConnectAttemptCount => Interlocked.Read(ref _connectAttemptCount);
+        public long SuccessfulConnectCount => Interlocked.Read(ref _successfulConnectCount);
+        public long DisconnectCount => Interlocked.Read(ref _disconnectCount);
+        public long ReconnectAttemptCount => Interlocked.Read(ref _reconnectAttemptCount);
         #endregion
 
         #region Events
@@ -117,12 +125,10 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 CleanupTransport();
 
                 _ipEndPoint = ipEndPoint;
+                MarkConnectAttempt();
 
                 string address = NormalizeLoopback(_ipEndPoint.Address.ToString());
                 int port = _ipEndPoint.Port;
-
-                if (_reconnectEnabled)
-                    EnsureReconnectTaskStarted();
 
                 var tcp = new TcpClient();
                 ConfigureTcpClient(tcp, _options);
@@ -196,6 +202,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 _gate.Release();
             }
 
+            MarkDisconnect();
             Disconnected?.Invoke(this, new DisconnectedEventArgs(SessionID, reason));
 
             if (shouldReconnect)
@@ -235,6 +242,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 _gate.Release();
             }
 
+            MarkDisconnect();
             Disconnected?.Invoke(this, new DisconnectedEventArgs(SessionID, reason));
 
             if (shouldReconnect)
@@ -290,6 +298,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 // Pipe 구성
                 _reader = PipeReader.Create(stream);
                 _writer = PipeWriter.Create(stream);
+                MarkSuccessfulConnect();
 
                 Connected?.Invoke(this, new ConnectedEventArgs(SessionID));
 
@@ -327,6 +336,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 try
                 {
                     // 연결 시도 (reconnect를 다시 켜지 않도록 enableReconnect=false)
+                    MarkReconnectAttempt();
                     bool isConnected = await ConnectAsync(_ipEndPoint, token).ConfigureAwait(false);
 
                     if (isConnected)
@@ -379,6 +389,32 @@ namespace OPNX.Lib.Network.Transport.Tcp
             if (string.Equals(hostOrIp, "localhost", StringComparison.OrdinalIgnoreCase))
                 return "127.0.0.1";
             return hostOrIp;
+        }
+
+        private bool DiagnosticsEnabled => _options.Common.EnableDiagnostics;
+
+        private void MarkConnectAttempt()
+        {
+            if (DiagnosticsEnabled)
+                Interlocked.Increment(ref _connectAttemptCount);
+        }
+
+        private void MarkSuccessfulConnect()
+        {
+            if (DiagnosticsEnabled)
+                Interlocked.Increment(ref _successfulConnectCount);
+        }
+
+        private void MarkDisconnect()
+        {
+            if (DiagnosticsEnabled)
+                Interlocked.Increment(ref _disconnectCount);
+        }
+
+        private void MarkReconnectAttempt()
+        {
+            if (DiagnosticsEnabled)
+                Interlocked.Increment(ref _reconnectAttemptCount);
         }
 
         private static void ConfigureTcpClient(TcpClient tcpClient, TcpConnectionOptions opt)

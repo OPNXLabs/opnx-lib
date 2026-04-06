@@ -48,9 +48,10 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
 
             _options = options ?? ProtocolOptions.Default;
             _endPoint = endPoint;
+            ValidateEndPoint(_endPoint);
 
             string mapName = _endPoint.MapName;
-            long bufferSize = _endPoint.MaxMessageLength;
+            long bufferSize = _endPoint.BufferCapacity;
             SharedMemoryLayout layout = _endPoint.Layout;
 
 
@@ -377,6 +378,23 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             writePos = (writePos + src.Length) % dataBufferSize;
         }
 
+        private static void ValidateEndPoint(SharedMemoryEndPoint endPoint)
+        {
+            if (endPoint.MaxMessageLength <= 0)
+                throw new ArgumentOutOfRangeException(nameof(endPoint), "MaxMessageLength must be greater than zero.");
+
+            if (endPoint.BufferCapacity <= 0)
+                throw new ArgumentOutOfRangeException(nameof(endPoint), "BufferCapacity must be greater than zero.");
+
+            int minimumCapacity = checked(endPoint.Layout.MessageHeaderSize + PacketHeader.Size + endPoint.MaxMessageLength);
+            if (endPoint.BufferCapacity < minimumCapacity)
+            {
+                throw new ArgumentException(
+                    $"BufferCapacity must be at least {minimumCapacity} bytes to hold one framed message.",
+                    nameof(endPoint));
+            }
+        }
+
         protected override async void OnDispose()
         {
             await OnDisposeAsync();
@@ -402,6 +420,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             finally
             {
+                _dataMutex.Dispose();
+                _producerEvent.Dispose();
+                _consumerEvent.Dispose();
+                _accessor.Dispose();
+                _mmf.Dispose();
                 _sendDataCTS.Dispose();
             }
 

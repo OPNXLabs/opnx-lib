@@ -64,6 +64,9 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
 
         #region Properties
+        public AVSampleFormat SrcFormat => _srcFormat;
+        public int SrcSampleRate => _srcSampleRate;
+        public int SrcChannels => _srcChannels;
         public AVSampleFormat DstFormat => _dstFormat;
         public int DstSampleRate => _dstSampleRate;
         public int DstChannels => _dstChannels;

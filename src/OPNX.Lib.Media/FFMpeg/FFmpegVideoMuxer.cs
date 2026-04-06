@@ -65,7 +65,7 @@ namespace OPNX.Lib.Media.FFMpeg
                         _encoder.CodecContext->flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
                     }
 
-                    OpenVideo(_formatContext, _encoder.Codec, pOutputStream, _opt);
+                    PrepareVideoStream(pOutputStream);
 
                     if ((_outputFormat->flags & ffmpeg.AVFMT_NOFILE) == 0)
                     {
@@ -136,30 +136,42 @@ namespace OPNX.Lib.Media.FFMpeg
         #region Private / Protected Methods
         protected override void OnDispose()
         {
-            if (_formatContext != null)
-                ffmpeg.av_write_trailer(_formatContext);
-
-            fixed (OutputStream* pOs = &_outputStream)
+            try
             {
-                CloseStream(_formatContext, pOs);
-            }
+                if (_encoder != null)
+                    _encoder.VideoFrameEncoded -= Encoder_VideoFrameEncoded;
 
-            if (_formatContext != null)
-            {
-                fixed (AVFormatContext** pFormatContext = &_formatContext)
+                if (_formatContext != null)
+                    ffmpeg.av_write_trailer(_formatContext);
+
+                fixed (OutputStream* pOs = &_outputStream)
                 {
-                    ffmpeg.avformat_close_input(pFormatContext);
+                    CloseStream(pOs);
                 }
-                ffmpeg.avformat_free_context(_formatContext);
-            }
 
-            // AVDictionary를 해제합니다.
-            if (_opt != null)
-            {
-                fixed (AVDictionary** pOpt = &_opt)
+                if (_formatContext != null &&
+                    (_outputFormat->flags & ffmpeg.AVFMT_NOFILE) == 0 &&
+                    _formatContext->pb != null)
                 {
-                    ffmpeg.av_dict_free(pOpt);
+                    ffmpeg.avio_closep(&_formatContext->pb);
                 }
+
+                if (_formatContext != null)
+                {
+                    ffmpeg.avformat_free_context(_formatContext);
+                }
+
+                if (_opt != null)
+                {
+                    fixed (AVDictionary** pOpt = &_opt)
+                    {
+                        ffmpeg.av_dict_free(pOpt);
+                    }
+                }
+            }
+            finally
+            {
+                _encoder?.Dispose();
             }
         }
 
@@ -192,14 +204,9 @@ namespace OPNX.Lib.Media.FFMpeg
             }
         }
 
-        private static unsafe void OpenVideo(AVFormatContext* oc, AVCodec* codec, OutputStream* ost, AVDictionary* opt_arg)
+        private static unsafe void PrepareVideoStream(OutputStream* ost)
         {
             AVCodecContext* c = ost->enc;
-            AVDictionary* opt = null;
-
-            ffmpeg.av_dict_copy(&opt, opt_arg, 0);
-
-            ffmpeg.avcodec_open2(c, codec, &opt).ThrowExceptionIfError();
 
             ost->frame = Alloc_picture(c->pix_fmt, c->width, c->height);
             if (ost->frame == null)
@@ -239,9 +246,8 @@ namespace OPNX.Lib.Media.FFMpeg
             return picture;
         }
 
-        private static unsafe void CloseStream(AVFormatContext* oc, OutputStream* ost)
+        private static unsafe void CloseStream(OutputStream* ost)
         {
-            ffmpeg.avcodec_free_context(&ost->enc);
             ffmpeg.av_frame_free(&ost->frame);
             ffmpeg.av_frame_free(&ost->tmp_frame);
             ffmpeg.av_packet_free(&ost->tmp_pkt);

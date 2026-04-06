@@ -17,7 +17,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
         private unsafe AVPacket* _packet = ffmpeg.av_packet_alloc();
         private unsafe AVFrame* _decodedFrame = ffmpeg.av_frame_alloc();
-        private readonly unsafe AVFrame* _convertedFrame = ffmpeg.av_frame_alloc();
+        private unsafe AVFrame* _convertedFrame = ffmpeg.av_frame_alloc();
 
         private int _extraDataLength = 0;
 
@@ -176,9 +176,12 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     // 컨버터 초기화 (처음 또는 포맷 변경 시)
                     if (_converter == null ||
-                        _converter.DstFormat != (AVSampleFormat)_decodedFrame->format ||
-                        _converter.DstSampleRate != _decodedFrame->sample_rate ||
-                        _converter.DstChannels != _decodedFrame->ch_layout.nb_channels)
+                        _converter.SrcFormat != (AVSampleFormat)_decodedFrame->format ||
+                        _converter.SrcSampleRate != _decodedFrame->sample_rate ||
+                        _converter.SrcChannels != _decodedFrame->ch_layout.nb_channels ||
+                        _converter.DstFormat != targetFmt ||
+                        _converter.DstSampleRate != targetSampleRate ||
+                        _converter.DstChannels != targetChannels)
                     {
                         _converter?.Dispose();
                         _converter = new FFmpegAudioConverter(
@@ -308,8 +311,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     if (_codecContext != null)
                     {
-                        // 1. 드레인 모드: 현재 보낸 패킷들에 대한 디코딩만 완료하도록 NULL 패킷을 전송합니다.
-                        //ffmpeg.avcodec_send_packet(codecContext, null);
+                        ffmpeg.avcodec_send_packet(_codecContext, null);
 
                         // 2. 프레임 수신: 드레인 모드 후, 디코더 버퍼에 남아 있는 프레임들을 수신합니다.
                         AVFrame* frame = ffmpeg.av_frame_alloc();
@@ -336,6 +338,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     //}
 
                     FFmpegHelper.FreeFrame(ref _decodedFrame);
+                    FFmpegHelper.FreeFrame(ref _convertedFrame);
 
                     FFmpegHelper.FreePacket(ref _packet);
 

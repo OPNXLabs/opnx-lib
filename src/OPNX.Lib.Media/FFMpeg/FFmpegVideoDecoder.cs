@@ -398,8 +398,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     if (_codecContext != null)
                     {
-                        // 1. 드레인 모드: 현재 보낸 패킷들에 대한 디코딩만 완료하도록 NULL 패킷을 전송합니다.
-                        //ffmpeg.avcodec_send_packet(codecContext, null);
+                        ffmpeg.avcodec_send_packet(_codecContext, null);
 
                         // 2. 프레임 수신: 드레인 모드 후, 디코더 버퍼에 남아 있는 프레임들을 수신합니다.
                         AVFrame* frame = ffmpeg.av_frame_alloc();

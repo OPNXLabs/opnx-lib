@@ -417,8 +417,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     if (_codecContext != null)
                     {
-                        // 1. 드레인 모드에 진입
-                        //ffmpeg.avcodec_send_frame(codecContext, null);
+                        ffmpeg.avcodec_send_frame(_codecContext, null);
 
                         AVPacket* _packet = ffmpeg.av_packet_alloc();
                         // 2. 인코더로부터 남은 패킷들을 받아냅니다.
@@ -485,12 +484,22 @@ namespace OPNX.Lib.Media.FFMpeg
                 if (ffmpeg.avcodec_send_frame(_codecContext, encodeFrame) < 0)
                     return;
 
-                if (ffmpeg.avcodec_receive_packet(_codecContext, _packet) == 0)
+                while (true)
                 {
-                    AudioFrameEncoded?.Invoke(this, new AudioFrameEncodedEventArgs(_packet));
-                }
+                    int ret = ffmpeg.avcodec_receive_packet(_codecContext, _packet);
+                    if (ret == 0)
+                    {
+                        AudioFrameEncoded?.Invoke(this, new AudioFrameEncodedEventArgs(_packet));
+                        ffmpeg.av_packet_unref(_packet);
+                        continue;
+                    }
 
-                ffmpeg.av_packet_unref(_packet);
+                    if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN) || ret == ffmpeg.AVERROR_EOF)
+                        break;
+
+                    ffmpeg.av_packet_unref(_packet);
+                    return;
+                }
             }
             catch (Exception ex)
             {

@@ -10,7 +10,27 @@
     <!-- 공통 메타 정보 -->
     <Company>OPNX</Company>
     <Authors>OPNX</Authors>
+    <Product>OPNX.Lib</Product>
+    <Copyright>Copyright © 2026 OPNX</Copyright>
+
+    <!-- 공통 버전 -->
+    <Version>0.1.0.20260410</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0.20260410</InformationalVersion>
+
+    <!-- URL -->
+    <PackageProjectUrl>https://www.opnx.kr/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/OPNXLabs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- License -->
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+
+    <!-- Readme -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
 
   </PropertyGroup>
-
+  
 </Project>

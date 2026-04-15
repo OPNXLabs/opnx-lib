@@ -5,19 +5,42 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <IncludeReferencedProjects>true</IncludeReferencedProjects>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
     <Company>OPNX</Company>
     <Authors>OPNX</Authors>
     <Description>OPNX platform SDK for networking, media processing, and streaming infrastructure.</Description>
-    <Version>1.0.0-dev.1</Version>
+    <Version>0.1.0-preview.20260410.2</Version>
+    <InformationalVersion>0.1.0-preview.20260410.2</InformationalVersion>
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" />
-    <ProjectReference Include="..\OPNX.Lib.Data\OPNX.Lib.Data.csproj" />
-    <ProjectReference Include="..\OPNX.Lib.Media\OPNX.Lib.Media.csproj" />
-    <ProjectReference Include="..\OPNX.Lib.Network\OPNX.Lib.Network.csproj" />
-    <ProjectReference Include="..\OPNX.Lib.Streaming\OPNX.Lib.Streaming.csproj" />
+    <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.Data\OPNX.Lib.Data.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.Media\OPNX.Lib.Media.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.Network\OPNX.Lib.Network.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.Streaming\OPNX.Lib.Streaming.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="CopyProjectReferencesToPackage"
+        DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths)"
+                            Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\avcodec-62.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\avdevice-62.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\avfilter-11.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\avformat-62.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\avutil-60.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\swresample-6.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
+    <None Include="..\OPNX.Lib.Media\FFMpeg\Lib\x64\swscale-9.dll" Pack="true" PackagePath="lib/net10.0/FFMpeg/Lib/x64/" Visible="false"/>
   </ItemGroup>
 
 </Project>

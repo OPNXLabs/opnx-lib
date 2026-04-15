@@ -1,0 +1,59 @@
+OPNX License (Evaluation & Non-Commercial Use)
+
+Copyright © 2026 OPNX
+
+1. Grant of License
+This software and associated documentation (the "Software") are provided
+free of charge for evaluation, testing, and non-commercial use only.
+
+2. Non-Commercial Use
+You are permitted to use, copy, modify, and experiment with the Software
+for personal, educational, research, or evaluation purposes only.
+
+3. Commercial Use Restriction
+Any use of the Software, in whole or in part, for commercial purposes is
+strictly prohibited without prior written permission from OPNX.
+
+Commercial use includes, but is not limited to:
+- Selling or licensing the Software
+- Integrating the Software into commercial products or services
+- Using the Software in any business or production environment
+- Providing the Software as part of a paid or revenue-generating service
+
+4. Redistribution
+Redistribution of the Software, whether modified or unmodified, is not permitted
+without prior written permission from OPNX.
+
+5. Intellectual Property
+All rights, title, and interest in the Software, including all intellectual
+property rights, remain the exclusive property of OPNX.
+
+6. No Warranty
+The Software is provided "AS IS", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and noninfringement.
+
+7. Limitation of Liability
+In no event shall OPNX be liable for any claim, damages, or other liability,
+whether in an action of contract, tort, or otherwise, arising from or in
+connection with the Software or the use or other dealings in the Software.
+
+8. Termination
+This license is automatically terminated if you violate any of its terms.
+
+9. License Scope and Applicability
+This license applies to all versions of the Software, regardless of version,
+release date, or distribution method.
+
+Use of this Software is subject to OPNX licensing terms, regardless of the version used.
+
+10. Commercial Licensing
+For commercial licensing, OEM agreements, or partnership inquiries,
+please contact:
+
+opnx@opnx.kr
+
+---
+
+OPNX is a platform-oriented software framework for video, streaming,
+and real-time data processing systems.

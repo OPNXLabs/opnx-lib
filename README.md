@@ -1,47 +1,43 @@
 # OPNX.Lib
 
-Part of the OPNX platform ecosystem.
+OPNX.Lib is a core SDK within the OPNX platform ecosystem, designed to support the development of high-performance systems for video streaming, media processing, and real-time networking.
 
-OPNX.Lib is an internal development library that provides shared core utilities used across various OPNX modules.
+It provides reusable infrastructure components that help reduce development complexity and accelerate system integration.
 
-This repository contains foundational components used by the OPNX platform including networking utilities, inter-process communication helpers, media related utilities, and other common infrastructure code.
+---
 
-## Status
+## 🚀 Features
 
-Internal / Development
-
-This repository is currently under active development and is intended for internal use within the OPNX platform.
-
-## Purpose
-
-The purpose of OPNX.Lib is to provide reusable infrastructure components shared across multiple OPNX projects.  
-By centralizing common functionality in a single library, the platform can maintain consistency while reducing code duplication.
-
-This library may be used by systems such as:
-
-- **OPNX-V** (Video Management System)
-- Streaming and media processing services
-- AI processing modules
-- Platform infrastructure utilities
-
-## Features
-
-The library may include reusable components such as:
-
-- Networking utilities
+- Networking utilities for high-performance communication
 - IPC (Inter-Process Communication) helpers
-- Media related helper functions
-- Common platform utilities
+- Media processing utilities (FFmpeg-based)
 - Shared infrastructure components
+- Extensible architecture for scalable platform development
 
-The exact feature set will evolve as the OPNX platform grows.
+---
 
-## Repository Usage
+## 🧩 Use Cases
 
-This repository is intended for internal development and is used as a shared dependency across OPNX modules.
+- Video Management Systems (VMS / NVR)
+- Real-time streaming services
+- AI-based video processing systems
+- Platform infrastructure development
 
-Some components may later be separated into independent libraries or published as standalone packages when appropriate.
+---
 
-## OPNX Platform
+## ⚠️ License
 
-OPNX.Lib is part of the broader **OPNX platform**, a modular ecosystem designed for building scalable video processing, streaming, and AI-based analytics systems.
+This software is free for non-commercial use.
+
+Any commercial use, including integration into products or services,
+requires prior written permission from OPNX.
+
+Use of this software is subject to OPNX licensing terms regardless of version.
+
+---
+
+## 🤝 Commercial & OEM Inquiries
+
+For commercial licensing, OEM integration, or partnership inquiries:
+
+📧 opnx@opnx.kr

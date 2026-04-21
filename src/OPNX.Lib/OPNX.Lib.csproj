@@ -37,6 +37,7 @@
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\third_party_licenses\Apache-2.0.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\BSD-3-Clause.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\Concentus-Opus-BSD.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\FFmpeg-License-Reference.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\FFmpeg-Native-Binaries-NOTICE.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\FFmpeg.AutoGen-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />

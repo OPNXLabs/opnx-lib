@@ -34,6 +34,23 @@ The full license text is provided in:
 
 - [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
 
+## Microsoft.Extensions.* Abstractions
+
+- Components:
+  - `Microsoft.Extensions.DependencyInjection.Abstractions` (`10.0.0`)
+  - `Microsoft.Extensions.Logging.Abstractions` (`9.0.0` and `10.0.0`)
+- Project: [https://dot.net/](https://dot.net/)
+- License: `MIT`
+- Usage: transitive dependencies introduced by `MySqlConnector`, `Npgsql`, and `SIPSorceryMedia.Abstractions`
+
+Note:
+
+- These packages ship additional upstream notice files in their own distributions.
+
+The full license text is provided in:
+
+- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+
 ## Npgsql
 
 - Component: `Npgsql`
@@ -55,6 +72,18 @@ The full license text is provided in:
 - Package reference: [https://www.nuget.org/packages/MySqlConnector](https://www.nuget.org/packages/MySqlConnector)
 - License: `MIT`
 - Usage: MySQL database provider used by `OPNX.Lib.Data`
+
+The full license text is provided in:
+
+- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+
+## SkiaSharp Native Assets
+
+- Components:
+  - `SkiaSharp.NativeAssets.Win32` (`3.119.2`)
+  - `SkiaSharp.NativeAssets.macOS` (`3.119.2`)
+- License: `MIT`
+- Usage: native asset packages referenced transitively by `SkiaSharp`
 
 The full license text is provided in:
 
@@ -101,6 +130,31 @@ Note:
 The full license text is provided in:
 
 - [third_party_licenses/BSD-3-Clause.txt](third_party_licenses/BSD-3-Clause.txt)
+
+## SIPSorcery Transitive Components
+
+- Components:
+  - `SIPSorceryMedia.Abstractions` (`8.0.10`)
+  - `SIPSorcery.WebSocketSharp` (`0.0.1`)
+  - `Concentus` (`2.2.2`)
+  - `DnsClient` (`1.8.0`)
+  - `Portable.BouncyCastle` (`1.9.0`)
+- Usage: transitive dependencies pulled in by `SIPSorcery`
+
+Licenses:
+
+- `SIPSorceryMedia.Abstractions`: `BSD-3-Clause`
+- `SIPSorcery.WebSocketSharp`: `MIT`
+- `Concentus`: BSD-style permissive license
+- `DnsClient`: `Apache-2.0`
+- `Portable.BouncyCastle`: MIT-style permissive license
+
+License texts used by this repository:
+
+- [third_party_licenses/BSD-3-Clause.txt](third_party_licenses/BSD-3-Clause.txt)
+- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/Apache-2.0.txt](third_party_licenses/Apache-2.0.txt)
+- [third_party_licenses/Concentus-Opus-BSD.txt](third_party_licenses/Concentus-Opus-BSD.txt)
 
 ## FFmpeg.AutoGen
 

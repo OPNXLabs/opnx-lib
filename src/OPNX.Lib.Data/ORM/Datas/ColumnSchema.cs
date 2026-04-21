@@ -1,5 +1,4 @@
-﻿using Mysqlx.Crud;
-using OPNX.Lib.Data.ORM.Datas.Attributes;
+﻿using OPNX.Lib.Data.ORM.Datas.Attributes;
 using System.ComponentModel;
 using System.Data;
 using System.Reflection;
@@ -9,21 +8,13 @@ namespace OPNX.Lib.Data.ORM.Datas
     /// <summary>
     /// Provides simplified access to data column properties for use with SundanceSchema.
     /// </summary>
-    public class ColumnSchema : IComparable
+    public class ColumnSchema(PropertyInfo prop, DataColumnAttribute attribs) : IComparable
     {
-        private readonly PropertyInfo _prop;
-        private readonly DataColumnAttribute _attribs;
-        private readonly DefaultValueAttribute? _defaultValueAttrib;
+        private readonly PropertyInfo _prop = prop;
+        private readonly DataColumnAttribute _attribs = attribs;
+        private readonly DefaultValueAttribute? _defaultValueAttrib = GetAttrib<DefaultValueAttribute>(prop);
         //SoftwareIdentityAttribute identityAttrib;
-        int lastId;
-
-
-        public ColumnSchema(PropertyInfo prop, DataColumnAttribute attribs)
-        {
-            _prop = prop;
-            _attribs = attribs;
-            _defaultValueAttrib = GetAttrib<DefaultValueAttribute>(prop);
-        }
+        private int _lastId;
 
         /// <summary>
         /// Constructor requires the PropertyInfo and DataColumnAttribute.
@@ -198,8 +189,8 @@ namespace OPNX.Lib.Data.ORM.Datas
         /// </summary>
         public int LastId
         {
-            get { return lastId; }
-            set { lastId = value; }
+            get { return _lastId; }
+            set { _lastId = value; }
         }
 
         public object? DefaultValue

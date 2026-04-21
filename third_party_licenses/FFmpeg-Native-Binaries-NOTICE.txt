@@ -1,0 +1,19 @@
+FFmpeg Native Libraries Notice
+
+OPNX.Lib.Media interoperates with FFmpeg native libraries through FFmpeg.AutoGen.
+
+Important:
+
+1. FFmpeg native libraries are separate third-party components.
+2. The OPNX source-available license does not apply to FFmpeg native binaries.
+3. Users should obtain and configure FFmpeg native libraries separately.
+4. Any party that bundles, redistributes, or otherwise provides FFmpeg native binaries
+   is responsible for complying with the applicable FFmpeg license terms for the
+   selected build.
+5. Depending on build configuration and enabled components, FFmpeg may be licensed
+   under LGPL or GPL terms.
+
+For more information, see:
+
+- https://ffmpeg.org/legal.html
+- https://ffmpeg.org

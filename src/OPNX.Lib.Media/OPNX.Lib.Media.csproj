@@ -20,28 +20,4 @@
     <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="FFMpeg\Lib\x64\avcodec-62.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\avdevice-62.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\avfilter-11.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\avformat-62.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\avutil-60.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\swresample-6.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FFMpeg\Lib\x64\swscale-9.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

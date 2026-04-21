@@ -1,7 +1,5 @@
 <Project>
-
   <PropertyGroup>
-
     <!-- C# 기본 설정 -->
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,7 +9,7 @@
     <Company>OPNX</Company>
     <Authors>OPNX</Authors>
     <Product>OPNX.Lib</Product>
-    <Copyright>Copyright © 2026 OPNX</Copyright>
+    <Copyright>Copyright (c) 2026 OPNX</Copyright>
 
     <!-- 공통 버전 -->
     <Version>0.1.0.20260410</Version>
@@ -25,12 +23,10 @@
     <RepositoryType>git</RepositoryType>
 
     <!-- License -->
-    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
 
     <!-- Readme -->
     <PackageReadmeFile>README.md</PackageReadmeFile>
-
   </PropertyGroup>
-  
 </Project>

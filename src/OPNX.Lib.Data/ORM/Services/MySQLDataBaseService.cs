@@ -1,4 +1,4 @@
-﻿using MySql.Data.MySqlClient;
+﻿using MySqlConnector;
 using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;

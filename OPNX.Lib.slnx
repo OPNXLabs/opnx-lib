@@ -1,12 +1,13 @@
-<Solution>
+﻿<Solution>
   <Configurations>
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
   </Configurations>
-  <Folder Name="/솔루션 항목/">
+  <Folder Name="/Documents/">
     <File Path="Directory.Build.props" />
+    <File Path="License.txt" />
     <File Path="README.md" />
-    <File Path="src/OPNX.Lib/License.txt" />
+    <File Path="THIRD-PARTY-NOTICES.md" />
   </Folder>
   <Project Path="src/OPNX.Lib.Common/OPNX.Lib.Common.csproj">
     <Platform Solution="*|x64" Project="x64" />
@@ -27,3 +28,6 @@
     <Platform Solution="Release|x64" Project="x64" />
   </Project>
 </Solution>
+
+
+

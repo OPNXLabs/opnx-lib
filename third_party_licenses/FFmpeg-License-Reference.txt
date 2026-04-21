@@ -1,0 +1,19 @@
+FFmpeg License Reference
+
+OPNX.Lib.Media interoperates with FFmpeg through FFmpeg.AutoGen bindings.
+
+FFmpeg itself is a separate third-party project with its own license terms.
+Depending on the build configuration and enabled components, FFmpeg may be
+available under LGPL or GPL terms.
+
+OPNX does not provide legal advice and does not grant any rights to FFmpeg
+native binaries under the OPNX source-available license.
+
+Users who obtain, bundle, or redistribute FFmpeg native binaries must review
+the license terms for the specific FFmpeg build they use.
+
+Official references:
+
+- https://ffmpeg.org/legal.html
+- https://ffmpeg.org/download.html
+- https://ffmpeg.org

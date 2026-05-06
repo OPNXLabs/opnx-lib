@@ -1,11 +1,11 @@
 ﻿namespace OPNX.Lib.Data.ORM.Enums
 {
-    public enum DataBaseQueryType
+    public enum DatabaseQueryType
     {
         None,
-        Select,
-        Update,
         Insert,
-        Delete
+        Update,
+        Delete,
+        Select,
     }
 }

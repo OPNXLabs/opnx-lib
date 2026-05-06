@@ -33,7 +33,7 @@ namespace OPNX.Lib.Data.ORM
 
         #region Constructors
         public Entity()
-            :this(null)
+            : this(null)
         {
         }
         #endregion

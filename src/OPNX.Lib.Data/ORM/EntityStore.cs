@@ -198,7 +198,7 @@ namespace OPNX.Lib.Data.ORM
                 }
 
                 object? result = genericMethod.Invoke(this, [id]);
-                return result != null ? result as IEntity : null;                
+                return result != null ? result as IEntity : null;
             }
             catch (Exception ex)
             {

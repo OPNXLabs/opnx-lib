@@ -3,7 +3,7 @@ using OPNX.Lib.Data.ORM.Interfaces;
 
 namespace OPNX.Lib.Data.ORM.EventHandlers
 {
-    public enum DataChangedTypes { Insert, Update, Delete, PropertyChanged, Index };
+    public enum DataChangedTypes { Insert, Update, Delete, PropertyChanged };
 
     public delegate void EntityChangedEventHandler(object sender, EntityChangedEventArgs e);
 

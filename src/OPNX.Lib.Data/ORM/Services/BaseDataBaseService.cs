@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
 using System.Reflection;
+using System.Runtime.InteropServices.JavaScript;
 
 namespace OPNX.Lib.Data.ORM.Services
 {
@@ -29,20 +30,19 @@ namespace OPNX.Lib.Data.ORM.Services
             public DbTransaction? Transaction { get; init; }
             public int Depth { get; set; }
 
+            public ConcurrentQueue<Action> PendingStoreActions { get; } = [];
             public ConcurrentQueue<EntityChangedEventArgs> PendingEntityEvents { get; } = [];
         }
 
-        private static readonly AsyncLocal<TxContext?> _tx = new();
+        private readonly AsyncLocal<TxContext?> _tx = new();
 
-#pragma warning disable CA1822
         protected DbConnection? CurrentConnection => _tx.Value?.Connection;
         protected DbTransaction? CurrentTransaction => _tx.Value?.Transaction;
-#pragma warning restore CA1822
         #endregion
 
         #region Constructors
         public BaseDataBaseService(string connectionString)
-            : this(connectionString, null)
+            : this(connectionString, new EntityStore())
         {
         }
 
@@ -53,11 +53,12 @@ namespace OPNX.Lib.Data.ORM.Services
                 ConnectionString = connectionString;
 
             _entityStore = entityStore ?? throw new ArgumentNullException(nameof(entityStore));
-            _entityStore.EntityChanged += EntityStore_EntityChanged;            
+            _entityStore.EntityChanged += EntityStore_EntityChanged;
         }
         #endregion
 
         #region Properties
+        public abstract DatabaseType DBType { get; } 
         public bool AutoTransactionForEntityOperations { get; set; } = true;
 
         public IEntityStore EntityStore { get => _entityStore; }
@@ -65,7 +66,7 @@ namespace OPNX.Lib.Data.ORM.Services
         public int CommandTimeout
         {
             get => _commandTimeout;
-            set => _commandTimeout = value;            
+            set => _commandTimeout = value;
         }
 
         public string ConnectionString
@@ -96,6 +97,9 @@ namespace OPNX.Lib.Data.ORM.Services
                         {
                             if (address == "localhost" || address == "127.0.0.1")
                             {
+                                if (DBType == DatabaseType.PostgreSQL)
+                                    continue;
+
                                 address = NetworkingAddress.GetLocalIPAddress();
                                 if (!string.IsNullOrEmpty(address))
                                     strArray[i] = $"{key}={address}";
@@ -117,7 +121,7 @@ namespace OPNX.Lib.Data.ORM.Services
         public virtual void LoadDataBase() { }
         public virtual void LoadEntity(Type entityType) { }
 
-        public DbConnection? OpenDataBase() => OpenDataBase(_connectionString);        
+        public DbConnection? OpenDataBase() => OpenDataBase(_connectionString);
 
         public DbConnection? OpenDataBase(string connectionString)
         {
@@ -132,14 +136,22 @@ namespace OPNX.Lib.Data.ORM.Services
                 return null;
             }
 
+            DbConnection? conn = null;
+
             try
             {
-                var conn = CreateConnection(connectionString);
+                conn = CreateConnection(connectionString);
                 conn.Open();
                 return conn;
             }
             catch (Exception ex)
             {
+                try
+                {
+                    conn?.Dispose();
+                }
+                catch { }
+
                 LogManager.Error(ex);
             }
 
@@ -156,13 +168,13 @@ namespace OPNX.Lib.Data.ORM.Services
 
             try
             {
-                dbConnection.Dispose(); 
+                dbConnection.Dispose();
             }
             catch (Exception ex)
             {
                 LogManager.Error(ex);
             }
-        }        
+        }
 
         public void ExecuteInTransaction(Action work)
         {
@@ -193,7 +205,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 return default!;
 
             DbTransaction? tx = null;
-            TxContext ctx;            
+            TxContext ctx;
 
             try
             {
@@ -211,16 +223,17 @@ namespace OPNX.Lib.Data.ORM.Services
                 var result = work();
 
                 tx.Commit();
-                
+
+                FlushPendingStoreActions(ctx);
                 FlushPendingEntityEvents(ctx);
 
                 return result;
             }
             catch (Exception ex)
             {
-                try 
+                try
                 {
-                    tx?.Rollback(); 
+                    tx?.Rollback();
                 }
                 catch { }
                 LogManager.Error(ex);
@@ -230,9 +243,9 @@ namespace OPNX.Lib.Data.ORM.Services
             {
                 _tx.Value = null;
 
-                try 
+                try
                 {
-                    tx?.Dispose(); 
+                    tx?.Dispose();
                 }
                 catch { }
 
@@ -245,7 +258,7 @@ namespace OPNX.Lib.Data.ORM.Services
         public virtual DataTable? ExecuteReader(string sqlQuery, List<KeyValuePair<string, object>> paramList) => null;
 
         public virtual object? ExecuteScalar(string sqlQuery, List<KeyValuePair<string, object>> paramList) => null;
-        
+
         public virtual int InsertEntity<T>(T insertEntity) where T : IEntity
         {
             if (AutoTransactionForEntityOperations && CurrentTransaction == null)
@@ -272,6 +285,35 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
 
         #region Private / Protected Methods
+
+        private void ApplyOrEnqueueStoreAction(Action action)
+        {
+            var ctx = _tx.Value;
+            if (ctx != null)
+            {
+                ctx.PendingStoreActions.Enqueue(action);
+                return;
+            }
+
+            action();
+        }
+
+        private static void FlushPendingStoreActions(TxContext ctx)
+        {
+            if (ctx == null) return;
+
+            while (ctx.PendingStoreActions.TryDequeue(out var action))
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    LogManager.Error(ex);
+                }
+            }
+        }
 
         private void FlushPendingEntityEvents(TxContext ctx)
         {
@@ -301,7 +343,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 insertEntity.InsertTime = DateTime.Now;
 
             List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DataBaseQueryType.Insert, insertEntity, ref paramList);
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Insert, insertEntity, ref paramList);
 
             if (string.IsNullOrEmpty(sqlQuery))
                 return insertEntity.ID;
@@ -332,7 +374,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
             insertEntity.ID = newId;
 
-            _entityStore?.InsertEntity<T>(insertEntity.Copy<T>());
+            ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
 
             CascadeEntityAction(insertEntity, nameof(BaseDataBaseService.CascadeInsertEntity));
 
@@ -344,10 +386,13 @@ namespace OPNX.Lib.Data.ORM.Services
             CascadeEntityAction(deleteEntity, nameof(BaseDataBaseService.CascadeDeleteEntity));
 
             List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DataBaseQueryType.Delete, deleteEntity, ref paramList);
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
 
             if (!string.IsNullOrEmpty(sqlQuery) && ExecuteNonQuery(sqlQuery, paramList) > 0)
-                return _entityStore?.DeleteEntity<T>(deleteEntity) ?? true;
+            {
+                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(deleteEntity));
+                return true;
+            }
 
             return false;
         }
@@ -365,10 +410,13 @@ namespace OPNX.Lib.Data.ORM.Services
             updateEntity.UpdateTime = DateTime.Now;
 
             List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DataBaseQueryType.Update, updateEntity, ref paramList);
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
 
             if (!string.IsNullOrEmpty(sqlQuery) && ExecuteNonQuery(sqlQuery, paramList) > 0)
-                return _entityStore?.UpdateEntity<T>(updateEntity) ?? true;
+            {
+                ApplyOrEnqueueStoreAction(() => _entityStore.UpdateEntity<T>(updateEntity));
+                return true;
+            }
 
             return false;
         }
@@ -468,7 +516,7 @@ namespace OPNX.Lib.Data.ORM.Services
             EntityChanged?.Invoke(this, e);
         }
 
-        protected virtual string GetSqlQueryCommand<T>(DataBaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
+        protected virtual string GetSqlQueryCommand<T>(DatabaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
             where T : IEntity
         {
             return string.Empty;
@@ -476,13 +524,14 @@ namespace OPNX.Lib.Data.ORM.Services
 
         protected override void OnDispose()
         {
-            if (_entityStore != null)            
+            if (_entityStore != null)
                 this._entityStore.EntityChanged -= EntityStore_EntityChanged;
         }
 
         protected static bool IsNullableType(Type type)
         {
-            return type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
+            return Nullable.GetUnderlyingType(type) != null;
+            //return type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
         }
 
         protected static T SetPropertyValue<T>(DataRow row) where T : class

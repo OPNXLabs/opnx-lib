@@ -133,19 +133,23 @@ namespace OPNX.Lib.Data.ORM.Services
         }
         #endregion
 
+        #region Properties
+        public override DatabaseType DBType => DatabaseType.PostgreSQL; 
+        #endregion
+
         #region Privte / Protected Methods
         protected override DbConnection CreateConnection(string connectionString)
         {
             return new NpgsqlConnection(connectionString);
         }
 
-        protected override string GetSqlQueryCommand<T>(DataBaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
+        protected override string GetSqlQueryCommand<T>(DatabaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
         {
             string tableName = QuotePgIdent(typeof(T).Name);
 
             switch (queryType)
             {
-                case DataBaseQueryType.Insert:
+                case DatabaseQueryType.Insert:
                     {
                         var props = typeof(T).GetProperties()
                             .Where(p =>
@@ -167,7 +171,7 @@ namespace OPNX.Lib.Data.ORM.Services
                         return $"INSERT INTO {tableName}({columns}) VALUES({values}) RETURNING {QuotePgIdent("ID")};";
                     }
 
-                case DataBaseQueryType.Update:
+                case DatabaseQueryType.Update:
                     {
                         var props = typeof(T).GetProperties()
                             .Where(p =>
@@ -192,7 +196,7 @@ namespace OPNX.Lib.Data.ORM.Services
                         return $"UPDATE {tableName} SET {updates} WHERE {wheres};";
                     }
 
-                case DataBaseQueryType.Delete:
+                case DatabaseQueryType.Delete:
                     {
                         object? idValue = typeof(T).GetProperty("ID")?.GetValue(entity);
                         paramList.Add(new KeyValuePair<string, object>("@ID", idValue ?? DBNull.Value));

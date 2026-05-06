@@ -4,7 +4,7 @@
     public class TableNameAttribute : Attribute
     {
         public TableNameAttribute()
-            :this(string.Empty)
+            : this(string.Empty)
         {
         }
 

@@ -24,9 +24,9 @@ namespace OPNX.Lib.Media.FFMpeg
             {
                 _codec = ffmpeg.avcodec_find_encoder(codecID);
                 ArgumentNullException.ThrowIfNull(_codec);
-                
+
                 _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
-                ArgumentNullException.ThrowIfNull(_codecContext);                
+                ArgumentNullException.ThrowIfNull(_codecContext);
 
                 _codecContext->codec_type = AVMediaType.AVMEDIA_TYPE_AUDIO;
                 _codecContext->codec_id = codecID;

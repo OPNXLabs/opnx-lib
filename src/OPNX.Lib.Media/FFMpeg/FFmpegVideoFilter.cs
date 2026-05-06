@@ -239,9 +239,9 @@ namespace OPNX.Lib.Media.FFMpeg
                 _filterGraph = null;
             }
 
-            _filterGraph = ffmpeg.avfilter_graph_alloc();                       
-            if (_filterGraph is null)            
-                throw new Exception("Could not allocate filter graph.");            
+            _filterGraph = ffmpeg.avfilter_graph_alloc();
+            if (_filterGraph is null)
+                throw new Exception("Could not allocate filter graph.");
 
             var buffersrc = ffmpeg.avfilter_get_by_name("buffer");
             var buffersink = ffmpeg.avfilter_get_by_name("buffersink");

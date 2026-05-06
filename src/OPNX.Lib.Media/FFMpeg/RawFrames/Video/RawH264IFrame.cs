@@ -1,6 +1,6 @@
 ﻿namespace OPNX.Lib.Media.FFMpeg.RawFrames.Video
 {
-    public class RawH264IFrame(long timestamp, ReadOnlyMemory<byte> frameData, H264ParameterSets parameterSets, byte[]? rentedBuffer = null, byte[]? rentedParammeterSetBuffer = null) 
+    public class RawH264IFrame(long timestamp, ReadOnlyMemory<byte> frameData, H264ParameterSets parameterSets, byte[]? rentedBuffer = null, byte[]? rentedParammeterSetBuffer = null)
         : RawH264Frame(timestamp, frameData, rentedBuffer, rentedParammeterSetBuffer)
     {
         #region Fields

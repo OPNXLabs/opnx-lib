@@ -51,7 +51,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 fixed (AVDictionary** pOpt = &_opt)
                 {
                     pOutputStream->st = ffmpeg.avformat_new_stream(_formatContext, _encoder.Codec);
-                    
+
                     if (pOutputStream->st is null)
                     {
                         throw new ApplicationException("Could not allocate stream");

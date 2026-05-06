@@ -13,7 +13,7 @@
         : RawVideoFrame(timestamp, frameData, rentedBuffer, rentedParammeterSetBuffer)
     {
         #region Fields
-        public static readonly byte[] StartMarker = [ 0, 0, 0, 1 ];
+        public static readonly byte[] StartMarker = [0, 0, 0, 1];
         #endregion
 
         #region Properties

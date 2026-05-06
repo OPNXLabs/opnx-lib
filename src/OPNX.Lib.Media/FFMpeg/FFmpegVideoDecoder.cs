@@ -77,7 +77,7 @@ namespace OPNX.Lib.Media.FFMpeg
                         throw new Exception("Fail Find Codec");
 
                     _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
-                    ArgumentNullException.ThrowIfNull(_codecContext);                    
+                    ArgumentNullException.ThrowIfNull(_codecContext);
 
                     _codecContext->err_recognition = ffmpeg.AV_EF_IGNORE_ERR;
 

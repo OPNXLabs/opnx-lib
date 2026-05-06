@@ -43,7 +43,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     }
 
                     _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
-                    ArgumentNullException.ThrowIfNull(_codecContext);                    
+                    ArgumentNullException.ThrowIfNull(_codecContext);
 
                     _codecContext->codec_type = AVMediaType.AVMEDIA_TYPE_AUDIO;
                     _codecContext->request_sample_fmt = AVSampleFormat.AV_SAMPLE_FMT_S16; // 일반적으로 S16 사용

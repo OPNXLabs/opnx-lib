@@ -2,11 +2,11 @@
 
 namespace OPNX.Lib.Media.FFMpeg.RawFrames.Video
 {
-    public abstract class RawVideoFrame(long timestamp, ReadOnlyMemory<byte> frameData, byte[]? rentedBuffer = null, byte[]? rentedParammeterSetBuffer = null) 
+    public abstract class RawVideoFrame(long timestamp, ReadOnlyMemory<byte> frameData, byte[]? rentedBuffer = null, byte[]? rentedParammeterSetBuffer = null)
         : RawFrame(timestamp, frameData)
     {
         #region Fields
-        public static readonly byte[] StartMarkerArray = [ 0, 0, 0, 1 ];
+        public static readonly byte[] StartMarkerArray = [0, 0, 0, 1];
 
         private byte[]? _rentedBuffer = rentedBuffer;
         private byte[]? _rentedParammeterSetBuffer = rentedParammeterSetBuffer;

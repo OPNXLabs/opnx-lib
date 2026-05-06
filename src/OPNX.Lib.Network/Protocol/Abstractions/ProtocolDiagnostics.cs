@@ -1,5 +1,3 @@
-using System.Threading;
-
 namespace OPNX.Lib.Network.Protocol.Abstractions
 {
     public sealed class ProtocolDiagnostics

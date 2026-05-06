@@ -21,7 +21,8 @@ namespace OPNX.Lib.Network.Transport.Tcp
         private PipeReader? _reader;
         private PipeWriter? _writer;
 
-        private IPEndPoint? _ipEndPoint;
+        private IPEndPoint? _remoteEndPoint;
+        private IPEndPoint? _localEndPoint;
 
         private readonly TcpConnectionOptions _options;
 
@@ -44,7 +45,13 @@ namespace OPNX.Lib.Network.Transport.Tcp
         public PipeReader? Reader => _reader;
         public PipeWriter? Writer => _writer;
 
-        public IPEndPoint? IPEndPoint => _ipEndPoint;
+        public IPEndPoint? RemoteEndPoint => _remoteEndPoint;
+        public IPEndPoint? LocalEndPoint => _localEndPoint;
+
+        public string Address => RemoteEndPoint?.Address.ToString() ?? string.Empty;
+        public int Port => RemoteEndPoint?.Port ?? 0;
+        public string LocalAddress => LocalEndPoint?.Address.ToString() ?? string.Empty;
+        public int LocalPort => LocalEndPoint?.Port ?? 0;
         public long ConnectAttemptCount => Interlocked.Read(ref _connectAttemptCount);
         public long SuccessfulConnectCount => Interlocked.Read(ref _successfulConnectCount);
         public long DisconnectCount => Interlocked.Read(ref _disconnectCount);
@@ -124,11 +131,11 @@ namespace OPNX.Lib.Network.Transport.Tcp
 
                 CleanupTransport();
 
-                _ipEndPoint = ipEndPoint;
+                _remoteEndPoint = ipEndPoint;
                 MarkConnectAttempt();
 
-                string address = NormalizeLoopback(_ipEndPoint.Address.ToString());
-                int port = _ipEndPoint.Port;
+                string address = NormalizeLoopback(_remoteEndPoint.Address.ToString());
+                int port = _remoteEndPoint.Port;
 
                 var tcp = new TcpClient();
                 ConfigureTcpClient(tcp, _options);
@@ -290,6 +297,9 @@ namespace OPNX.Lib.Network.Transport.Tcp
 
             try
             {
+                _remoteEndPoint = _tcpClient.Client.RemoteEndPoint as IPEndPoint ?? _remoteEndPoint;
+                _localEndPoint = _tcpClient.Client.LocalEndPoint as IPEndPoint;
+
                 // Stream 설정
                 var stream = _tcpClient.GetStream();
                 stream.ReadTimeout = _options.StreamReadTimeoutMs;
@@ -337,7 +347,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 {
                     // 연결 시도 (reconnect를 다시 켜지 않도록 enableReconnect=false)
                     MarkReconnectAttempt();
-                    bool isConnected = await ConnectAsync(_ipEndPoint, token).ConfigureAwait(false);
+                    bool isConnected = await ConnectAsync(_remoteEndPoint, token).ConfigureAwait(false);
 
                     if (isConnected)
                         return;

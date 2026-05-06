@@ -2,12 +2,12 @@
 using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Common.Logging;
+using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Network.Abstractions;
 using OPNX.Lib.Network.Abstractions.Events;
 using OPNX.Lib.Network.Protocol.Abstractions;
 using OPNX.Lib.Network.Protocol.Framing;
 using OPNX.Lib.Network.Transport.NamedPipe;
-using OPNX.Lib.Common.Serialization;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading.Channels;

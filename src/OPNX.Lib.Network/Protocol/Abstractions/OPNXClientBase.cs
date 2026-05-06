@@ -47,8 +47,20 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
         #region Events
         public event EventHandler<PacketReceivedEventArgs>? PacketReceived;
+        protected virtual void OnPacketReceived(PacketReceivedEventArgs e)
+        {
+            PacketReceived?.Invoke(this, e);
+        }
         public event EventHandler<ConnectedEventArgs>? Connected;
+        protected virtual void OnConnected(ConnectedEventArgs e)
+        {
+            Connected?.Invoke(this, e);
+        }
         public event EventHandler<DisconnectedEventArgs>? Disconnected;
+        protected virtual void OnDisconnected(DisconnectedEventArgs e)
+        {
+            Disconnected?.Invoke(this, e);
+        }
         #endregion
 
         #region Properties
@@ -447,7 +459,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
 
             MarkDisconnected();
-            Disconnected?.Invoke(this, new DisconnectedEventArgs(SessionID, e.Reason));
+            OnDisconnected(new DisconnectedEventArgs(SessionID, e.Reason));
         }
 
         private async void Connection_Connected(object? sender, ConnectedEventArgs e)
@@ -476,7 +488,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
 
             MarkConnected();
-            Connected?.Invoke(this, new ConnectedEventArgs(SessionID));
+            OnConnected(new ConnectedEventArgs(SessionID));
         }
 
         protected virtual async Task ReadPacketProcessorAsync(CancellationToken cancelToken)
@@ -707,7 +719,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                         try
                         {
                             MarkInboundProcessed(packet.Payload.Length);
-                            PacketReceived?.Invoke(this, new PacketReceivedEventArgs(_connection.SessionID, packet.Header, packet.Payload));
+                            OnPacketReceived(new PacketReceivedEventArgs(_connection.SessionID, packet.Header, packet.Payload));
                         }
                         catch (Exception ex)
                         {

@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FFmpeg.AutoGen" Version="8.0.0.1" />
-    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260318" />
+    <PackageReference Include="FFmpeg.AutoGen" Version="8.1.0" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260427" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
   </ItemGroup>
 

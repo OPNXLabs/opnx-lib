@@ -134,7 +134,7 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
 
         #region Properties
-        public override DatabaseType DBType => DatabaseType.PostgreSQL; 
+        public override DatabaseType DBType => DatabaseType.PostgreSQL;
         #endregion
 
         #region Privte / Protected Methods

@@ -71,7 +71,7 @@ namespace OPNX.Lib.Streaming.RTSP.Sdp
         public List<byte[]> ParameterListFromBase64String(string parameterName)
         {
             if (!TryGetValue(parameterName, out var value) || string.IsNullOrEmpty(value))
-                return []; 
+                return [];
 
             var parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries);
             var list = new List<byte[]>(parts.Length);

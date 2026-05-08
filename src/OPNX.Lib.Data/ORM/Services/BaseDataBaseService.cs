@@ -10,7 +10,6 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
 using System.Reflection;
-using System.Runtime.InteropServices.JavaScript;
 
 namespace OPNX.Lib.Data.ORM.Services
 {
@@ -58,7 +57,7 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
 
         #region Properties
-        public abstract DatabaseType DBType { get; } 
+        public abstract DatabaseType DBType { get; }
         public bool AutoTransactionForEntityOperations { get; set; } = true;
 
         public IEntityStore EntityStore { get => _entityStore; }

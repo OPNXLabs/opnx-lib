@@ -45,7 +45,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
 
             if (_swsContext == null)
-                throw new ApplicationException("Could not initialize the conversion context.");
+                throw new ApplicationException("Failed to initialize the conversion context.");
 
             //var convertedFrameBufferSize = ffmpeg.av_image_get_buffer_size(destinationPixelFormat,
             //    destinationSize.Width,

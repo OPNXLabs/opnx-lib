@@ -200,10 +200,10 @@ namespace OPNX.Lib.Media.FFMpeg
                 ffmpeg.av_frame_unref(_filterFrame);
 
             if (ffmpeg.av_buffersrc_add_frame(_bufferSrcContext, srcFrame) < 0)
-                throw new Exception("Failed to add frame to buffer source");
+                throw new Exception("Failed to add the frame to the buffer source.");
 
             if (ffmpeg.av_buffersink_get_frame(_bufferSinkContext, _filterFrame) < 0)
-                throw new Exception("Failed to get frame from buffer sink");
+                throw new Exception("Failed to get the frame from the buffer sink.");
 
             return _filterFrame;
         }
@@ -241,7 +241,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
             _filterGraph = ffmpeg.avfilter_graph_alloc();
             if (_filterGraph is null)
-                throw new Exception("Could not allocate filter graph.");
+                throw new Exception("Failed to allocate the filter graph.");
 
             var buffersrc = ffmpeg.avfilter_get_by_name("buffer");
             var buffersink = ffmpeg.avfilter_get_by_name("buffersink");
@@ -251,7 +251,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
             if (outputs is null || inputs is null)
             {
-                throw new Exception("Could not allocate filter in/out.");
+                throw new Exception("Failed to allocate the filter input and output.");
             }
 
             // 필터 인자 설정
@@ -264,7 +264,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 int ret = ffmpeg.avfilter_graph_create_filter(pbuffersrc_ctx, buffersrc, "in", args, null, _filterGraph);
                 if (ret < 0)
                 {
-                    string errorMsg = $"Cannot create buffer source. Error code: {ret}";
+                    string errorMsg = $"Failed to create the buffer source. ErrorCode={ret}.";
                     ffmpeg.av_log(null, ffmpeg.AV_LOG_ERROR, errorMsg);
                     throw new Exception(errorMsg);
                 }
@@ -280,7 +280,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 ffmpeg.av_free(buffersink_params);
                 if (ret < 0)
                 {
-                    string errorMsg = $"Cannot create buffer sink. Error code: {ret}";
+                    string errorMsg = $"Failed to create the buffer sink. ErrorCode={ret}.";
                     ffmpeg.av_log(null, ffmpeg.AV_LOG_ERROR, errorMsg);
                     throw new Exception(errorMsg);
                 }
@@ -294,7 +294,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 int ret = ffmpeg.av_opt_set_bin(_bufferSinkContext, "pix_fmts", (byte*)pfmts, pix_fmts.Length * sizeof(int), ffmpeg.AV_OPT_SEARCH_CHILDREN);
                 if (ret < 0)
                 {
-                    string errorMsg = $"Cannot set output pixel format. Error code: {ret}";
+                    string errorMsg = $"Failed to set the output pixel format. ErrorCode={ret}.";
                     ffmpeg.av_log(null, ffmpeg.AV_LOG_ERROR, errorMsg);
                     throw new Exception(errorMsg);
                 }
@@ -316,7 +316,7 @@ namespace OPNX.Lib.Media.FFMpeg
             int ret2 = ffmpeg.avfilter_graph_parse_ptr(_filterGraph, filter_descr, &inputs, &outputs, null);
             if (ret2 < 0)
             {
-                string errorMsg = $"Failed to parse filter graph. Error code: {ret2}";
+                string errorMsg = $"Failed to parse the filter graph. ErrorCode={ret2}.";
                 ffmpeg.av_log(null, ffmpeg.AV_LOG_ERROR, errorMsg);
                 throw new Exception(errorMsg);
             }
@@ -324,7 +324,7 @@ namespace OPNX.Lib.Media.FFMpeg
             int ret3 = ffmpeg.avfilter_graph_config(_filterGraph, null);
             if (ret3 < 0)
             {
-                string errorMsg = $"Failed to configure filter graph. Error code: {ret3}";
+                string errorMsg = $"Failed to configure the filter graph. ErrorCode={ret3}.";
                 ffmpeg.av_log(null, ffmpeg.AV_LOG_ERROR, errorMsg);
                 throw new Exception(errorMsg);
             }

@@ -39,7 +39,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     _codec = ffmpeg.avcodec_find_decoder(codecID);
                     if (_codec->id <= 0)
                     {
-                        throw new Exception("Fail Find Codec");
+                        throw new Exception("Failed to find the audio codec.");
                     }
 
                     _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
@@ -82,7 +82,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     {
                         var _codecContect = _codecContext;
                         ffmpeg.avcodec_free_context(&_codecContect);
-                        throw new ApplicationException($"Could not open codec {codecID}, error={FFmpegHelper.Av_strerror(ret)}");
+                        throw new ApplicationException($"Failed to open the codec. CodecID={codecID}, Error={FFmpegHelper.Av_strerror(ret)}.");
                     }
                 }
             }
@@ -217,7 +217,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error($"TryDecode exception: {ex.Message}");
+                LogManager.Error($"An exception occurred while decoding audio. Error={ex.Message}.");
                 return false;
             }
         }

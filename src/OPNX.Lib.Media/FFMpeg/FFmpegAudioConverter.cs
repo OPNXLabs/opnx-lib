@@ -48,7 +48,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     null);
 
                 if (ret < 0 || swrTemp == null)
-                    throw new ApplicationException("swr_alloc_set_opts2 failed");
+                    throw new ApplicationException("Failed to allocate the SWR options.");
 
                 _swrContext = swrTemp;
 
@@ -57,7 +57,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     fixed (SwrContext** ctx = &_swrContext)
                         ffmpeg.swr_free(ctx);
 
-                    throw new ApplicationException("Could not initialize swr context");
+                    throw new ApplicationException("Failed to initialize the SWR context.");
                 }
             }
         }

@@ -94,7 +94,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"InsertEntity<{typeof(T).Name}> 실패: {ex}");
+                LogManager.Error($"Failed to insert the entity. EntityType={typeof(T).Name}, Error={ex}.");
             }
 
             return insertEntity.ID;
@@ -132,7 +132,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"UpdateEntity<{typeof(T).Name}> 실패: {ex}");
+                LogManager.Error($"Failed to update the entity. EntityType={typeof(T).Name}, Error={ex}.");
             }
 
             return false;
@@ -165,7 +165,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"DeleteEntity<{typeof(T).Name}> 실패: {ex}");
+                LogManager.Error($"Failed to delete the entity. EntityType={typeof(T).Name}, Error={ex}.");
 
                 return false;
             }
@@ -271,7 +271,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Error finding entities of type {typeof(T).Name}: {ex.Message}");
+                LogManager.Error($"Failed to find entities. EntityType={typeof(T).Name}, Error={ex.Message}.");
             }
             return [];
         }

@@ -20,7 +20,7 @@ namespace OPNX.Lib.Common.Compression
                 int written = compressor.Wrap(data, owner.Memory.Span);
 
                 if (written <= 0)
-                    throw new InvalidDataException("Zstd compression failed.");
+                    throw new InvalidDataException("Failed to compress data with Zstd.");
 
                 return (owner, written);
             }

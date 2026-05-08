@@ -179,7 +179,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
                     if (ffmpeg.avcodec_open2(_codecContext, _codec, null) != 0)
                     {
-                        throw new Exception("Fail Video Codec Open");
+                        throw new Exception("Failed to open the video codec.");
                     }
 
                     _packet = ffmpeg.av_packet_alloc();

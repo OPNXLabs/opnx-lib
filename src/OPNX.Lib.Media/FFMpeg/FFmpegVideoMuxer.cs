@@ -41,7 +41,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     if (ffmpeg.avformat_alloc_output_context2(pFormatContext, null, null, filePath) < 0)
                     {
-                        throw new Exception("Fail Allocc Output Context2");
+                        throw new Exception("Failed to allocate the output context.");
                     }
                 }
 
@@ -54,7 +54,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
                     if (pOutputStream->st is null)
                     {
-                        throw new ApplicationException("Could not allocate stream");
+                        throw new ApplicationException("Failed to allocate the stream.");
                     }
 
                     pOutputStream->st->id = (int)(_formatContext->nb_streams - 1);
@@ -211,7 +211,7 @@ namespace OPNX.Lib.Media.FFMpeg
             ost->frame = Alloc_picture(c->pix_fmt, c->width, c->height);
             if (ost->frame == null)
             {
-                throw new ApplicationException("Could not allocate video frame");
+                throw new ApplicationException("Failed to allocate the video frame.");
             }
 
             ost->tmp_frame = null;
@@ -220,7 +220,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 ost->tmp_frame = Alloc_picture(AVPixelFormat.AV_PIX_FMT_YUV420P, c->width, c->height);
                 if (ost->tmp_frame == null)
                 {
-                    throw new ApplicationException("Could not allocate temporary picture");
+                    throw new ApplicationException("Failed to allocate the temporary picture.");
                 }
             }
 

@@ -109,12 +109,12 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
                 }
                 catch (IOException ioEx)
                 {
-                    LogManager.Error($"I/O error occurred while connecting to pipe '{pipeName}': {ioEx.Message}");
+                    LogManager.Error($"An I/O error occurred while connecting to the pipe. PipeName={pipeName}, Error={ioEx.Message}.");
                     connected = false;
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"Unexpected error while connecting to pipe '{pipeName}': {ex}");
+                    LogManager.Error($"An unexpected error occurred while connecting to the pipe. PipeName={pipeName}, Error={ex}.");
                     connected = false;
                 }
                 finally

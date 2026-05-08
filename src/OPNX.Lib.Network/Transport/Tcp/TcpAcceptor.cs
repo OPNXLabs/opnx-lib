@@ -152,7 +152,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                     catch (SocketException sockEx)
                     {
                         // 네트워크 관련 오류
-                        LogManager.Warning($"Socket error while accepting client: {sockEx.Message}");
+                        LogManager.Warning($"A socket error occurred while accepting the client. Error={sockEx.Message}.");
 
                         // 심각한 소켓 오류 시 잠시 대기 후 재시도
                         if (IsUnrecoverableSocketError(sockEx.SocketErrorCode))
@@ -171,7 +171,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Error($"Unexpected error in listener: {ex}");
+                        LogManager.Error($"An unexpected error occurred in the listener. Error={ex}.");
 
                         // 예상치 못한 오류 시 잠시 대기 후 재시도
                         try

@@ -126,7 +126,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error($"[NamedPipeAcceptor] Error waiting for connection: {ex}");
+                LogManager.Error($"[NamedPipeAcceptor] Failed to wait for a connection. Error={ex}.");
                 throw;
             }
 
@@ -209,7 +209,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error($"[NamedPipeAcceptor] Error during disposal: {ex}");
+                LogManager.Error($"[NamedPipeAcceptor] An error occurred during disposal. Error={ex}.");
             }
             finally
             {

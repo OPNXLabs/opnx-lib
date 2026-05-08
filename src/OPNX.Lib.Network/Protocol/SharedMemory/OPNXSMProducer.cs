@@ -326,7 +326,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                 try
                 {
                     if (ptr == null)
-                        throw new InvalidOperationException("Pointer acquisition failed");
+                        throw new InvalidOperationException("Failed to acquire the pointer.");
 
                     byte* basePtr = ptr + Layout.HeaderSize;
 
@@ -416,7 +416,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Error during producer shutdown: {ex}");
+                LogManager.Error($"An error occurred while shutting down the producer. Error={ex}.");
             }
             finally
             {

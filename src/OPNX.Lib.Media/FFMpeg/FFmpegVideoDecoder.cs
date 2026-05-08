@@ -74,7 +74,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     _codec = ffmpeg.avcodec_find_decoder(codecID);
                     ArgumentNullException.ThrowIfNull(_codec);
                     if (_codec->id == AVCodecID.AV_CODEC_ID_NONE)
-                        throw new Exception("Fail Find Codec");
+                        throw new Exception("Failed to find the video codec.");
 
                     _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
                     ArgumentNullException.ThrowIfNull(_codecContext);
@@ -166,7 +166,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     }
 
                     if (ffmpeg.avcodec_open2(_codecContext, _codec, &options) < 0)
-                        throw new Exception("Fail Codec Open");
+                        throw new Exception("Failed to open the video codec.");
 
                     if (options != null)
                         ffmpeg.av_dict_free(&options);
@@ -855,7 +855,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
                 if (ret < 0)
                 {
-                    Console.WriteLine($"Decoding failed: {FFmpegHelper.Av_strerror(ret)}");
+                    Console.WriteLine($"Failed to decode the video frame. Error={FFmpegHelper.Av_strerror(ret)}.");
                     return null;
                 }
 
@@ -995,7 +995,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
                 if (ret < 0)
                 {
-                    Console.WriteLine($"Decoding failed: {FFmpegHelper.Av_strerror(ret)}");
+                    Console.WriteLine($"Failed to decode the video frame. Error={FFmpegHelper.Av_strerror(ret)}.");
                     return false;
                 }
 

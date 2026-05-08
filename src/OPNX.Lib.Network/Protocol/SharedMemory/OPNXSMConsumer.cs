@@ -193,7 +193,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                         catch (Exception ex)
                         {
                             packet?.Dispose();
-                            LogManager.Error($"Error processing packet: {ex}");
+                            LogManager.Error($"Failed to process the packet. Error={ex}.");
                         }
                     }
                     finally
@@ -223,7 +223,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Error processing packet data: {ex}");
+                LogManager.Error($"Failed to process packet data. Error={ex}.");
                 throw;
             }
         }
@@ -415,7 +415,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Error during producer shutdown: {ex}");
+                LogManager.Error($"An error occurred while shutting down the producer. Error={ex}.");
             }
             finally
             {

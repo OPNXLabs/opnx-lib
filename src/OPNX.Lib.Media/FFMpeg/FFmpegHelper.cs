@@ -96,7 +96,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
             AVFrame* frame = ffmpeg.av_frame_alloc();
             if (frame == null)
-                throw new Exception("Failed to allocate AVFrame.");
+                throw new Exception("Failed to allocate the AVFrame.");
 
             frame->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
             frame->width = width;
@@ -106,7 +106,7 @@ namespace OPNX.Lib.Media.FFMpeg
             if (ffmpeg.av_frame_get_buffer(frame, 32) < 0)
             {
                 ffmpeg.av_frame_free(&frame);
-                throw new Exception("Failed to allocate AVFrame buffer.");
+                throw new Exception("Failed to allocate the AVFrame buffer.");
             }
 
             IntPtr matData;
@@ -566,12 +566,12 @@ namespace OPNX.Lib.Media.FFMpeg
 
                 if (ffmpeg.avformat_open_input(&formatContext, fileName, null, null) != 0)
                 {
-                    throw new ApplicationException("Could not open input file.");
+                    throw new ApplicationException("Failed to open the input file.");
                 }
 
                 if (ffmpeg.avformat_find_stream_info(formatContext, null) != 0)
                 {
-                    throw new ApplicationException("Could not find stream info.");
+                    throw new ApplicationException("Failed to find the stream information.");
                 }
 
 

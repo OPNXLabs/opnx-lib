@@ -45,7 +45,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     }
                     else
                     {
-                        throw new Exception($"Encoder does not support sample format: {sampleFormat}");
+                        throw new Exception($"The encoder does not support the sample format. SampleFormat={sampleFormat}.");
                     }
                 }
 
@@ -85,7 +85,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 }
                 if (ffmpeg.avcodec_open2(_codecContext, _codec, null) != 0)
                 {
-                    throw new Exception("Fail Audio Codec Open");
+                    throw new Exception("Failed to open the audio codec.");
                 }
 
 

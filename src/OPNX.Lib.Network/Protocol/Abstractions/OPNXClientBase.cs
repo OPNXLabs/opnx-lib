@@ -294,7 +294,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error("Error during disposal: " + ex);
+                LogManager.Error($"An error occurred while disposing the client. Error={ex}.");
             }
             finally
             {
@@ -328,7 +328,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Error processing packet data: {ex}");
+                LogManager.Error($"Failed to process packet data. Error={ex}.");
                 throw;
             }
         }
@@ -565,7 +565,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                             catch (Exception ex)
                             {
                                 packet?.Dispose();
-                                LogManager.Error($"Error processing packet: {ex}");
+                                LogManager.Error($"Failed to process the packet. Error={ex}.");
                                 // 다음 프레임 계속
                             }
                         }
@@ -586,7 +586,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Error($"Error processing buffer: {ex}");
+                        LogManager.Error($"Failed to process the buffer. Error={ex}.");
                     }
                     finally
                     {
@@ -622,7 +622,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Unexpected error in packet processor: {ex}");
+                LogManager.Error($"An unexpected error occurred in the packet processor. Error={ex}.");
             }
             finally
             {
@@ -632,7 +632,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"Error completing reader: {ex}");
+                    LogManager.Error($"Failed to complete the reader. Error={ex}.");
                 }
 
                 Disconnect(disconnectReason);

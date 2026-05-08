@@ -124,10 +124,16 @@ namespace OPNX.Lib.Network.Transport.Tcp
             if (endPoint is not IPEndPoint ipEndPoint)
                 throw new ArgumentException("IPEndPoint required", nameof(endPoint));
 
+            bool result = false;
+
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                if (IsConnected) return true;
+                if (IsConnected)
+                {
+                    result = true;
+                    return true;
+                }
 
                 CleanupTransport();
 
@@ -168,12 +174,27 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 }
 
                 _tcpClient = tcp;
-                return InnerConnect();
+                result = InnerConnect();
             }
             finally
             {
                 _gate.Release();
+
+                bool shouldReconnect =
+                   !result
+                   && !IsConnected
+                   && _reconnectEnabled
+                   && _remoteEndPoint != null
+                   && !_reconnectCts.IsCancellationRequested
+                   && !cancellationToken.IsCancellationRequested
+                   && !IsDisposed;
+
+                if (shouldReconnect)
+                    EnsureReconnectTaskStarted();
+
             }
+
+            return result;
         }
 
         public async Task DisconnectAsync(DisconnectReason reason = DisconnectReason.Requested, CancellationToken cancellationToken = default)

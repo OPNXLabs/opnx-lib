@@ -103,29 +103,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     return true;
                 }
 
-                if (written > _options.CompressThresholdBytes)
-                {
-                    var span = owner!.Memory.Span[..written];
-                    (var compOwner, int compWritten) = _zstd.Compress(span);
-
-                    owner.Dispose();
-                    owner = null;
-
-                    var newHeader = new PacketHeader(
-                        header.Flags | PacketFlags.Compressed,
-                        header.PacketType,
-                        header.PayloadType,
-                        (uint)compWritten,
-                        header.Version,
-                        header.Reserved);
-
-                    packet = new Packet(newHeader, compOwner, compWritten);
-                }
-                else
-                {
-                    packet = new Packet(header, owner!, written);
-                    owner = null; // 소유권 Packet으로 이동
-                }
+                packet = CreateOutboundPacket(header, ref owner, written);
 
                 if (outbound.Writer.TryWrite(packet))
                 {
@@ -187,29 +165,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     return true;
                 }
 
-                if (written > _options.CompressThresholdBytes)
-                {
-                    var span = owner!.Memory.Span[..written];
-                    (var compOwner, int compWritten) = _zstd.Compress(span);
-
-                    owner.Dispose();
-                    owner = null;
-
-                    var newHeader = new PacketHeader(
-                        header.Flags | PacketFlags.Compressed,
-                        header.PacketType,
-                        header.PayloadType,
-                        (uint)compWritten,
-                        header.Version,
-                        header.Reserved);
-
-                    packet = new Packet(newHeader, compOwner, compWritten);
-                }
-                else
-                {
-                    packet = new Packet(header, owner!, written);
-                    owner = null;
-                }
+                packet = CreateOutboundPacket(header, ref owner, written);
 
                 if (outbound.Writer.TryWrite(packet))
                 {
@@ -266,6 +222,43 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
         #endregion
 
         #region Private / Protected Methods
+        private Packet CreateOutboundPacket(PacketHeader header, ref IMemoryOwner<byte>? owner, int payloadSize)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+
+            if (payloadSize > _options.CompressThresholdBytes)
+            {
+                var span = owner.Memory.Span[..payloadSize];
+                (var compressedOwner, int compressedSize) = _zstd.Compress(span);
+
+                owner.Dispose();
+                owner = null;
+
+                var compressedHeader = CreatePayloadHeader(
+                    header,
+                    header.Flags | PacketFlags.Compressed,
+                    compressedSize);
+
+                return new Packet(compressedHeader, compressedOwner, compressedSize);
+            }
+
+            var payloadHeader = CreatePayloadHeader(header, header.Flags, payloadSize);
+            var packet = new Packet(payloadHeader, owner, payloadSize);
+            owner = null;
+            return packet;
+        }
+
+        private static PacketHeader CreatePayloadHeader(PacketHeader header, PacketFlags flags, int payloadSize)
+        {
+            return new PacketHeader(
+                flags,
+                header.PacketType,
+                header.PayloadType,
+                checked((uint)payloadSize),
+                header.Version,
+                header.Reserved);
+        }
+
         protected override async void OnDispose()
         {
             await OnDisposeAsync();

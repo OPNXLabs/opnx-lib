@@ -12,11 +12,20 @@ namespace OPNX.Lib.Network.Protocol.Tcp
 
         #region Constructors
 
+        public OPNXTcpServer(int port)
+            : this(string.Empty, port)
+        {
+        }
+
         public OPNXTcpServer(string address, int port)
         {
             _tcpAcceptor = new TcpAcceptor(address, port);
             _tcpAcceptor.ClientAccepted += TcpAcceptor_ClientAccepted;
         }
+        #endregion
+
+        #region Properties
+        public int Port => _tcpAcceptor.Port;
         #endregion
 
         #region Events

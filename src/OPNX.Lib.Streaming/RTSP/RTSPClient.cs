@@ -629,7 +629,7 @@ namespace OPNX.Lib.Streaming.RTSP
             {
                 rtspSocketStatus = RTSP_STATUS.ConnectFailed;
                 _logger.Warning($"{EntityID} Error - connection failed");
-                Stop(RTSPClientStopReason.CONNECTION_FAILED);
+                OnStopped(RTSPClientStopReason.CONNECTION_FAILED);
                 return;
             }
 
@@ -637,7 +637,7 @@ namespace OPNX.Lib.Streaming.RTSP
             {
                 rtspSocketStatus = RTSP_STATUS.ConnectFailed;
                 _logger.Warning($"{EntityID} Error - connection failed");
-                Stop(RTSPClientStopReason.CONNECTION_FAILED);
+                OnStopped(RTSPClientStopReason.CONNECTION_FAILED);
                 return;
             }
 

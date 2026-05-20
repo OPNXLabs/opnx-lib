@@ -4,7 +4,7 @@
         PacketFlags flags,
         PacketType packetType,
         byte payloadType,
-        uint payloadLength,
+        uint payloadLength = 0,
         byte version = PacketHeader.CurrentVersion,
         byte reserved = 0)
     {

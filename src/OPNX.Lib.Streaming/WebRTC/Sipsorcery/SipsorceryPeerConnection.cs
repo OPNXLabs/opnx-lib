@@ -1,8 +1,8 @@
 ﻿using SIPSorcery.Net;
 
-namespace OPNX.Lib.Streaming.WebRTC
+namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
 {
-    public class RTCPeerConnectionEx(RTCConfiguration configuration)
+    public class SipsorceryPeerConnection(RTCConfiguration? configuration)
         : RTCPeerConnection(configuration)
     {
         #region Fields
@@ -10,10 +10,11 @@ namespace OPNX.Lib.Streaming.WebRTC
         #endregion
 
         #region Constructors
-        public RTCPeerConnectionEx()
+        public SipsorceryPeerConnection()
             : this(null)
         {
         }
         #endregion
     }
 }
+

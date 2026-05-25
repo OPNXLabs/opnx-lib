@@ -2,22 +2,22 @@
 using WebSocketSharp.Net.WebSockets;
 using WebSocketSharp.Server;
 
-namespace OPNX.Lib.Streaming.WebRTC
+namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
 {
-    public class WebRTCClient : WebSocketBehavior
+    public class SipsorceryClientSession : WebSocketBehavior
     {
         #region Fields
-        private RTCPeerConnectionEx peerConnection;
+        private SipsorceryPeerConnection peerConnection;
         #endregion
 
         #region Events
-        public event Func<WebSocketContext, Task<RTCPeerConnectionEx>> SocketOpened;
-        public event Action<WebSocketContext, RTCPeerConnectionEx, string> MessageReceived;
-        public event Action<WebSocketContext, RTCPeerConnectionEx> SocketClosed;
+        public event Func<WebSocketContext, Task<SipsorceryPeerConnection>> SocketOpened;
+        public event Action<WebSocketContext, SipsorceryPeerConnection, string> MessageReceived;
+        public event Action<WebSocketContext, SipsorceryPeerConnection> SocketClosed;
         #endregion
 
         #region Constructors
-        public WebRTCClient()
+        public SipsorceryClientSession()
         {
 
         }
@@ -45,3 +45,4 @@ namespace OPNX.Lib.Streaming.WebRTC
         #endregion
     }
 }
+

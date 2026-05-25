@@ -1,5 +1,8 @@
 ﻿using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Primitives.Media;
+using OPNX.Lib.Streaming.WebRTC;
+using OPNX.Lib.Streaming.WebRTC.Abstractions;
+using OPNX.Lib.Streaming.WebRTC.Events;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using System.Collections.Concurrent;
@@ -8,22 +11,22 @@ using System.Text.Json;
 using WebSocketSharp.Net.WebSockets;
 using WebSocketSharp.Server;
 
-namespace OPNX.Lib.Streaming.WebRTC
+namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
 {
-    public class WebSocketSignalServer : IDisposable
+    public class SipsorcerySignalServer : IWebRtcSignalServer
     {
         #region Fields        
         private readonly WebSocketServer webSocketServer = null;
 
-        private readonly ConcurrentDictionary<Guid, RTCPeerConnectionEx> connections = new();
+        private readonly ConcurrentDictionary<Guid, SipsorceryPeerConnection> connections = new();
         #endregion
 
         #region Constructors
-        public WebSocketSignalServer(int port)
+        public SipsorcerySignalServer(int port)
         {
             webSocketServer = new WebSocketServer(IPAddress.Any, port);
 
-            webSocketServer.AddWebSocketService<WebRTCClient>("/", (client) =>
+            webSocketServer.AddWebSocketService<SipsorceryClientSession>("/", (client) =>
             {
                 client.SocketOpened += OnSocketOpened;
                 client.SocketClosed += OnSocketClosed;
@@ -35,18 +38,30 @@ namespace OPNX.Lib.Streaming.WebRTC
         #endregion
 
         #region Events        
-        public delegate void WebSocketOpenedEventHandler(object sender, Uri requestUri, ref RTCPeerConnectionEx pc);
+        public delegate void WebSocketOpenedEventHandler(object sender, Uri requestUri, ref SipsorceryPeerConnection pc);
         public event WebSocketOpenedEventHandler WebSocketOpened;
-        private void OnWebSocketOpened(WebSocketContext context, ref RTCPeerConnectionEx pc)
+        private void OnWebSocketOpened(WebSocketContext context, ref SipsorceryPeerConnection pc)
         {
             WebSocketOpened?.Invoke(this, context.RequestUri, ref pc);
+
+            Guid connectionID = Guid.Parse(pc.SessionID);
+            WebRtcClientOpenedEventArgs args = new(context.RequestUri, connectionID, pc.VideoSourceID);
+            ClientOpened?.Invoke(this, args);
+            pc.VideoSourceID = args.VideoSourceID;
         }
 
         public delegate void WebSocketClosedEventHandler(object sender, Uri requestUri, int videosourceID, Guid connectionID);
         public event WebSocketClosedEventHandler WebSocketClosed;
-        private void OnWebSocketClosed(WebSocketContext context, RTCPeerConnectionEx pc)
+
+        public event EventHandler<WebRtcClientOpenedEventArgs>? ClientOpened;
+        public event EventHandler<WebRtcClientClosedEventArgs>? ClientClosed;
+        private void OnWebSocketClosed(WebSocketContext context, SipsorceryPeerConnection pc)
         {
-            WebSocketClosed?.Invoke(this, context.RequestUri, pc == null ? int.MinValue : pc.VideoSourceID, pc == null ? Guid.Empty : Guid.Parse(pc.SessionID));
+            int videoSourceID = pc == null ? int.MinValue : pc.VideoSourceID;
+            Guid connectionID = pc == null ? Guid.Empty : Guid.Parse(pc.SessionID);
+
+            WebSocketClosed?.Invoke(this, context.RequestUri, videoSourceID, connectionID);
+            ClientClosed?.Invoke(this, new WebRtcClientClosedEventArgs(context.RequestUri, connectionID, videoSourceID));
         }
 
         //public delegate void DataChannelReceivedDataEventHandler(object sender, Guid connectionID, string label, byte[] data);
@@ -143,11 +158,11 @@ namespace OPNX.Lib.Streaming.WebRTC
             }
         }
 
-        private async Task<RTCPeerConnectionEx> OnSocketOpened(WebSocketContext context)
+        private async Task<SipsorceryPeerConnection> OnSocketOpened(WebSocketContext context)
         {
             try
             {
-                RTCPeerConnectionEx resultPC = CreatePeerConnection(context);
+                SipsorceryPeerConnection resultPC = CreatePeerConnection(context);
 
                 var offerInit = resultPC.createOffer(null);
                 await resultPC.setLocalDescription(offerInit);
@@ -182,7 +197,7 @@ namespace OPNX.Lib.Streaming.WebRTC
             //if (connections.ContainsKey(context))
             //    return connections[context];
 
-            //RTCPeerConnectionEx resultPC = null;
+            //SipsorceryPeerConnection resultPC = null;
 
             //try
             //{
@@ -212,7 +227,7 @@ namespace OPNX.Lib.Streaming.WebRTC
         }
 
 
-        private void OnSocketClosed(WebSocketContext context, RTCPeerConnectionEx peerConnection)
+        private void OnSocketClosed(WebSocketContext context, SipsorceryPeerConnection peerConnection)
         {
             try
             {
@@ -229,7 +244,7 @@ namespace OPNX.Lib.Streaming.WebRTC
         }
 
 #pragma warning disable IDE0060
-        private static RTCPeerConnectionEx CreatePeerConnection(WebSocketContext context)
+        private static SipsorceryPeerConnection CreatePeerConnection(WebSocketContext context)
         {
             //RTCConfiguration configuration = new RTCConfiguration()
             //{
@@ -279,7 +294,7 @@ namespace OPNX.Lib.Streaming.WebRTC
                 ],
                 MediaStreamStatusEnum.SendOnly);
 
-            RTCPeerConnectionEx pc = new();
+            SipsorceryPeerConnection pc = new();
             pc.addTrack(videoTrack);
             pc.addTrack(audioTrack);
 
@@ -443,3 +458,8 @@ namespace OPNX.Lib.Streaming.WebRTC
         #endregion
     }
 }
+
+
+
+
+

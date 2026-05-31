@@ -83,23 +83,19 @@
         public RequestType RequestTyped
         {
             get => ParseRequest(commandArray[0]);
-            set
-            {
-                if (Enum.IsDefined(typeof(RequestType), value))
-                    commandArray[0] = value.ToString();
-                else
-                    commandArray[0] = nameof(RequestType.UNKNOWN);
-            }
+            set => commandArray[0] = Enum.IsDefined(value)
+                ? value.ToString()
+                : nameof(RequestType.UNKNOWN);
         }
 
-        private Uri _rtspUri;
+        private Uri? _rtspUri;
 
         /// <summary>
         /// Gets or sets the Rtsp asked URI.
         /// </summary>
         /// <value>The Rtsp asked URI.</value>
         /// <remarks>The request with uri * is return with null URI</remarks>
-        public Uri RtspUri
+        public Uri? RtspUri
         {
             get
             {
@@ -135,7 +131,7 @@
                 ReturnCode = 200,
                 CSeq = CSeq,
             };
-            if (Headers.TryGetValue(RtspHeaderNames.Session, out string value))
+            if (Headers.TryGetValue(RtspHeaderNames.Session, out string? value))
             {
                 returnValue.Headers[RtspHeaderNames.Session] = value;
             }
@@ -143,6 +139,6 @@
             return returnValue;
         }
 
-        public object ContextData { get; set; }
+        public object? ContextData { get; set; }
     }
 }

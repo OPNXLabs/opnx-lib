@@ -15,19 +15,13 @@ namespace OPNX.Lib.Streaming.RTSP
         private const int MaxResponseHeadersSize = 8 * 1024;
         private static readonly byte[] DoubleCrlfBytes = Encoding.UTF8.GetBytes("\r\n\r\n");
 
-        private class HttpTransportStream : Stream
+        private class HttpTransportStream(RTSPHttpTransport parent) : Stream
         {
-            private readonly Stream _inStream;
+            private readonly Stream _inStream = parent._dataClient!.GetStream();
             private readonly string _sessionCookie = Guid.NewGuid().ToString("N")[..10];
-            private readonly RTSPHttpTransport _parent;
-            private TcpClient _outClient;
-            private readonly MemoryStream _sendBuffer = new();
-
-            public HttpTransportStream(RTSPHttpTransport parent)
-            {
-                _inStream = parent._dataClient!.GetStream();
-                _parent = parent;
-            }
+            private readonly RTSPHttpTransport _parent = parent;
+            private TcpClient? _outClient;
+            private readonly MemoryStream _sendBuffer = new();            
 
             internal bool Open()
             {
@@ -47,7 +41,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     using StreamReader streamReader = new(ms, Encoding.ASCII);
 
                     // Parse first HTTP response line
-                    string responseLine = streamReader.ReadLine();
+                    string? responseLine = streamReader.ReadLine();
                     if (string.IsNullOrEmpty(responseLine)) { throw new HttpBadResponseException("Empty response"); }
 
                     string[] tokens = responseLine.Split(' ', 3);
@@ -59,7 +53,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     if (statusCode == HttpStatusCode.Unauthorized && !_parent._credentials.IsEmpty() && _parent._authentication is null)
                     {
                         NameValueCollection headers = HeadersParser.ParseHeaders(streamReader);
-                        string authenticateHeader = headers.Get(RtspHeaderNames.WWWAuthenticate);
+                        string? authenticateHeader = headers.Get(RtspHeaderNames.WWWAuthenticate);
 
                         if (string.IsNullOrEmpty(authenticateHeader))
                             throw new HttpBadResponseCodeException(statusCode);
@@ -180,8 +174,8 @@ namespace OPNX.Lib.Streaming.RTSP
 
         private TcpClient _dataClient;
 
-        private HttpTransportStream _stream;
-        private Authentication _authentication;
+        private HttpTransportStream? _stream;
+        private Authentication? _authentication;
         private uint _commandCounter;
         private bool disposedValue;
 
@@ -201,8 +195,9 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public static RTSPHttpTransport Create(Uri uri, NetworkCredential credentials)
         {
-            if (uri == null) throw new ArgumentNullException(nameof(uri));
-            if (credentials == null) throw new ArgumentNullException(nameof(credentials));
+            ArgumentNullException.ThrowIfNull(uri);
+
+            ArgumentNullException.ThrowIfNull(credentials);            
 
             try
             {
@@ -289,7 +284,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         private string ComposeGetRequest(string sessionCookie)
         {
-            string authorizationHeader = GetAuthorizationHeader(NextCommandIndex(), "GET", Array.Empty<byte>());
+            string authorizationHeader = GetAuthorizationHeader(NextCommandIndex(), "GET", []);
 
             StringBuilder sb = new();
             sb.AppendLine($"GET {_uri.PathAndQuery} HTTP/1.0");

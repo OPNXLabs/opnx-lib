@@ -7,11 +7,11 @@ namespace OPNX.Lib.Streaming.RTSP
     public class RtspOverHttpTLSListenSocket(
             TcpListener tcpListener,
             X509Certificate2 certificate,
-            RemoteCertificateValidationCallback userCertificateValidationCallback = null) :
+            RemoteCertificateValidationCallback? userCertificateValidationCallback = null) :
         RtspOverHttpListenSocket(tcpListener)
     {
         private readonly X509Certificate2 _certificate = certificate;
-        private readonly RemoteCertificateValidationCallback _userCertificateValidationCallback = userCertificateValidationCallback;
+        private readonly RemoteCertificateValidationCallback? _userCertificateValidationCallback = userCertificateValidationCallback;
 
         //public RtspOverHttpTLSListenSocket(
         //    TcpListener tcpListener,

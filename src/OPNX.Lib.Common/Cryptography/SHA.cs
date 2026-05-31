@@ -8,14 +8,14 @@ namespace OPNX.Lib.Common.Cryptography
         {
             byte[] bytes = Encoding.UTF8.GetBytes(input);
             byte[] hash = System.Security.Cryptography.SHA256.HashData(bytes);
-            return Convert.ToHexString(hash).ToLowerInvariant();
+            return Convert.ToHexString(hash);
         }
 
         public static string Sha512(string input)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(input);
             byte[] hash = System.Security.Cryptography.SHA512.HashData(bytes);
-            return Convert.ToHexString(hash).ToLowerInvariant();
+            return Convert.ToHexString(hash);
         }
 
         private static string GetStringFromHash(byte[] hash)

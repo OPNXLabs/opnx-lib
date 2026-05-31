@@ -11,7 +11,7 @@ namespace OPNX.Lib.Streaming.RTSP
     {
         private readonly IPEndPoint _currentEndPoint;
         private readonly IPEndPoint _localEndPoint;
-        private TcpClient _rtspServerClient;
+        private TcpClient? _rtspServerClient;
         private uint _commandCounter;
 
         /// <summary>
@@ -83,7 +83,8 @@ namespace OPNX.Lib.Streaming.RTSP
         /// Gets the stream of the transport.
         /// </summary>
         /// <returns>A stream</returns>
-        public virtual Stream GetStream() => _rtspServerClient.GetStream();
+        public virtual Stream GetStream() => _rtspServerClient?.GetStream()
+            ?? throw new ObjectDisposedException(nameof(RTSPTcpTransport));
 
         /// <summary>
         /// Gets the remote address.

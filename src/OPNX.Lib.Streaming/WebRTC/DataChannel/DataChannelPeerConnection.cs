@@ -1,8 +1,8 @@
-﻿using System.Buffers.Binary;
-using DataChannelDotnet;
+﻿using DataChannelDotnet;
 using DataChannelDotnet.Bindings;
 using DataChannelDotnet.Data;
 using DataChannelDotnet.Impl;
+using System.Buffers.Binary;
 
 namespace OPNX.Lib.Streaming.WebRTC.DataChannel
 {

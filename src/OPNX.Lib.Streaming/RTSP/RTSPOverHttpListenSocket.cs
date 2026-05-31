@@ -12,7 +12,7 @@ namespace OPNX.Lib.Streaming.RTSP
         private readonly TcpListener _tcpListener = tcpListener;
         //private readonly ILogger _logger;
         //private readonly ILoggerFactory _loggerFactory;
-        private CancellationTokenSource _stop;
+        private CancellationTokenSource? _stop;
 
         private readonly BlockingCollection<RTSPHttpServerTransport> _newConnections = new(100);
         private readonly ConcurrentDictionary<string, RTSPHttpServerTransport> _activesSessions = new(StringComparer.Ordinal);
@@ -76,7 +76,7 @@ namespace OPNX.Lib.Streaming.RTSP
 #else
                     var client = await _tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
 #endif
-                    LogManager.Debug("Connection from {remoteEndPoint}", client.Client.RemoteEndPoint);
+                    LogManager.Debug("Connection from {remoteEndPoint}", client.Client.RemoteEndPoint?.ToString() ?? "unknown");
                     await HandleHeaderAndAddToSessions(client, cancellationToken).ConfigureAwait(false);
 
                     // remove old session
@@ -116,7 +116,7 @@ namespace OPNX.Lib.Streaming.RTSP
                         isPostChannel = true;
                         break;
                     default:
-                        LogManager.Warning("Invalid message receive {message}", firstLine);
+                        LogManager.Warning("Invalid message receive {message}", firstLine?.ToString() ?? "unknown");
                         client.Dispose();
                         return;
                 }

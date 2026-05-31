@@ -1,12 +1,13 @@
 ﻿using OPNX.Lib.Streaming.RTSP.Commons.Interfaces;
 using System.Collections.Concurrent;
+using System.Net;
 
 namespace OPNX.Lib.Streaming.RTSP.Commons
 {
     public class VideoSourceStorage : IVideoSourceStorage
     {
         //protected readonly BlockingCollection<VideoSource> _videoSources = new BlockingCollection<VideoSource>();
-        protected readonly ConcurrentDictionary<int, VideoSource> _videoSources = new ConcurrentDictionary<int, VideoSource>();
+        protected readonly ConcurrentDictionary<int, VideoSource> _videoSources = [];
         //public BlockingCollection<VideoSource> VideoSources
         //{
         //    get
@@ -22,9 +23,9 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
                 return _videoSources;
             }
         }
-        public event VideoSourceHandler OnVideoSourceCreated;
-        public event VideoSourceHandler OnVideoSourceUpdated;
-        public event VideoSourceHandler OnVideoSourceDeleted;
+        public event VideoSourceHandler? OnVideoSourceCreated;
+        public event VideoSourceHandler? OnVideoSourceUpdated;
+        public event VideoSourceHandler? OnVideoSourceDeleted;
 
         public VideoSourceStorage()
         {
@@ -52,24 +53,19 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         //    return true;
         //}
 
-        private void Clear<T>(BlockingCollection<T> blockingCollection)
+        private static void Clear<T>(BlockingCollection<T> blockingCollection)
         {
-            if (blockingCollection == null)
-            {
-                throw new ArgumentNullException("blockingCollection");
-            }
+            ArgumentNullException.ThrowIfNull(blockingCollection);
 
-            while (blockingCollection.Count > 0)
+            while (blockingCollection.TryTake(out _))
             {
-                T item;
-                blockingCollection.TryTake(out item);
             }
         }
 
         public VideoSource CreateVideoSource(VideoSource videoSource)
         {
-            if (_videoSources.ContainsKey(videoSource.EntityID))
-                return _videoSources[videoSource.EntityID];
+            if (_videoSources.TryGetValue(videoSource.EntityID, out var result))
+                return result;            
 
             //if (_videoSources.Any(x => x.Value.RtspURL == videoSource.RtspURL && x.Value.RequestURL == videoSource.RequestURL))
             //{
@@ -94,10 +90,7 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
             //_videoSources.Add(videoSource);
             _videoSources.TryAdd(videoSource.EntityID, videoSource);
 
-            if (OnVideoSourceCreated != null)
-            {
-                OnVideoSourceCreated(videoSource);
-            }
+            OnVideoSourceCreated?.Invoke(videoSource);
 
             return videoSource;
         }
@@ -112,10 +105,7 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
             if (_videoSources.ContainsKey(videoSource.EntityID))
             {
                 _videoSources[videoSource.EntityID] = videoSource;
-                if (OnVideoSourceUpdated != null)
-                {
-                    OnVideoSourceUpdated(videoSource);
-                }
+                OnVideoSourceUpdated?.Invoke(videoSource);
             }
         }
 
@@ -123,10 +113,7 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         {
             if (_videoSources.TryRemove(videoSourceId, out var removeItem))
             {
-                if (OnVideoSourceDeleted != null)
-                {
-                    OnVideoSourceDeleted(removeItem);
-                }
+                OnVideoSourceDeleted?.Invoke(removeItem);
             }
             //VideoSource findItem = VideoSources.FirstOrDefault(x => x.Id == videoSourceId);
             //if (findItem != null)
@@ -141,10 +128,10 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
             //}
         }
 
-        public VideoSource GetVideoSourceById(int videoSourceId)
+        public VideoSource? GetVideoSourceById(int videoSourceId)
         {
-            if (_videoSources.ContainsKey(videoSourceId))
-                return _videoSources[videoSourceId];
+            if (_videoSources.TryGetValue(videoSourceId, out var result))
+                return result;
             return null;
         }
 

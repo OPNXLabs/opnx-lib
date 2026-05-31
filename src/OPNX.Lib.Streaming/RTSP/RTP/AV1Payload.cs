@@ -5,7 +5,7 @@ using System.Buffers;
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class AV1Payload(ILogger<AV1Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class AV1Payload(MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class AV1Payload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
@@ -100,7 +100,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             int obuHeaderLen = 1;
             int obuHeaderExtensions = -1;
             int obuType = (obuHeader & 0x78) >> 3;
-            byte[] obuLizeLeb128 = null;
+            byte[]? obuLizeLeb128 = null;
 
             if (obuType == 1)
             {

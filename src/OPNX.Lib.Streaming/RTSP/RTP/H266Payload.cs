@@ -6,7 +6,7 @@ using System.Buffers.Binary;
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class H266Payload(bool hasDonl, ILogger<H266Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H266Payload(bool hasDonl, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class H266Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 

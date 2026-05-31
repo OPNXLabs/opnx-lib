@@ -7,7 +7,7 @@ namespace OPNX.Lib.Streaming.RTSP
         public static NameValueCollection ParseHeaders(StreamReader headersReader)
         {
             NameValueCollection headers = new(StringComparer.InvariantCultureIgnoreCase);
-            string header;
+            string? header;
             while (!string.IsNullOrEmpty(header = headersReader.ReadLine()))
             {
                 int colonPos = header.IndexOf(':', StringComparison.InvariantCulture);

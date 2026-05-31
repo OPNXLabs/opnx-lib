@@ -111,8 +111,6 @@ namespace OPNX.Lib.Network.Transport.Tcp
 
                         if (client?.Connected == true)
                         {
-                            LogManager.Debug($"New client connected from {client.Client.RemoteEndPoint}");
-
                             try
                             {
                                 ClientAccepted?.Invoke(this, new(client));

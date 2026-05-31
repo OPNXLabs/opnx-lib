@@ -6,7 +6,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
     /// <summary>
     /// This class handles the G711.1 Payload
     /// </summary>
-    public class G711_1Payload(MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class G711_1Payload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         private readonly MemoryPool<byte> _memoryPool = memoryPool ?? MemoryPool<byte>.Shared;
         private bool _disposed = false;

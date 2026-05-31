@@ -4,7 +4,7 @@
     public delegate void RtspPlayRequestHandler(Guid connectionId);
 
     public delegate void RtspConnectionRemovedHandler(Guid connectionId, VideoSource videoSource);
-    public delegate void RtspConnectionAddedHandler(Uri requestUrl, Guid connectionId, ref VideoSource videoSource);
+    public delegate void RtspConnectionAddedHandler(Uri? requestUrl, Guid connectionId, ref VideoSource videoSource);
 
     public interface IRTSPServer : IDisposable
     {

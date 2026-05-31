@@ -6,9 +6,9 @@ namespace OPNX.Lib.Streaming.RTSP
     public static class IPUtils
     {
 
-        public static IPAddress GetIPAddressFromString(string address, out Exception exception)
+        public static IPAddress GetIPAddressFromString(string address, out Exception? exception)
         {
-            IPAddress result;
+            IPAddress? result;
             exception = null;
 
             if (string.IsNullOrEmpty(address) ||

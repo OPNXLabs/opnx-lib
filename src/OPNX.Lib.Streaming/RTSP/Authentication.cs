@@ -3,7 +3,7 @@ using System.Net;
 
 namespace OPNX.Lib.Streaming.RTSP
 {
-    public abstract class Authentication(NetworkCredential credentials)
+    public abstract class Authentication(NetworkCredential? credentials)
     {
         public NetworkCredential Credentials { get; } = credentials ?? throw new ArgumentNullException(nameof(credentials));
 
@@ -11,7 +11,7 @@ namespace OPNX.Lib.Streaming.RTSP
         public abstract string GetResponse(uint nonceCounter, string uri, string method, ReadOnlySpan<byte> entityBodyBytes);
         public abstract bool IsValid(RtspRequest receivedMessage);
 
-        public static Authentication Create(NetworkCredential credential, string authenticateHeader)
+        public static Authentication Create(NetworkCredential? credential, string authenticateHeader)
         {
             authenticateHeader = authenticateHeader ??
                                  throw new ArgumentNullException(nameof(authenticateHeader));

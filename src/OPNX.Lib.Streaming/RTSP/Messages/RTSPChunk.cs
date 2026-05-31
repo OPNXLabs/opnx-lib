@@ -15,7 +15,7 @@
         /// Gets or sets the source port wich receive the message.
         /// </summary>
         /// <value>The source port.</value>
-        public RTSPListener SourcePort { get; set; }
+        public RTSPListener? SourcePort { get; set; }
 
         #region ICloneable Membres
 

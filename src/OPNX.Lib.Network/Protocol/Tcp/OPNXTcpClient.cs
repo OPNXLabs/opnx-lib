@@ -27,8 +27,16 @@ namespace OPNX.Lib.Network.Protocol.Tcp
             : base(tcpConnection)
         {
             _tcpConnection = tcpConnection;
-            _tcpConnection.Attach(tcpClient);
+            if (tcpClient != null)
+                _tcpConnection.Attach(tcpClient);
         }
+        #endregion
+
+        #region Public Methods
+        public bool Attach(TcpClient tcpClient)
+        {
+            return _tcpConnection?.Attach(tcpClient) == true;
+        } 
         #endregion
     }
 }

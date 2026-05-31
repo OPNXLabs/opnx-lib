@@ -43,8 +43,8 @@ namespace OPNX.Lib.Streaming.RTSP
         private readonly IRtspTransport _transport;
         private readonly SentMessageList _sentMessage = new();
 
-        private CancellationTokenSource _cancelationTokenSource;
-        private Task _mainTask;
+        private CancellationTokenSource? _cancelationTokenSource;
+        private Task? _mainTask;
         private Stream _stream;
         private readonly SemaphoreSlim writeSemaphoreSlim = new(1, 1);
 
@@ -62,7 +62,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    MemoryPool<byte> memoryPool = null)
         public RTSPListener(
             IRtspTransport connection,
-            MemoryPool<byte> memoryPool = null)
+            MemoryPool<byte>? memoryPool = null)
         {
             //_logger = logger as ILogger ?? NullLogger.Instance;
             _memoryPool = memoryPool ?? MemoryPool<byte>.Shared;
@@ -124,7 +124,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <summary>
         /// Occurs when message is received.
         /// </summary>
-        public event EventHandler<RTSPChunkEventArgs> MessageReceived;
+        public event EventHandler<RTSPChunkEventArgs>? MessageReceived;
 
         /// <summary>
         /// Raises the <see cref="E:MessageReceived"/> event.
@@ -138,7 +138,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <summary>
         /// Occurs when Data is received.
         /// </summary>
-        public event EventHandler<RTSPChunkEventArgs> DataReceived;
+        public event EventHandler<RTSPChunkEventArgs>? DataReceived;
 
         /// <summary>
         /// Raises the <see cref="E:DataReceived"/> event.
@@ -149,8 +149,8 @@ namespace OPNX.Lib.Streaming.RTSP
             DataReceived?.Invoke(this, rtspChunkEventArgs);
         }
 
-        public event EventHandler Opened;
-        public event EventHandler Closed;
+        public event EventHandler? Opened;
+        public event EventHandler? Closed;
 
         /// <summary>
         /// Does the reading job.
@@ -171,7 +171,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 while (_transport.Connected && !token.IsCancellationRequested)
                 {
                     // La lectuer est blocking sauf si la connection est coupé                    
-                    RtspChunk currentMessage = await ReadOneMessageAsync(_stream, token).ConfigureAwait(false);
+                    RtspChunk? currentMessage = await ReadOneMessageAsync(_stream, token).ConfigureAwait(false);
 
                     if (currentMessage is null)
                     {
@@ -376,14 +376,14 @@ namespace OPNX.Lib.Streaming.RTSP
         /// </summary>
         /// <param name="reader">The Rtsp stream pipereader.</param>
         /// <returns>Message read</returns>
-        public async ValueTask<RtspChunk> ReadOneMessageAsync(PipeReader reader, CancellationToken token = default)
+        public async ValueTask<RtspChunk?> ReadOneMessageAsync(PipeReader reader, CancellationToken token = default)
         {
             ArgumentNullException.ThrowIfNull(reader);
             //if (reader == null)
             //    throw new ArgumentNullException(nameof(reader));
 
             ReadingMessage currentReadingState = ReadingMessage.NotEnoughtData;
-            RtspChunk currentMessage = null;
+            RtspChunk? currentMessage = null;
 
             while (currentReadingState != ReadingMessage.MessageFinish)
             {
@@ -412,7 +412,7 @@ namespace OPNX.Lib.Streaming.RTSP
             return currentMessage;
         }
 
-        private ReadingMessage TryReadMessage(ref ReadOnlySequence<byte> buffer, ref RtspChunk currentMessage)
+        private ReadingMessage TryReadMessage(ref ReadOnlySequence<byte> buffer, ref RtspChunk? currentMessage)
         {
             if (currentMessage is null && buffer.First.Length > 0 && buffer.First.Span[0] == '$')
             {
@@ -442,7 +442,7 @@ namespace OPNX.Lib.Streaming.RTSP
             {
                 if (buffer.Length >= currentMessage.Data.Length)
                 {
-                    buffer.CopyTo(currentMessage.Data.Span);
+                    buffer.Slice(0, currentMessage.Data.Length).CopyTo(currentMessage.Data.Span);
                     buffer = buffer.Slice(currentMessage.Data.Length);
                     return ReadingMessage.MessageFinish;
                 }
@@ -490,7 +490,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// </summary>
         /// <param name="commandStream">The Rtsp stream.</param>
         /// <returns>Message readen</returns>
-        public async ValueTask<RtspChunk> ReadOneMessageAsync(Stream commandStream, CancellationToken token)
+        public async ValueTask<RtspChunk?> ReadOneMessageAsync(Stream commandStream, CancellationToken token)
         {
             ArgumentNullException.ThrowIfNull(commandStream);
             //if (commandStream == null)
@@ -498,7 +498,7 @@ namespace OPNX.Lib.Streaming.RTSP
             Contract.EndContractBlock();
 
             ReadingState currentReadingState = ReadingState.NewCommand;
-            RtspChunk currentMessage = null;
+            RtspChunk? currentMessage = null;
 
             int size = 0;
             int byteReaden = 0;

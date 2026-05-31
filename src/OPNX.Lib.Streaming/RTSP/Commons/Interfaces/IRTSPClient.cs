@@ -15,7 +15,7 @@
     {
         int EntityID { get; }
 
-        string URL { get; }
+        string? URL { get; }
 
         double FPS { get; }
         double BitRate { get; }

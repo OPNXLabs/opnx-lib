@@ -36,9 +36,9 @@ namespace OPNX.Lib.Streaming.RTSP
 
         //private readonly ILoggerFactory _loggerFactory;
         //private readonly ILogger _logger;
-        private CancellationTokenSource _Stopping;
+        private CancellationTokenSource? _Stopping;
         //private Thread _ListenTread;
-        private Task _ListenTask;
+        private Task? _ListenTask;
 
         //byte[] rawSps;
         //byte[] rawPs;        
@@ -53,7 +53,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         int session_handle = 1;
         private readonly NetworkCredential credential;
-        private readonly Authentication auth;
+        private readonly Authentication? auth;
 
         private readonly bool _useRTSPS = false;
         private readonly string _pfxFile = "";
@@ -137,7 +137,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
 
             RtspUtils.RegisterUri();
-            X509Certificate2 certificate = null;
+            X509Certificate2? certificate = null;
             if (_useRTSPS)
             {
                 //certificate = X509CertificateLoader.LoadPkcs12FromFile(_pfxFile, "");
@@ -172,8 +172,8 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
 
         #region Events
-        public event RtspConnectionAddedHandler ConnectionAdded;
-        public event RtspConnectionRemovedHandler ConnectionRemoved;
+        public event RtspConnectionAddedHandler? ConnectionAdded;
+        public event RtspConnectionRemovedHandler? ConnectionRemoved;
         //public event RtspProvideSdpDataHandler ProvideSdpData; 
         #endregion
 
@@ -209,7 +209,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
 
             // 대상 스트림 선택
-            RTPStream stream = mediaType switch
+            RTPStream? stream = mediaType switch
             {
                 MediaTypes.audio when rtspConnection.audio?.rtpChannel != null => rtspConnection.audio,
                 MediaTypes.video when rtspConnection.video?.rtpChannel != null => rtspConnection.video,
@@ -228,11 +228,14 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
             }
 
+            var rtpChannel = stream.rtpChannel;
+            if (rtpChannel is null) return;
+
             try
             {
                 // RTP 패킷 전송
-                await stream.rtpChannel.WriteToDataPortAsync(rtpData);
-                if (rtspConnection.video.rtpChannel is RtpTcpTransport)
+                await rtpChannel.WriteToDataPortAsync(rtpData);
+                if (rtspConnection?.video?.rtpChannel is RtpTcpTransport)
                 {
                     // for tcp transport a successful write means the connection is alive
                     rtspConnection.UpdateKeepAlive();
@@ -280,7 +283,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
 
             // 대상 스트림 선택
-            RTPStream stream = mediaType switch
+            RTPStream? stream = mediaType switch
             {
                 MediaTypes.audio when rtspConnection.audio?.rtpChannel != null => rtspConnection.audio,
                 MediaTypes.video when rtspConnection.video?.rtpChannel != null => rtspConnection.video,
@@ -299,10 +302,13 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
             }
 
+            var rtpChannel = stream.rtpChannel;
+            if (rtpChannel is null) return;
+
             try
             {
                 // RTP 패킷 전송
-                stream.rtpChannel.WriteToDataPort(rtpData);
+                rtpChannel.WriteToDataPort(rtpData);
 
                 stream.packetCount++;
                 stream.octetCount += (uint)rtpData.Length;
@@ -341,7 +347,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             _RtspServerListener.Stop();
             _Stopping?.Cancel();
-            _ListenTask.Wait();
+            _ListenTask?.Wait();
         }
 
         /// <summary>
@@ -389,7 +395,7 @@ namespace OPNX.Lib.Streaming.RTSP
         }
 
         // Process each RTSP message that is received
-        private void RTSPMessageReceived(object sender, RTSPChunkEventArgs e)
+        private void RTSPMessageReceived(object? sender, RTSPChunkEventArgs e)
         {
             // Cast the 'sender' and 'e' into the RTSP Listener (the Socket) and the RTSP Message
             RTSPListener listener = sender as RTSPListener ?? throw new ArgumentException("Invalid sender", nameof(sender));
@@ -516,8 +522,8 @@ namespace OPNX.Lib.Streaming.RTSP
             RtspTransport transport = setupMessage.GetTransports()[0];
 
             // Construct the Transport: reply from the Server to the client
-            RtspTransport transport_reply = null;
-            IRtpTransport rtpTransport = null;
+            RtspTransport? transport_reply = null;
+            IRtpTransport? rtpTransport = null;
 
             if (transport.LowerTransport == RtspTransport.LowerTransportType.TCP)
             {
@@ -596,10 +602,11 @@ namespace OPNX.Lib.Streaming.RTSP
                     // or a SETUP for an Audio Stream.
                     // In the SDP the H264 video track is TrackID 0
                     // and the Audio Track is TrackID 1
-                    RTPStream stream = null;
+                    RTPStream? stream = null;
 
-                    if (setupMessage.RtspUri.AbsoluteUri.EndsWith("trackID=0")) stream = setupConnection.video;
-                    else if (setupMessage.RtspUri.AbsoluteUri.EndsWith("trackID=1")) stream = setupConnection.audio;
+                    string? setupUri = setupMessage.RtspUri?.AbsoluteUri;
+                    if (setupUri?.EndsWith("trackID=0", StringComparison.Ordinal) == true) stream = setupConnection.video;
+                    else if (setupUri?.EndsWith("trackID=1", StringComparison.Ordinal) == true) stream = setupConnection.audio;
 
                     stream?.rtpChannel = rtpTransport;
                     // When there is Video and Audio there are two SETUP commands.
@@ -742,7 +749,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
             using (StreamReader sdp_stream = new(new MemoryStream(describe_response.Data.ToArray())))
             {
-                if (describe_response.Headers.TryGetValue(RtspHeaderNames.ContentBase, out string contentBase))
+                if (describe_response.Headers.TryGetValue(RtspHeaderNames.ContentBase, out string? contentBase))
                     rtspConnection.ContentBase = contentBase;
                 rtspConnection.SdpFile = SdpFile.ReadLoose(sdp_stream);
             }
@@ -1204,7 +1211,7 @@ namespace OPNX.Lib.Streaming.RTSP
             public int trackID;
             public bool mustSendRtcpPacket = false; // when true will send out a RTCP packet to match Wall Clock Time to RTP Payload timestamps
                                                     // 16 bit RTP packet sequence number used with this client connection
-            public IRtpTransport rtpChannel;     // Pair of UDP sockets (data and control) used when sending via UDP                        
+            public IRtpTransport? rtpChannel;     // Pair of UDP sockets (data and control) used when sending via UDP
             public uint packetCount = 0;       // Used in the RTCP Sender Report to state how many RTP packets have been transmitted (for packet loss)
             public uint octetCount = 0;        // number of bytes of video that have been transmitted (for average bandwidth monitoring)
         }
@@ -1216,7 +1223,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 ConnectionID = Guid.NewGuid();
             }
             // The RTSP client connection
-            public RTSPListener Listener { get; init; }
+            public required RTSPListener Listener { get; init; }
             // set to true when Session is in Play mode
             public bool play;
 
@@ -1231,9 +1238,9 @@ namespace OPNX.Lib.Streaming.RTSP
             public readonly RTPStream video = new();
             public readonly RTPStream audio = new();
 
-            public SdpFile SdpFile { get; set; }
+            public SdpFile? SdpFile { get; set; }
 
-            public string ContentBase { get; set; }
+            public string? ContentBase { get; set; }
 
             public void UpdateKeepAlive()
             {

@@ -10,15 +10,15 @@ namespace OPNX.Lib.Streaming.RTSP
     /// </summary>
     public class RTSPTcpTlsTransport : RTSPTcpTransport
     {
-        private readonly RemoteCertificateValidationCallback _userCertificateValidationCallback;
-        private readonly X509Certificate2 _serverCertificate;
+        private readonly RemoteCertificateValidationCallback? _userCertificateValidationCallback;
+        private readonly X509Certificate2? _serverCertificate;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RtspTcpTlsTransport"/> class as a SSL/TLS Client
         /// </summary>
         /// <param name="tcpConnection">The underlying TCP connection.</param>
         /// <param name="userCertificateValidationCallback">The user certificate validation callback, <see langword="null"/> if default should be used.</param>
-        public RTSPTcpTlsTransport(TcpClient tcpConnection, RemoteCertificateValidationCallback userCertificateValidationCallback = null) : base(tcpConnection)
+        public RTSPTcpTlsTransport(TcpClient tcpConnection, RemoteCertificateValidationCallback? userCertificateValidationCallback = null) : base(tcpConnection)
         {
             _userCertificateValidationCallback = userCertificateValidationCallback;
         }
@@ -28,7 +28,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// </summary>
         /// <param name="uri">The RTSP uri to connect to.</param>
         /// <param name="userCertificateValidationCallback">The user certificate validation callback, <see langword="null"/> if default should be used.</param>
-        public RTSPTcpTlsTransport(Uri uri, RemoteCertificateValidationCallback userCertificateValidationCallback)
+        public RTSPTcpTlsTransport(Uri uri, RemoteCertificateValidationCallback? userCertificateValidationCallback)
             : this(new TcpClient(uri.Host, uri.Port), userCertificateValidationCallback)
         {
         }
@@ -39,7 +39,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <param name="tcpConnection">The underlying TCP connection.</param>
         /// <param name="certificate">The certificate for the TLS Server.</param>
         /// <param name="userCertificateValidationCallback">The user certificate validation callback, <see langword="null"/> if default should be used.</param>
-        public RTSPTcpTlsTransport(TcpClient tcpConnection, X509Certificate2 certificate, RemoteCertificateValidationCallback userCertificateValidationCallback = null)
+        public RTSPTcpTlsTransport(TcpClient tcpConnection, X509Certificate2 certificate, RemoteCertificateValidationCallback? userCertificateValidationCallback = null)
             : this(tcpConnection, userCertificateValidationCallback)
         {
             _serverCertificate = certificate;

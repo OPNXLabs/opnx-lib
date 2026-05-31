@@ -9,7 +9,7 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
     public sealed class RtspData : RtspChunk, IDisposable
     {
 
-        private IMemoryOwner<byte> reservedData;
+        private IMemoryOwner<byte>? reservedData;
         private bool disposedValue;
 
         public RtspData() { }

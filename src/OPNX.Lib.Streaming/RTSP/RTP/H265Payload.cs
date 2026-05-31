@@ -11,7 +11,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
     // By Roger Hardiman, RJH Technical Consultancy Ltd
     //public class H265Payload(bool hasDonl, ILogger<H265Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H265Payload(bool hasDonl, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class H265Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 

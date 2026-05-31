@@ -13,10 +13,10 @@ namespace OPNX.Lib.Streaming.RTSP
 
         private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-        private Task _dataReadTask;
-        private Task _controlReadTask;
-        private IPEndPoint _dataEndPoint;
-        private IPEndPoint _controlEndPoint;
+        private Task? _dataReadTask;
+        private Task? _controlReadTask;
+        private IPEndPoint? _dataEndPoint;
+        private IPEndPoint? _controlEndPoint;
 
         private bool disposedValue;
 
@@ -108,7 +108,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <summary>
         /// Occurs when data is received.
         /// </summary>
-        public event EventHandler<RtspDataEventArgs> DataReceived;
+        public event EventHandler<RtspDataEventArgs>? DataReceived;
 
         /// <summary>
         /// Raises the <see cref="E:DataReceived"/> event.
@@ -121,7 +121,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <summary>
         /// Occurs when control is received.
         /// </summary>
-        public event EventHandler<RtspDataEventArgs> ControlReceived;
+        public event EventHandler<RtspDataEventArgs>? ControlReceived;
 
         /// <summary>
         /// Raises the <see cref="E:ControlReceived"/> event.
@@ -189,39 +189,14 @@ namespace OPNX.Lib.Streaming.RTSP
             _controlEndPoint = new IPEndPoint(adresses[0], port);
         }
 
-        //public void WriteToControlPort(ReadOnlySpan<byte> data) => controlSocket.Send(data, _controlEndPoint);
-        public void WriteToControlPort(ReadOnlySpan<byte> data) => controlSocket.Send(data.ToArray(), data.Length, _controlEndPoint);
+        public void WriteToControlPort(ReadOnlySpan<byte> data) => controlSocket.Send(data, _controlEndPoint);
+        
 
-        //public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data) => => controlSocket.SendAsync(data, _controlEndPoint, _cancellationTokenSource.Token).AsTask();
-        //public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data) => controlSocket.SendAsync(data.ToArray(), data.Length, _controlEndPoint);
-        public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data)
-        {
-            if (MemoryMarshal.TryGetArray(data, out ArraySegment<byte> segment))
-            {
-                return controlSocket.SendAsync(segment.Array, segment.Count, _controlEndPoint);
-            }
-            else
-            {
-                return controlSocket.SendAsync(data.ToArray(), data.Length, _controlEndPoint);
-            }
-        }
+        public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data) => controlSocket.SendAsync(data, _controlEndPoint, _cancellationTokenSource.Token).AsTask();        
 
-        //public void WriteToDataPort(ReadOnlySpan<byte> data) => dataSocket.Send(data, _dataEndPoint);
-        public void WriteToDataPort(ReadOnlySpan<byte> data) => dataSocket.Send(data.ToArray(), data.Length, _dataEndPoint);
+        public void WriteToDataPort(ReadOnlySpan<byte> data) => dataSocket.Send(data, _dataEndPoint);        
 
-        //public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data) =>  => dataSocket.SendAsync(data, _dataEndPoint, _cancellationTokenSource.Token).AsTask();
-        //public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data) => dataSocket.SendAsync(data.ToArray(), data.Length, _dataEndPoint);
-        public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data)
-        {
-            if (MemoryMarshal.TryGetArray(data, out ArraySegment<byte> segment))
-            {
-                return dataSocket.SendAsync(segment.Array, segment.Count, _dataEndPoint);
-            }
-            else
-            {
-                return dataSocket.SendAsync(data.ToArray(), data.Length, _dataEndPoint);
-            }
-        }
+        public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data) => dataSocket.SendAsync(data, _dataEndPoint, _cancellationTokenSource.Token).AsTask();      
 
         protected virtual void Dispose(bool disposing)
         {

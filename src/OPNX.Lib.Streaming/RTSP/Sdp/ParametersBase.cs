@@ -12,7 +12,7 @@ namespace OPNX.Lib.Streaming.RTSP.Sdp
             foreach (var pair in parameterString.Split(';').Select(x => x.Trim().Split('=', 2)))
             {
                 if (!string.IsNullOrWhiteSpace(pair[0]))
-                    result[pair[0]] = pair.Length > 1 ? pair[1] : null;
+                    result[pair[0]] = pair.Length > 1 ? pair[1] : string.Empty;
             }
 
             return result;

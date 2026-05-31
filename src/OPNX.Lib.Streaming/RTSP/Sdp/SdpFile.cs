@@ -6,7 +6,7 @@ namespace OPNX.Lib.Streaming.RTSP.Sdp
     {
         private static KeyValuePair<char, string> GetKeyValue(TextReader sdpStream)
         {
-            string line = sdpStream.ReadLine();
+            string? line = sdpStream.ReadLine();
 
             // end of file ?
             if (string.IsNullOrEmpty(line))
@@ -28,10 +28,9 @@ namespace OPNX.Lib.Streaming.RTSP.Sdp
         /// <param name="sdpStream">Sdp stream text</param>
         /// <returns>Parsed SDP file</returns>
         /// <exception cref="InvalidDataException">Throw if encouter invalid data</exception>
-// Hard to make shorter
-#pragma warning disable MA0051 // Method is too long
+        /// // Hard to make shorter
+
         public static SdpFile ReadStrict(TextReader sdpStream)
-#pragma warning restore MA0051 // Method is too long
         {
             SdpFile returnValue = new();
             var value = GetKeyValue(sdpStream);
@@ -352,28 +351,28 @@ namespace OPNX.Lib.Streaming.RTSP.Sdp
 
         public int Version { get; set; } = VERSION_NOT_SET;
 
-        public Origin Origin { get; set; }
+        public Origin? Origin { get; set; }
 
-        public string Session { get; set; }
+        public string? Session { get; set; }
 
-        public string SessionInformation { get; set; }
+        public string? SessionInformation { get; set; }
 
-        public Uri Url { get; set; }
+        public Uri? Url { get; set; }
 
-        public string Email { get; set; }
+        public string? Email { get; set; }
 
-        public string Phone { get; set; }
+        public string? Phone { get; set; }
 
-        public Connection Connection { get; set; }
+        public Connection? Connection { get; set; }
 
-        public Bandwidth Bandwidth { get; set; }
+        public Bandwidth? Bandwidth { get; set; }
 
-        public IList<Timing> Timings { get; } = new List<Timing>();
+        public IList<Timing> Timings { get; } = [];
 
-        public SdpTimeZone TimeZone { get; set; }
+        public SdpTimeZone? TimeZone { get; set; }
 
-        public IList<Attribut> Attributs { get; } = new List<Attribut>();
+        public IList<Attribut> Attributs { get; } = [];
 
-        public IList<Media> Medias { get; } = new List<Media>();
+        public IList<Media> Medias { get; } = [];
     }
 }

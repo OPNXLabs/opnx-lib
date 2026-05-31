@@ -7,20 +7,13 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
     public class SipsorceryClientSession : WebSocketBehavior
     {
         #region Fields
-        private SipsorceryPeerConnection peerConnection;
+        private SipsorceryPeerConnection? peerConnection = null;
         #endregion
 
         #region Events
-        public event Func<WebSocketContext, Task<SipsorceryPeerConnection>> SocketOpened;
-        public event Action<WebSocketContext, SipsorceryPeerConnection, string> MessageReceived;
-        public event Action<WebSocketContext, SipsorceryPeerConnection> SocketClosed;
-        #endregion
-
-        #region Constructors
-        public SipsorceryClientSession()
-        {
-
-        }
+        public event Func<WebSocketContext, Task<SipsorceryPeerConnection?>>? SocketOpened;
+        public event Action<WebSocketContext, SipsorceryPeerConnection?, string>? MessageReceived;
+        public event Action<WebSocketContext, SipsorceryPeerConnection?>? SocketClosed;
         #endregion
 
         #region Private / Protected Methods
@@ -33,14 +26,15 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         {
             var handler = SocketOpened;
             if (handler == null) return;
-            peerConnection = await SocketOpened(Context);
+            peerConnection = await handler(Context);
         }
 
         protected override void OnClose(CloseEventArgs e)
         {
             var handler = SocketClosed;
             if (handler == null) return;
-            SocketClosed(Context, peerConnection);
+            handler(Context, peerConnection);
+            peerConnection = null;
         }
         #endregion
     }

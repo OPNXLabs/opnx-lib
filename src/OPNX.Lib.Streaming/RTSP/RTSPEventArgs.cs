@@ -4,30 +4,17 @@ using OPNX.Lib.Streaming.RTSP.Messages;
 namespace OPNX.Lib.Streaming.RTSP
 {
     public enum ChannelTypes { None, Video, Audio }
-    public class StreamConfigurationDataEventArgs : EventArgs
+    public class StreamConfigurationDataEventArgs(ChannelTypes channelType, string payloadName, IStreamConfigurationData? streamConfigurationData) : EventArgs
     {
-        public StreamConfigurationDataEventArgs(ChannelTypes channelType, string payloadName, IStreamConfigurationData streamConfigurationData)
-        {
-            ChannelType = channelType;
-            PayloadName = payloadName;
-            StreamConfigurationData = streamConfigurationData;
-        }
-
-        public ChannelTypes ChannelType { get; }
-        public string PayloadName { get; }
-        public IStreamConfigurationData StreamConfigurationData { get; }
+        public ChannelTypes ChannelType { get; } = channelType;
+        public string PayloadName { get; } = payloadName;
+        public IStreamConfigurationData? StreamConfigurationData { get; } = streamConfigurationData;
     }
 
-    public class NewStreamEventArgs : EventArgs
+    public class NewStreamEventArgs(string streamType, IStreamConfigurationData streamConfigurationData) : EventArgs
     {
-        public NewStreamEventArgs(string streamType, IStreamConfigurationData streamConfigurationData)
-        {
-            StreamType = streamType;
-            StreamConfigurationData = streamConfigurationData;
-        }
-
-        public string StreamType { get; }
-        public IStreamConfigurationData StreamConfigurationData { get; }
+        public string StreamType { get; } = streamType;
+        public IStreamConfigurationData StreamConfigurationData { get; } = streamConfigurationData;
     }
 
     public interface IStreamConfigurationData
@@ -36,12 +23,12 @@ namespace OPNX.Lib.Streaming.RTSP
 
     public record H264StreamConfigurationData : IStreamConfigurationData
     {
-        public List<byte[]> OutOfBandNal { get; init; }
+        public List<byte[]>? OutOfBandNal { get; init; }
     }
 
     public record H265StreamConfigurationData : IStreamConfigurationData
     {
-        public List<byte[]> OutOfBandNal { get; init; }
+        public List<byte[]>? OutOfBandNal { get; init; }
     }
 
     public record AacStreamConfigurationData : IStreamConfigurationData
@@ -53,82 +40,45 @@ namespace OPNX.Lib.Streaming.RTSP
     }
 
 
-    public class NalUnitDataEventArgs : EventArgs
+    public class NalUnitDataEventArgs(ChannelTypes channelType, string payloadName, bool isKeyFrame, IEnumerable<ReadOnlyMemory<byte>> data, uint timeStamp) : EventArgs
     {
-        public NalUnitDataEventArgs(ChannelTypes channelType, string payloadName, bool isKeyFrame, IEnumerable<ReadOnlyMemory<byte>> data, uint timeStamp)
-        {
-            ChannelType = channelType;
-            PayloadName = payloadName;
-            Data = data;
-            TimeStamp = timeStamp;
-            IsKeyFrame = isKeyFrame;
-        }
-
-        public ChannelTypes ChannelType { get; }
-        public uint TimeStamp { get; }
-        public IEnumerable<ReadOnlyMemory<byte>> Data { get; }
-        public bool IsKeyFrame { get; }
-        public string PayloadName { get; }
+        public ChannelTypes ChannelType { get; } = channelType;
+        public uint TimeStamp { get; } = timeStamp;
+        public IEnumerable<ReadOnlyMemory<byte>> Data { get; } = data;
+        public bool IsKeyFrame { get; } = isKeyFrame;
+        public string PayloadName { get; } = payloadName;
     }
 
-    public class RTPDataEventArgs : EventArgs
+    public class RTPDataEventArgs(ChannelTypes channelType, Memory<byte> data) : EventArgs
     {
-        public RTPDataEventArgs(ChannelTypes channelType, Memory<byte> data)
-        {
-            ChannelType = channelType;
-            Data = data;
-        }
-        public ChannelTypes ChannelType { get; }
-        public Memory<byte> Data { get; }
+        public ChannelTypes ChannelType { get; } = channelType;
+        public Memory<byte> Data { get; } = data;
     }
 
     public class StreamStartedEventArgs : EventArgs
     {
     }
 
-    public class StreamStoppedEventArgs : EventArgs
+    public class StreamStoppedEventArgs(RTSPClientStopReason stopReason) : EventArgs
     {
-        public StreamStoppedEventArgs(RTSPClientStopReason stopReason)
-        {
-            StopReason = stopReason;
-        }
-
-        public RTSPClientStopReason StopReason { get; }
+        public RTSPClientStopReason StopReason { get; } = stopReason;
     }
 
-    public class RtspDataEventArgs : EventArgs
+    public class RtspDataEventArgs(RtspData data) : EventArgs
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RTSPDataEventArgs"/> class.
-        /// </summary>
-        /// <param name="data">Data .</param>
-        public RtspDataEventArgs(RtspData data)
-        {
-            Data = data;
-        }
-
         /// <summary>
         /// Gets or sets the message.
         /// </summary>
         /// <value>The message.</value>
-        public RtspData Data { get; set; }
+        public RtspData Data { get; set; } = data;
     }
 
-    public class SimpleDataEventArgs : EventArgs
+    public class SimpleDataEventArgs(List<ReadOnlyMemory<byte>> data, DateTime clockTimeStamp, ulong rtpTimeStamp, int baseClock, int payloadType) : EventArgs
     {
-        public SimpleDataEventArgs(List<ReadOnlyMemory<byte>> data, DateTime clockTimeStamp, ulong rtpTimeStamp, int baseClock, int payloadType)
-        {
-            Data = data ?? throw new ArgumentNullException(nameof(data));
-            ClockTimeStamp = clockTimeStamp;
-            RtpTimestamp = rtpTimeStamp;
-            BaseClock = baseClock;
-            PayloadType = payloadType;
-        }
-
-        public int PayloadType { get; }
-        public int BaseClock { get; }
-        public ulong RtpTimestamp { get; }
-        public DateTime ClockTimeStamp { get; }
-        public List<ReadOnlyMemory<byte>> Data { get; }
+        public int PayloadType { get; } = payloadType;
+        public int BaseClock { get; } = baseClock;
+        public ulong RtpTimestamp { get; } = rtpTimeStamp;
+        public DateTime ClockTimeStamp { get; } = clockTimeStamp;
+        public List<ReadOnlyMemory<byte>> Data { get; } = data;
     }
 }

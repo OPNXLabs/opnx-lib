@@ -1,6 +1,5 @@
 ﻿using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Primitives.Media;
-using OPNX.Lib.Streaming.WebRTC;
 using OPNX.Lib.Streaming.WebRTC.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Events;
 using SIPSorcery.Net;
@@ -16,7 +15,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
     public class SipsorcerySignalServer : IWebRtcSignalServer
     {
         #region Fields        
-        private readonly WebSocketServer webSocketServer = null;
+        private readonly WebSocketServer webSocketServer;
 
         private readonly ConcurrentDictionary<Guid, SipsorceryPeerConnection> connections = new();
         #endregion
@@ -37,30 +36,22 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         }
         #endregion
 
-        #region Events        
-        public delegate void WebSocketOpenedEventHandler(object sender, Uri requestUri, ref SipsorceryPeerConnection pc);
-        public event WebSocketOpenedEventHandler WebSocketOpened;
+        #region Events                
         private void OnWebSocketOpened(WebSocketContext context, ref SipsorceryPeerConnection pc)
-        {
-            WebSocketOpened?.Invoke(this, context.RequestUri, ref pc);
-
+        {            
             Guid connectionID = Guid.Parse(pc.SessionID);
             WebRtcClientOpenedEventArgs args = new(context.RequestUri, connectionID, pc.VideoSourceID);
             ClientOpened?.Invoke(this, args);
             pc.VideoSourceID = args.VideoSourceID;
         }
 
-        public delegate void WebSocketClosedEventHandler(object sender, Uri requestUri, int videosourceID, Guid connectionID);
-        public event WebSocketClosedEventHandler WebSocketClosed;
-
         public event EventHandler<WebRtcClientOpenedEventArgs>? ClientOpened;
         public event EventHandler<WebRtcClientClosedEventArgs>? ClientClosed;
-        private void OnWebSocketClosed(WebSocketContext context, SipsorceryPeerConnection pc)
+        private void OnWebSocketClosed(WebSocketContext context, SipsorceryPeerConnection? pc)
         {
             int videoSourceID = pc == null ? int.MinValue : pc.VideoSourceID;
             Guid connectionID = pc == null ? Guid.Empty : Guid.Parse(pc.SessionID);
-
-            WebSocketClosed?.Invoke(this, context.RequestUri, videoSourceID, connectionID);
+         
             ClientClosed?.Invoke(this, new WebRtcClientClosedEventArgs(context.RequestUri, connectionID, videoSourceID));
         }
 
@@ -120,7 +111,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         //    }
         //});
 
-        private void OnMessageReceived(WebSocketContext context, RTCPeerConnection pc, string message)
+        private void OnMessageReceived(WebSocketContext context, RTCPeerConnection? pc, string? message)
         {
             if (pc == null || string.IsNullOrWhiteSpace(message))
                 return;
@@ -158,7 +149,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
             }
         }
 
-        private async Task<SipsorceryPeerConnection> OnSocketOpened(WebSocketContext context)
+        private async Task<SipsorceryPeerConnection?> OnSocketOpened(WebSocketContext context)
         {
             try
             {
@@ -227,17 +218,20 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         }
 
 
-        private void OnSocketClosed(WebSocketContext context, SipsorceryPeerConnection peerConnection)
+        private void OnSocketClosed(WebSocketContext context, SipsorceryPeerConnection? peerConnection)
         {
             try
             {
-                if (connections.TryRemove(Guid.Parse(peerConnection?.SessionID), out var removeItem))
+                if (peerConnection is not null &&
+                    Guid.TryParse(peerConnection.SessionID, out Guid sessionId) &&
+                    connections.TryRemove(sessionId, out var removedPeerConnection))
                 {
-                    removeItem?.Dispose();
+                    removedPeerConnection.Dispose();
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                LogManager.Error($"Exception in OnSocketClosed: {ex}");
             }
 
             OnWebSocketClosed(context, peerConnection);

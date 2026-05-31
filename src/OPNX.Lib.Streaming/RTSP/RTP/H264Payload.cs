@@ -6,14 +6,11 @@ using System.Buffers.Binary;
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class H264Payload(ILogger<H264Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H264Payload(MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class H264Payload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
-        private int norm, fu_a, fu_b, stap_a;
-        private readonly int stap_b;
-        private readonly int mtap16;
-        private readonly int mtap24; // used for diagnostics stats
+        private int norm, fu_a, fu_b, stap_a, stap_b, mtap16, mtap24; // used for diagnostics stats
 
         // Stores the NAL units for a Video Frame. May be more than one NAL unit in a video frame.
         private readonly List<ReadOnlyMemory<byte>> nalUnits = [];
@@ -90,6 +87,21 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                 {
                     LogManager.Warning(err, "H264 Aggregate Packet processing error");
                 }
+            }
+            else if (nal_header_type == 25)
+            {
+                LogManager.Debug("Agg STAP-B not supported");
+                stap_b++;
+            }
+            else if (nal_header_type == 26)
+            {
+                LogManager.Debug("Agg MTAP16 not supported");
+                mtap16++;
+            }
+            else if (nal_header_type == 27)
+            {
+                LogManager.Debug("Agg MTAP24 not supported");
+                mtap24++;
             }
             // FU-A (분할 패킷)
             else if (nal_header_type == 28)

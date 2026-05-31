@@ -23,13 +23,13 @@ namespace OPNX.Lib.Common.Buffers
         public Memory<byte> GetMemory(int sizeHint = 0)
         {
             Ensure(sizeHint);
-            return _owner.Memory[.._written];
+            return _owner.Memory.Slice(_written);
         }
 
         public Span<byte> GetSpan(int sizeHint = 0)
         {
             Ensure(sizeHint);
-            return _owner.Memory.Span[.._written];
+            return _owner.Memory.Span.Slice(_written);
         }
 
         private void Ensure(int sizeHint)

@@ -35,7 +35,7 @@
         public void AddTransport(RtspTransport newTransport)
         {
             string actualTransport = string.Empty;
-            if (Headers.TryGetValue(RtspHeaderNames.Transport, out string value))
+            if (Headers.TryGetValue(RtspHeaderNames.Transport, out string? value))
             {
                 actualTransport = value + ",";
             }

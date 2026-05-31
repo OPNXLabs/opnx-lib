@@ -178,7 +178,7 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
         /// Gets the session ID.
         /// </summary>
         /// <value>The session ID.</value>
-        public override string Session
+        public override string? Session
         {
             get
             {
@@ -204,6 +204,6 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
         /// Gets or sets the original request associate with the response.
         /// </summary>
         /// <value>The original request.</value>
-        public RtspRequest OriginalRequest { get; set; }
+        public RtspRequest? OriginalRequest { get; set; }
     }
 }

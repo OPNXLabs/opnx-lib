@@ -195,12 +195,12 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             _connection?.Connect(endPoint);
         }
 
-        public async Task ConnectAsync(EndPoint endPoint, CancellationToken cancellationToken = default)
+        public async Task<bool> ConnectAsync(EndPoint endPoint, CancellationToken cancellationToken = default)
         {
             if (IsDisposed || _connection is null)
-                return;
+                return false;
 
-            await _connection.ConnectAsync(endPoint, cancellationToken).ConfigureAwait(false);
+            return await _connection.ConnectAsync(endPoint, cancellationToken).ConfigureAwait(false);
         }
 
         public void Disconnect(DisconnectReason reason = DisconnectReason.Requested)
@@ -306,7 +306,15 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     //var (packetData, packetDataSize) = await Task.Run(() =>
                     //_zstd.Decompress(payload), cencelToken).ConfigureAwait(false);
                     var (owner, size) = _zstd.Decompress(payload);
-                    return new Packet(header, owner, size);
+                    var decompressedHeader = new PacketHeader(
+                        header.Flags & ~PacketFlags.Compressed,
+                        header.PacketType,
+                        header.PayloadType,
+                        checked((uint)size),
+                        header.Version,
+                        header.Reserved);
+
+                    return new Packet(decompressedHeader, owner, size);
                 }
                 else
                 {
@@ -712,7 +720,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                         try
                         {
                             MarkInboundProcessed(packet.Payload.Length);
-                            OnPacketReceived(new PacketReceivedEventArgs(_connection.SessionID, packet.Header, packet.Payload));
+                            OnPacketReceived(new PacketReceivedEventArgs(SessionID, packet.Header, packet.Payload));
                         }
                         catch (Exception ex)
                         {

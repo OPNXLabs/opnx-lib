@@ -108,17 +108,17 @@ mode                =    <"> *Method <"> | Method
         /// Gets or sets the destination.
         /// </summary>
         /// <value>The destination.</value>
-        public string Destination { get; set; }
+        public string? Destination { get; set; }
         /// <summary>
         /// Gets or sets the source.
         /// </summary>
         /// <value>The source.</value>
-        public string Source { get; set; }
+        public string? Source { get; set; }
         /// <summary>
         /// Gets or sets the interleaved.
         /// </summary>
         /// <value>The interleaved.</value>
-        public PortCouple Interleaved { get; set; }
+        public PortCouple? Interleaved { get; set; }
         /// <summary>
         /// Gets or sets a value indicating whether this instance is append.
         /// </summary>
@@ -138,27 +138,27 @@ mode                =    <"> *Method <"> | Method
         /// Gets or sets the port.
         /// </summary>
         /// <value>The port.</value>
-        public PortCouple Port { get; set; }
+        public PortCouple? Port { get; set; }
         /// <summary>
         /// Gets or sets the client port.
         /// </summary>
         /// <value>The client port.</value>
-        public PortCouple ClientPort { get; set; }
+        public PortCouple? ClientPort { get; set; }
         /// <summary>
         /// Gets or sets the server port.
         /// </summary>
         /// <value>The server port.</value>
-        public PortCouple ServerPort { get; set; }
+        public PortCouple? ServerPort { get; set; }
         /// <summary>
         /// Gets or sets the S SRC.
         /// </summary>
         /// <value>The S SRC.</value>
-        public string SSrc { get; set; }
+        public string? SSrc { get; set; }
         /// <summary>
         /// Gets or sets the mode.
         /// </summary>
         /// <value>The mode.</value>
-        public string Mode { get; set; } = "PLAY";
+        public string? Mode { get; set; } = "PLAY";
 
         /// <summary>
         /// Parses the specified transport string.
@@ -168,11 +168,11 @@ mode                =    <"> *Method <"> | Method
         /// <exception cref="ArgumentNullException"><paramref name="aTransportString"/> is null.</exception>
         public static RtspTransport Parse(string aTransportString)
         {
-            if (aTransportString == null)
-                throw new ArgumentNullException("aTransportString");
+            ArgumentNullException.ThrowIfNull(aTransportString);
+            
             Contract.EndContractBlock();
 
-            RtspTransport returnValue = new RtspTransport();
+            RtspTransport returnValue = new();
 
             string[] transportPart = aTransportString.Split(';');
             string[] transportProtocolPart = transportPart[0].Split('/');
@@ -204,7 +204,7 @@ mode                =    <"> *Method <"> | Method
                     case "INTERLEAVED":
                         returnValue.IsMulticast = false;
                         if (subPart.Length < 2)
-                            throw new ArgumentException("interleaved value invalid", "aTransportString");
+                            throw new ArgumentException("interleaved value invalid", nameof(aTransportString));
 
                         returnValue.Interleaved = PortCouple.Parse(subPart[1]);
                         break;
@@ -213,37 +213,37 @@ mode                =    <"> *Method <"> | Method
                         break;
                     case "TTL":
                         if (subPart.Length < 2 || !int.TryParse(subPart[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ttl))
-                            throw new ArgumentException("TTL value invalid", "aTransportString");
+                            throw new ArgumentException("TTL value invalid", nameof(aTransportString));
                         returnValue.TTL = ttl;
                         break;
                     case "LAYERS":
                         if (subPart.Length < 2 || !int.TryParse(subPart[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var layers))
-                            throw new ArgumentException("Layers value invalid", "aTransportString");
+                            throw new ArgumentException("Layers value invalid", nameof(aTransportString));
                         returnValue.Layers = layers;
                         break;
                     case "PORT":
                         if (subPart.Length < 2)
-                            throw new ArgumentException("Port value invalid", "aTransportString");
+                            throw new ArgumentException("Port value invalid", nameof(aTransportString));
                         returnValue.Port = PortCouple.Parse(subPart[1]);
                         break;
                     case "CLIENT_PORT":
                         if (subPart.Length < 2)
-                            throw new ArgumentException("client_port value invalid", "aTransportString");
+                            throw new ArgumentException("client_port value invalid", nameof(aTransportString));
                         returnValue.ClientPort = PortCouple.Parse(subPart[1]);
                         break;
                     case "SERVER_PORT":
                         if (subPart.Length < 2)
-                            throw new ArgumentException("server_port value invalid", "aTransportString");
+                            throw new ArgumentException("server_port value invalid", nameof(aTransportString));
                         returnValue.ServerPort = PortCouple.Parse(subPart[1]);
                         break;
                     case "SSRC":
                         if (subPart.Length < 2)
-                            throw new ArgumentException("ssrc value invalid", "aTransportString");
+                            throw new ArgumentException("ssrc value invalid", nameof(aTransportString));
                         returnValue.SSrc = subPart[1];
                         break;
                     case "MODE":
                         if (subPart.Length < 2)
-                            throw new ArgumentException("mode value invalid", "aTransportString");
+                            throw new ArgumentException("mode value invalid", nameof(aTransportString));
                         returnValue.Mode = subPart[1];
                         break;
                 }
@@ -262,17 +262,15 @@ mode                =    <"> *Method <"> | Method
 
         private static void ReadProfile(RtspTransport returnValue, string[] transportProtocolPart)
         {
-            ProfileType profile;
-            if (transportProtocolPart.Length < 2 || !Enum.TryParse<ProfileType>(transportProtocolPart[1], out profile))
-                throw new ArgumentException("Transport profile type invalid", "aTransportString");
+            if (transportProtocolPart.Length < 2 || !Enum.TryParse(transportProtocolPart[1], out ProfileType profile))
+                throw new ArgumentException("Transport profile type invalid", nameof(transportProtocolPart));
             returnValue.Profile = profile;
         }
 
         private static void ReadTransport(RtspTransport returnValue, string[] transportProtocolPart)
         {
-            TransportType transport;
-            if (!Enum.TryParse<TransportType>(transportProtocolPart[0], out transport))
-                throw new ArgumentException("Transport type invalid", "aTransportString");
+            if (!Enum.TryParse(transportProtocolPart[0], out TransportType transport))
+                throw new ArgumentException("Transport type invalid", nameof(transportProtocolPart));
             returnValue.Transport = transport;
         }
 
@@ -284,7 +282,7 @@ mode                =    <"> *Method <"> | Method
         /// </returns>
         public override string ToString()
         {
-            StringBuilder transportString = new StringBuilder();
+            StringBuilder transportString = new();
             transportString.Append(Transport.ToString());
             transportString.Append('/');
             transportString.Append(Profile.ToString());

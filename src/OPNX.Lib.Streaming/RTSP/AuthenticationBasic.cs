@@ -4,16 +4,11 @@ using System.Text;
 
 namespace OPNX.Lib.Streaming.RTSP
 {
-    public class AuthenticationBasic : Authentication
+    public class AuthenticationBasic(NetworkCredential? credentials, string realm) : Authentication(credentials)
     {
         public const string AUTHENTICATION_PREFIX = "Basic ";
 
-        private readonly string _realm;
-
-        public AuthenticationBasic(NetworkCredential credentials, string realm) : base(credentials)
-        {
-            _realm = realm ?? throw new ArgumentNullException(nameof(realm));
-        }
+        private readonly string _realm = realm ?? throw new ArgumentNullException(nameof(realm));
 
         public override string GetResponse(uint nonceCounter, string uri, string method, ReadOnlySpan<byte> entityBodyBytes)
         {
@@ -28,7 +23,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public override bool IsValid(RtspRequest receivedMessage)
         {
-            string authorization = receivedMessage.Headers["Authorization"];
+            string? authorization = receivedMessage.Headers["Authorization"];
 
             // Check Username and Password
             if (authorization?.StartsWith(AUTHENTICATION_PREFIX, StringComparison.OrdinalIgnoreCase) != true)

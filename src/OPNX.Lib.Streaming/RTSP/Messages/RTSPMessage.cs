@@ -97,7 +97,7 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
         /// Gets the headers of the message.
         /// </summary>
         /// <value>The headers.</value>
-        public IDictionary<string, string> Headers { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public IDictionary<string, string?> Headers { get; } = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Adds one header from a string.
@@ -129,7 +129,7 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
         {
             get
             {
-                if (!(Headers.TryGetValue(RtspHeaderNames.CSeq, out string returnStringValue) &&
+                if (!(Headers.TryGetValue(RtspHeaderNames.CSeq, out string? returnStringValue) &&
                     int.TryParse(returnStringValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int returnValue)))
                 {
                     returnValue = 0;
@@ -147,10 +147,10 @@ namespace OPNX.Lib.Streaming.RTSP.Messages
         /// Gets the session ID.
         /// </summary>
         /// <value>The session ID.</value>
-        public virtual string Session
+        public virtual string? Session
         {
-            get => !Headers.TryGetValue(RtspHeaderNames.Session, out string value) ? null : value;
-            set => Headers[RtspHeaderNames.Session] = value;
+            get => !Headers.TryGetValue(RtspHeaderNames.Session, out string? value) ? null : value;
+            set => Headers[RtspHeaderNames.Session] = value!;
         }
 
         /// <summary>

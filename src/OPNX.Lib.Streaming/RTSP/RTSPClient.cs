@@ -43,19 +43,19 @@ namespace OPNX.Lib.Streaming.RTSP
             Connected
         };
 
-        private IRtspTransport _rtspSocket = null; // RTSP connection
+        private IRtspTransport? _rtspSocket = null; // RTSP connection
         private volatile RTSP_STATUS rtspSocketStatus = RTSP_STATUS.WaitingToConnect;
-        private RTSPListener _rtspClient = null;   // this wraps around a the RTSP tcp_socket stream
+        private RTSPListener? _rtspClient = null;   // this wraps around a the RTSP tcp_socket stream
         private RTP_TRANSPORT _rtpTransport = RTP_TRANSPORT.UDP; // Mode, either RTP over UDP or RTP over TCP using the RTSP socket
 
-        private IRtpTransport videoRtpTransport;
-        private IRtpTransport audioRtpTransport;
+        private IRtpTransport? videoRtpTransport;
+        private IRtpTransport? audioRtpTransport;
 
-        private Authentication _authentication;
-        private NetworkCredential _credentials = new();
+        private Authentication? _authentication;
+        private NetworkCredential? _credentials = new();
 
         private readonly uint _ssrc = 12345;
-        private Uri _uri = null;
+        private Uri? _uri = null;
         private string _session = "";             // RTSP Session
 
         private bool clientWantsVideo = false; // Client wants to receive Video
@@ -70,7 +70,7 @@ namespace OPNX.Lib.Streaming.RTSP
         private readonly List<Uri> audio_uris = [];
 
         private bool _serverSupportsGetParameter = false; // Used with RTSP keepalive        
-        private readonly System.Timers.Timer _keepaliveTimer = null; // Used with RTSP keepalive
+        private readonly System.Timers.Timer? _keepaliveTimer = null; // Used with RTSP keepalive
 
         private readonly Dictionary<int, string> videoPayloadMapping = [];
         private readonly Dictionary<int, string> audioPayloadMapping = [];
@@ -111,11 +111,11 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
 
         #region Events
-        public event EventHandler<StreamStartedEventArgs> Started;
-        public event EventHandler<StreamStoppedEventArgs> Stopped;
-        public event EventHandler<StreamConfigurationDataEventArgs> StreamConfigured;
-        public event EventHandler<RTPDataEventArgs> RtpPacketReceived;
-        public event EventHandler<NalUnitDataEventArgs> NalUnitExtracted;
+        public event EventHandler<StreamStartedEventArgs>? Started;
+        public event EventHandler<StreamStoppedEventArgs>? Stopped;
+        public event EventHandler<StreamConfigurationDataEventArgs>? StreamConfigured;
+        public event EventHandler<RTPDataEventArgs>? RtpPacketReceived;
+        public event EventHandler<NalUnitDataEventArgs>? NalUnitExtracted;
         #endregion
 
         #region Properties
@@ -123,7 +123,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public VideoSource VideoSource => _videoSource;
         public int EntityID => _videoSource.EntityID;
-        public string URL => _videoSource.RtspURL;
+        public string? URL => _videoSource.RtspURL;
 
         public bool IsConnected => rtspSocketStatus == RTSP_STATUS.Connected;
 
@@ -134,8 +134,8 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public double BitRate => _bitrate;
 
-        string _setupPreferredVideoRtpMap = null;
-        string _setupPreferredAudioRtpMap = null;
+        string? _setupPreferredVideoRtpMap = null;
+        string? _setupPreferredAudioRtpMap = null;
 
         #endregion
 
@@ -305,7 +305,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 _rtspClient.SendMessage(teardownMessage);
             }
 
-            _keepaliveTimer.Stop();
+            _keepaliveTimer?.Stop();
 
             foreach (var transport in new[] { videoRtpTransport, audioRtpTransport })
             {
@@ -376,7 +376,8 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public async Task<bool> StopAsync(RTSPClientStopReason reason)
         {
-            if (_rtspSocket is null || _uri is null)
+            var rtspClient = _rtspClient;
+            if (_rtspSocket is null || _uri is null || rtspClient is null)
             {
                 _logger.Information("Not connected");
                 return false;
@@ -389,9 +390,9 @@ namespace OPNX.Lib.Streaming.RTSP
                 Session = _session
             };
             teardownMessage.AddAuthorization(_authentication, _uri, _rtspSocket?.NextCommandIndex() ?? 0);
-            await _rtspClient.SendMessageAsync(teardownMessage);
+            await rtspClient.SendMessageAsync(teardownMessage);
 
-            _keepaliveTimer.Stop();
+            _keepaliveTimer?.Stop();
 
             foreach (var transport in new[] { videoRtpTransport, audioRtpTransport })
             {
@@ -461,7 +462,7 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
 
         #region Private / Protected Methods
-        private void RtcpControlDataReceived(object sender, RtspDataEventArgs e)
+        private void RtcpControlDataReceived(object? sender, RtspDataEventArgs e)
         {
             if (e.Data.Data.IsEmpty)
                 return;
@@ -550,7 +551,7 @@ namespace OPNX.Lib.Streaming.RTSP
             Stopped?.Invoke(this, new(reason));
         }
 
-        protected void OnStreamConfigured(ChannelTypes channelType, string payloadName, IStreamConfigurationData streamConfigurationData)
+        protected void OnStreamConfigured(ChannelTypes channelType, string payloadName, IStreamConfigurationData? streamConfigurationData)
         {
             StreamConfigured?.Invoke(this, new(channelType, payloadName, streamConfigurationData));
         }
@@ -577,14 +578,24 @@ namespace OPNX.Lib.Streaming.RTSP
                                         RTP_TRANSPORT rtpTransport,
                                         MEDIA_REQUEST mediaRequest = MEDIA_REQUEST.VIDEO_AND_AUDIO,
                                         bool playbackSession = false,
-                                        string rtpMapVideo = null,
-                                        string rtpMapAudio = null,
-                                        RemoteCertificateValidationCallback userCertificateSelectionCallback = null)
+                                        string? rtpMapVideo = null,
+                                        string? rtpMapAudio = null,
+                                        RemoteCertificateValidationCallback? userCertificateSelectionCallback = null)
         {
+
+            ArgumentNullException.ThrowIfNull(videoSource);
+
+            if (!Uri.TryCreate(videoSource.RtspURL, UriKind.Absolute, out Uri? uri))
+            {
+                throw new ArgumentException(
+                    $"Invalid RTSP URL: '{videoSource.RtspURL}'",
+                    nameof(videoSource));
+            }
+
             RtspUtils.RegisterUri();
 
             _logger.Debug($"{EntityID} Connecting to " + videoSource.RtspURL);
-            _uri = new Uri(videoSource.RtspURL);
+            _uri = uri;
 
             _playbackSession = playbackSession;
             _setupPreferredVideoRtpMap = rtpMapVideo;
@@ -706,12 +717,12 @@ namespace OPNX.Lib.Streaming.RTSP
             _ready = false;
         }
 
-        private void RtspClient_Opened(object sender, EventArgs e)
+        private void RtspClient_Opened(object? sender, EventArgs e)
         {
 
         }
 
-        private void RtspClient_Closed(object sender, EventArgs e)
+        private void RtspClient_Closed(object? sender, EventArgs e)
         {
             Stop(RTSPClientStopReason.CONNECTION_LOST);
         }
@@ -1354,7 +1365,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    }
         //}
 
-        private RtspTransport CalculateTransport(IRtpTransport transport)
+        private RtspTransport? CalculateTransport(IRtpTransport? transport)
         {
             return _rtpTransport switch
             {
@@ -1860,7 +1871,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    }
         //}
 
-        private void AudioRtpTransport_DataReceived(object sender, RtspDataEventArgs e)
+        private void AudioRtpTransport_DataReceived(object? sender, RtspDataEventArgs e)
         {
             if (e.Data.Data.IsEmpty)
                 return;
@@ -1869,13 +1880,13 @@ namespace OPNX.Lib.Streaming.RTSP
 
             var rtpPacket = new RTPPacket(e.Data.Data.Span);
 
-            if (!audioPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor audioPayloadProcessor))
+            if (!audioPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor? audioPayloadProcessor))
             {
                 _logger.Debug($"No audiopayload for this type.");
                 return;
             }
 
-            if (!audioPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string payloadName))
+            if (!audioPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string? payloadName))
             {
                 _logger.Debug($"No audiopayload mapping for this type.");
                 return;
@@ -1889,7 +1900,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
         }
 
-        private void VideoRtpTransport_DataReceived(object sender, RtspDataEventArgs e)
+        private void VideoRtpTransport_DataReceived(object? sender, RtspDataEventArgs e)
         {
             if (e.Data.Data.IsEmpty)
                 return;
@@ -1898,13 +1909,13 @@ namespace OPNX.Lib.Streaming.RTSP
 
             OnRtpPacketReceived(ChannelTypes.Video, e.Data.Data);
 
-            if (!videoPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor videoPayloadProcessor))
+            if (!videoPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor? videoPayloadProcessor))
             {
                 _logger.Warning($"No videopayload for this type.");
                 return;
             }
 
-            if (!videoPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string payloadName))
+            if (!videoPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string? payloadName))
             {
                 _logger.Warning($"No videopayload mapping for this type.");
                 return;
@@ -1966,7 +1977,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //}
 
         // RTSP Messages are OPTIONS, DESCRIBE, SETUP, PLAY etc
-        private void Rtsp_MessageReceived(object sender, RTSPChunkEventArgs e)
+        private void Rtsp_MessageReceived(object? sender, RTSPChunkEventArgs e)
         {
             if (e.Message is not RtspResponse message)
                 return;
@@ -1991,7 +2002,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
 
                 // Check if the Reply has an Authenticate header.
-                if (message.ReturnCode == 401 && message.Headers.TryGetValue(RtspHeaderNames.WWWAuthenticate, out string value))
+                if (message.ReturnCode == 401 && message.Headers.TryGetValue(RtspHeaderNames.WWWAuthenticate, out string? value))
                 {
                     // Process the WWW-Authenticate header
                     // EG:   Basic realm="AProxy"
@@ -2003,7 +2014,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     _logger.Debug("WWW Authorize parsed for {authentication}", _authentication);
                 }
 
-                RtspMessage resend_message = message.OriginalRequest?.Clone() as RtspMessage;
+                RtspMessage? resend_message = message.OriginalRequest?.Clone() as RtspMessage;
 
                 if (resend_message is not null)
                 {
@@ -2024,7 +2035,7 @@ namespace OPNX.Lib.Streaming.RTSP
                         var supportedCommand = RTSPHeaderUtils.ParsePublicHeader(message);
                         _serverSupportsGetParameter = supportedCommand.Contains("GET_PARAMETER", StringComparer.OrdinalIgnoreCase);
 
-                        _keepaliveTimer.Enabled = true;
+                        _keepaliveTimer?.Enabled = true;
 
                         // Send DESCRIBE
                         RtspRequest describe_message = new RtspRequestDescribe
@@ -2052,7 +2063,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
         }
 
-        private Uri GetControlUri(Media media)
+        private Uri? GetControlUri(Media media)
         {
             var attrib = media.Attributs.FirstOrDefault(a => a.Key == "control");
             if (attrib is null) return null;
@@ -2100,7 +2111,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 // Check if Transport header includes Multicast
                 if (transport.IsMulticast)
                 {
-                    string multicastAddress = transport.Destination;
+                    string? multicastAddress = transport.Destination;
                     var videoDataChannel = transport.Port?.First;
                     var videoRtcpChannel = transport.Port?.Second;
 
@@ -2126,7 +2137,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 // in the SETUP Reply (Panasonic have a camera that does this)
                 if (transport.LowerTransport == RtspTransport.LowerTransportType.TCP)
                 {
-                    RtpTcpTransport tcpTransport = null;
+                    RtpTcpTransport? tcpTransport = null;
                     if (isVideoChannel)
                     {
                         tcpTransport = videoRtpTransport as RtpTcpTransport;
@@ -2145,7 +2156,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 else if (!transport.IsMulticast)
                 {
-                    UDPSocket udpSocket = null;
+                    UDPSocket? udpSocket = null;
                     if (isVideoChannel)
                     {
                         udpSocket = videoRtpTransport as UDPSocket;
@@ -2229,13 +2240,13 @@ namespace OPNX.Lib.Streaming.RTSP
                 foreach (Media media in sdp_data.Medias.Where(m => m.MediaType == Media.MediaTypes.video))
                 {
                     int video_payload = -1;
-                    IPayloadProcessor videoPayloadProcessor = null;
+                    IPayloadProcessor? videoPayloadProcessor = null;
 
                     // search the attributes for control, rtpmap and fmtp
                     // holds SPS and PPS in base64 (h264 video)
-                    AttributFmtp fmtp = media.Attributs.FirstOrDefault(x => x.Key == "fmtp") as AttributFmtp;
-                    AttributRtpMap rtpmap = media.Attributs.FirstOrDefault(x => x.Key == "rtpmap") as AttributRtpMap;
-                    Uri video_uri = GetControlUri(media);
+                    AttributFmtp? fmtp = media.Attributs.FirstOrDefault(x => x.Key == "fmtp") as AttributFmtp;
+                    AttributRtpMap? rtpmap = media.Attributs.FirstOrDefault(x => x.Key == "rtpmap") as AttributRtpMap;
+                    Uri? video_uri = GetControlUri(media);
 
                     if (!string.IsNullOrEmpty(_setupPreferredVideoRtpMap) && !(rtpmap?.EncodingName?.Equals(_setupPreferredVideoRtpMap, StringComparison.OrdinalIgnoreCase) ?? true))
                     {
@@ -2324,7 +2335,7 @@ namespace OPNX.Lib.Streaming.RTSP
                         }
                     }
 
-                    IStreamConfigurationData streamConfigurationData = null;
+                    IStreamConfigurationData? streamConfigurationData = null;
 
                     if (videoPayloadProcessor is H264Payload && fmtp?.FormatParameter is not null)
                     {
@@ -2407,16 +2418,16 @@ namespace OPNX.Lib.Streaming.RTSP
                 {
                     int audio_payload = -1;
                     string audio_codec;
-                    IPayloadProcessor audioPayloadProcessor = null;
+                    IPayloadProcessor? audioPayloadProcessor = null;
 
                     // search the attributes for control, rtpmap and fmtp
-                    AttributFmtp fmtp = media.Attributs.FirstOrDefault(x => x.Key == "fmtp") as AttributFmtp;
-                    AttributRtpMap rtpmap = media.Attributs.FirstOrDefault(x => x.Key == "rtpmap") as AttributRtpMap;
+                    AttributFmtp? fmtp = media.Attributs.FirstOrDefault(x => x.Key == "fmtp") as AttributFmtp;
+                    AttributRtpMap? rtpmap = media.Attributs.FirstOrDefault(x => x.Key == "rtpmap") as AttributRtpMap;
 
-                    Uri audio_uri = GetControlUri(media);
+                    Uri? audio_uri = GetControlUri(media);
                     audio_payload = media.PayloadType;
 
-                    IStreamConfigurationData streamConfigurationData = null;
+                    IStreamConfigurationData? streamConfigurationData = null;
                     if (media.PayloadType < 96)
                     {
                         // fixed payload type
@@ -2458,7 +2469,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     // Send the SETUP RTSP command if we have a matching Payload Decoder
                     if (audioPayloadProcessor is not null)
                     {
-                        RtspTransport transport = CalculateTransport(audioRtpTransport);
+                        RtspTransport? transport = CalculateTransport(audioRtpTransport);
 
                         // Generate SETUP messages
                         if (transport != null)
@@ -2550,7 +2561,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    }
         //}
 
-        void SendKeepAlive(object sender, System.Timers.ElapsedEventArgs e)
+        void SendKeepAlive(object? sender, System.Timers.ElapsedEventArgs e)
         {
             // Send Keepalive message
             // The ONVIF Standard uses SET_PARAMETER as "an optional method to keep an RTSP session alive"

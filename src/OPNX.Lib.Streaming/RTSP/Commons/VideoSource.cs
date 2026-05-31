@@ -10,11 +10,11 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         public int EntityID { get; set; }
 
         [DataMember(Name = "rtspUrl", Order = 2)]
-        public string RtspURL { get; set; }
+        public string? RtspURL { get; set; }
         [DataMember(Name = "rtspID", Order = 3)]
-        public string RtspID { get; set; }
+        public string? RtspID { get; set; }
         [DataMember(Name = "rtspPW", Order = 4)]
-        public string RtspPW { get; set; }
+        public string? RtspPW { get; set; }
 
         [DataMember(Name = "useTCP", Order = 5)]
         public bool UseTCP { get; set; } = true;

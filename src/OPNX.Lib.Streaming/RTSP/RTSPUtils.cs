@@ -22,7 +22,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
         }
 
-        public static IRtspTransport CreateRtspTransportFromUrl(Uri uri, NetworkCredential networkCredential, RemoteCertificateValidationCallback userCertificateSelectionCallback = null)
+        public static IRtspTransport CreateRtspTransportFromUrl(Uri uri, NetworkCredential networkCredential, RemoteCertificateValidationCallback? userCertificateSelectionCallback = null)
         {
             return uri.Scheme switch
             {
@@ -34,7 +34,7 @@ namespace OPNX.Lib.Streaming.RTSP
             };
         }
 
-        public static IRtspTransport CreateRtspTransportFromUrl(Uri uri, RemoteCertificateValidationCallback userCertificateSelectionCallback = null)
+        public static IRtspTransport CreateRtspTransportFromUrl(Uri uri, RemoteCertificateValidationCallback? userCertificateSelectionCallback = null)
         {
             // Keep compatible argument with previous version
             // I need to check if any camera have authentification at http(s) level and not only at rtsp level

@@ -11,7 +11,7 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <param name="authentication">Authentication value</param>
         /// <param name="uri">Uri to connect to</param>
         /// <param name="commandCounter">A counter for authorization info.</param>
-        public static void AddAuthorization(this RtspMessage message, Authentication authentication, Uri uri, uint commandCounter)
+        public static void AddAuthorization(this RtspMessage message, Authentication? authentication, Uri uri, uint commandCounter)
         {
             if (authentication is null)
             {
@@ -25,7 +25,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
             //string authorization = authentication.GetResponse(commandCounter, uri.AbsoluteUri, message.Method, []);
             //string authorization = authentication.GetResponse(commandCounter, uri.AbsoluteUri, message.Method, Array.Empty<byte>());
-            string authorization = authentication.GetResponse(commandCounter, uri.AbsoluteUri, method, Array.Empty<byte>());
+            string authorization = authentication.GetResponse(commandCounter, uri.AbsoluteUri, method, []);
             // remove if already one...
             message.Headers.Remove(RtspHeaderNames.Authorization);
             message.Headers.Add(RtspHeaderNames.Authorization, authorization);

@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
-    public class JPEGPayload(MemoryPool<byte> memoryPool = null) : IPayloadProcessor
+    public class JPEGPayload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
     {
         const ushort MARKER_SOF0 = 0xffc0;          // start-of-frame, baseline scan
         const ushort MARKER_SOI = 0xffd8;           // start of image

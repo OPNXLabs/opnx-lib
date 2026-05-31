@@ -5,12 +5,12 @@ namespace OPNX.Lib.Streaming.RTSP
 {
     public class RTSPHttpsTransport : RTSPHttpTransport
     {
-        private readonly RemoteCertificateValidationCallback _userCertificateValidationCallback;
+        private readonly RemoteCertificateValidationCallback? _userCertificateValidationCallback;
 
         public RTSPHttpsTransport(
             Uri uri,
             NetworkCredential credentials,
-            RemoteCertificateValidationCallback userCertificateValidationCallback = null
+            RemoteCertificateValidationCallback? userCertificateValidationCallback = null
         ) : base(uri, credentials)
         {
             _userCertificateValidationCallback = userCertificateValidationCallback;

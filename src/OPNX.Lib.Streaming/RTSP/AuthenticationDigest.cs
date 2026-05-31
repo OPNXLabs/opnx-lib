@@ -13,7 +13,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         private readonly string _realm;
         private readonly string _nonce;
-        private readonly string _qop;
+        private readonly string? _qop;
         private readonly string _cnonce;
         private readonly HashAlgorithm _algorithm;
 
@@ -22,7 +22,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
         }
 
-        public AuthenticationDigest(NetworkCredential credentials, string realm, string nonce, string qop, HashAlgorithm algorithm)
+        public AuthenticationDigest(NetworkCredential? credentials, string realm, string nonce, string? qop, HashAlgorithm algorithm)
             : base(credentials)
         {
             _realm = realm ?? throw new ArgumentNullException(nameof(realm));
@@ -81,18 +81,18 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public override bool IsValid(RtspRequest receivedMessage)
         {
-            string authorization = receivedMessage.Headers["Authorization"];
+            string? authorization = receivedMessage.Headers["Authorization"];
 
             // Check Username, URI, Nonce and the MD5 hashed Response
             if (authorization?.StartsWith("Digest ", StringComparison.Ordinal) == true)
             {
                 // remove 'Digest '
                 var valueStr = authorization[7..];
-                string username = null;
-                string realm = null;
-                string nonce = null;
-                string uri = null;
-                string response = null;
+                string? username = null;
+                string? realm = null;
+                string? nonce = null;
+                string? uri = null;
+                string? response = null;
                 HashAlgorithm algorithm = HashAlgorithm.MD5; // algorithm is optional, and defaults to MD5
 
                 foreach (string value in valueStr.Split(','))

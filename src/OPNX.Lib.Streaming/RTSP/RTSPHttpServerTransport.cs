@@ -69,9 +69,9 @@ namespace OPNX.Lib.Streaming.RTSP
         }
 
         //private readonly ILogger _logger;
-        private TcpClient _postChannelClient;
-        private TcpClient _getChannelClient;
-        private Stream _stream;
+        private TcpClient? _postChannelClient;
+        private TcpClient? _getChannelClient;
+        private Stream? _stream;
         private uint _commandCounter;
         private bool _disposedValue;
         private readonly Pipe _decodedDataPipe = new();

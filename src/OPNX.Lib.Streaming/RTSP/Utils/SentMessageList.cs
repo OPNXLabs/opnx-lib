@@ -26,7 +26,7 @@ namespace OPNX.Lib.Streaming.RTSP.Utils
             }
         }
 
-        public bool TryPopValue(int cSeq, out RtspRequest originalRequest)
+        public bool TryPopValue(int cSeq, out RtspRequest? originalRequest)
         {
             lock (_sentMessage)
             {

@@ -5,7 +5,7 @@ using OPNX.Lib.Media.FFMpeg.EventHandlers;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed class FFmpegAudioEncoder : DisposableBase
+    public sealed class FFmpegAudioEncoder : DisposableObject
     {
         #region Fields
         private unsafe readonly AVCodec* _codec;
@@ -509,3 +509,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

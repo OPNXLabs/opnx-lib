@@ -11,7 +11,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
     /// <summary>
     /// OPNX.Common Transport: TCP 연결 + PipeReader/PipeWriter 제공 + 자동 재접속 옵션
     /// </summary>
-    public class TcpConnection : DisposableBase, IConnection
+    public class TcpConnection : DisposableObject, IConnection
     {
         #region Fields
         private readonly SemaphoreSlim _gate = new(1, 1);
@@ -48,9 +48,9 @@ namespace OPNX.Lib.Network.Transport.Tcp
         public IPEndPoint? RemoteEndPoint => _remoteEndPoint;
         public IPEndPoint? LocalEndPoint => _localEndPoint;
 
-        public string Address => RemoteEndPoint?.Address.ToString() ?? string.Empty;
+        public string Address => FormatAddress(RemoteEndPoint);
         public int Port => RemoteEndPoint?.Port ?? 0;
-        public string LocalAddress => LocalEndPoint?.Address.ToString() ?? string.Empty;
+        public string LocalAddress => FormatAddress(LocalEndPoint);
         public int LocalPort => LocalEndPoint?.Port ?? 0;
         public long ConnectAttemptCount => Interlocked.Read(ref _connectAttemptCount);
         public long SuccessfulConnectCount => Interlocked.Read(ref _successfulConnectCount);
@@ -279,6 +279,18 @@ namespace OPNX.Lib.Network.Transport.Tcp
         #endregion
 
         #region Private / Protected Methods
+        private static string FormatAddress(IPEndPoint? endPoint)
+        {
+            if (endPoint == null)
+                return string.Empty;
+
+            var address = endPoint.Address;
+
+            return address.IsIPv4MappedToIPv6
+                ? address.MapToIPv4().ToString()
+                : address.ToString();
+        }
+
         protected override void OnDispose()
         {
             OnDisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -540,3 +552,4 @@ namespace OPNX.Lib.Network.Transport.Tcp
         #endregion
     }
 }
+

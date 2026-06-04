@@ -6,7 +6,7 @@ using System.Drawing;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed class FFmpegVideoEncoder : DisposableBase
+    public sealed class FFmpegVideoEncoder : DisposableObject
     {
         #region Fields
         private const int DEFAULT_FPS_VALUE = 30;
@@ -386,3 +386,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

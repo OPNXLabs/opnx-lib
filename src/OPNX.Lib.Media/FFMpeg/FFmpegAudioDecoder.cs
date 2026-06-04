@@ -8,7 +8,7 @@ using System.Buffers;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed class FFmpegAudioDecoder : DisposableBase
+    public sealed class FFmpegAudioDecoder : DisposableObject
     {
         #region Fields
         private unsafe readonly AVCodec* _codec;
@@ -354,3 +354,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

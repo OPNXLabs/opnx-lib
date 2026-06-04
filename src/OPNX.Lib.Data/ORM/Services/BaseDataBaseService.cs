@@ -13,7 +13,7 @@ using System.Reflection;
 
 namespace OPNX.Lib.Data.ORM.Services
 {
-    public abstract class BaseDataBaseService : DisposableBase, IDataBaseService
+    public abstract class BaseDataBaseService : DisposableObject, IDataBaseService
     {
         #region Fields
         private int _commandTimeout = 10000;
@@ -712,3 +712,4 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
     }
 }
+

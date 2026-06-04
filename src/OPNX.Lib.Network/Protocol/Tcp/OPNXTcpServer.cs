@@ -4,7 +4,7 @@ using OPNX.Lib.Network.Transport.Tcp;
 
 namespace OPNX.Lib.Network.Protocol.Tcp
 {
-    public class OPNXTcpServer : DisposableBase
+    public class OPNXTcpServer : DisposableObject
     {
         #region Fields
         private readonly TcpAcceptor _tcpAcceptor;
@@ -60,3 +60,4 @@ namespace OPNX.Lib.Network.Protocol.Tcp
         #endregion
     }
 }
+

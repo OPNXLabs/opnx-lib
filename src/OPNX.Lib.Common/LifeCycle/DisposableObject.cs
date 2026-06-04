@@ -1,6 +1,6 @@
 ﻿namespace OPNX.Lib.Common.LifeCycle
 {
-    public abstract class DisposableBase : IDisposable, IAsyncDisposable
+    public abstract class DisposableObject : IDisposable, IAsyncDisposable
     {
         #region Fields
         private int _disposed;
@@ -43,3 +43,4 @@
         #endregion
     }
 }
+

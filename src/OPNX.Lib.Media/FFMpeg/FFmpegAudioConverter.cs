@@ -3,7 +3,7 @@ using OPNX.Lib.Common.LifeCycle;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed unsafe class FFmpegAudioConverter : DisposableBase
+    public sealed unsafe class FFmpegAudioConverter : DisposableObject
     {
         #region Fields
         private readonly SwrContext* _swrContext;
@@ -168,3 +168,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed class FFmpegVideoDecoder : DisposableBase, INotifyPropertyChanged
+    public sealed class FFmpegVideoDecoder : DisposableObject, INotifyPropertyChanged
     {
         #region Fields
         private const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
@@ -1210,3 +1210,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

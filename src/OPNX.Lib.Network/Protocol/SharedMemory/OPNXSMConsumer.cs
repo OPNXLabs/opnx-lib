@@ -13,7 +13,7 @@ using System.Threading.Channels;
 
 namespace OPNX.Lib.Network.Protocol.SharedMemory
 {
-    public class OPNXSMConsumer : DisposableBase
+    public class OPNXSMConsumer : DisposableObject
     {
         #region Fields
         private readonly SharedMemoryEndPoint _endPoint;
@@ -433,3 +433,4 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #endregion
     }
 }
+

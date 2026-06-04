@@ -13,7 +13,7 @@ using System.Runtime.CompilerServices;
 namespace OPNX.Lib.Data.ORM
 {
     [Serializable]
-    public partial class EntityStore : DisposableBase, IEntityStore, INotifyPropertyChanged
+    public partial class EntityStore : DisposableObject, IEntityStore, INotifyPropertyChanged
     {
         #region Fields
         private readonly ConcurrentDictionary<Type, object> _allEntitis = new();
@@ -416,3 +416,4 @@ namespace OPNX.Lib.Data.ORM
         #endregion
     }
 }
+

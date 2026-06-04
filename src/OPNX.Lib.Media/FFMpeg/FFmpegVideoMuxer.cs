@@ -5,7 +5,7 @@ using OPNX.Lib.Media.FFMpeg.Generic;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed unsafe class FFmpegVideoMuxer : DisposableBase
+    public sealed unsafe class FFmpegVideoMuxer : DisposableObject
     {
         #region Fields        
         private readonly AVOutputFormat* _outputFormat = null;
@@ -257,3 +257,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

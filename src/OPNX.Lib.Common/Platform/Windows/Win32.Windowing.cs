@@ -137,7 +137,7 @@ namespace OPNX.Lib.Common.Platform.Windows
         [LibraryImport("user32.dll", EntryPoint = "MonitorFromWindow")]
         private static partial IntPtr MonitorFromWindowNative(IntPtr hwnd, uint dwFlags);
 
-        [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfo")]
+        [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool GetMonitorInfoNative(IntPtr hMonitor, ref MonitorInfo lpmi);
 

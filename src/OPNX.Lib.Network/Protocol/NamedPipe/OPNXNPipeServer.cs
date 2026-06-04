@@ -14,7 +14,7 @@ using System.Threading.Channels;
 
 namespace OPNX.Lib.Network.Protocol.NamedPipe
 {
-    public class OPNXNPipeServer : DisposableBase
+    public class OPNXNPipeServer : DisposableObject
     {
         #region Fields
         private readonly NamedPipeAcceptor _npAcceptor;
@@ -735,3 +735,4 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         #endregion
     }
 }
+

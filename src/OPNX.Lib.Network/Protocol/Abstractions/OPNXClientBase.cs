@@ -13,7 +13,7 @@ using System.Threading.Channels;
 
 namespace OPNX.Lib.Network.Protocol.Abstractions
 {
-    public class OPNXClientBase : DisposableBase
+    public class OPNXClientBase : DisposableObject
     {
         #region Fields
         protected readonly IConnection _connection;
@@ -759,3 +759,4 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
         #endregion
     }
 }
+

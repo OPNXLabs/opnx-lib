@@ -8,7 +8,7 @@ using System.Net;
 
 namespace OPNX.Lib.Network.Transport.NamedPipe
 {
-    public class NamedPipeConnection(NamedPipeConnectionOptions? options = null) : DisposableBase, IConnection
+    public class NamedPipeConnection(NamedPipeConnectionOptions? options = null) : DisposableObject, IConnection
     {
         #region Fields
         // 상태 전이(Connect/Disconnect/Dispose)를 "한 번에 하나만" 수행하기 위한 게이트
@@ -262,3 +262,4 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
         #endregion
     }
 }
+

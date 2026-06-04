@@ -5,7 +5,7 @@ using System.Drawing;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
-    public sealed unsafe class FFmpegVideoConverter : DisposableBase
+    public sealed unsafe class FFmpegVideoConverter : DisposableObject
     {
         #region Fields
         //private readonly IntPtr _convertedFrameBufferPtr;
@@ -157,3 +157,4 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+

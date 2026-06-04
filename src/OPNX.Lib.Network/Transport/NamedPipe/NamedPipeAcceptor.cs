@@ -7,7 +7,7 @@ using System.IO.Pipes;
 
 namespace OPNX.Lib.Network.Transport.NamedPipe
 {
-    public class NamedPipeAcceptor(NamedPipeEndPoint nPipeEndPoint, NamedPipeConnectionOptions? options = null) : DisposableBase
+    public class NamedPipeAcceptor(NamedPipeEndPoint nPipeEndPoint, NamedPipeConnectionOptions? options = null) : DisposableObject
     {
         #region Fields
         private readonly NamedPipeEndPoint _nPipeEndPoint = nPipeEndPoint;
@@ -221,3 +221,4 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
         #endregion
     }
 }
+

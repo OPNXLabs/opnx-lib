@@ -14,7 +14,7 @@ using System.Threading.Channels;
 
 namespace OPNX.Lib.Network.Protocol.SharedMemory
 {
-    public class OPNXSMProducer : DisposableBase
+    public class OPNXSMProducer : DisposableObject
     {
         #region Fields
         private readonly SharedMemoryEndPoint _endPoint;
@@ -426,3 +426,4 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #endregion
     }
 }
+

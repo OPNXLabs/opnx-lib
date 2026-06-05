@@ -1,5 +1,4 @@
-﻿using OPNX.Lib.Common.Logging;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace OPNX.Lib.Common.Serialization
 {
@@ -53,9 +52,8 @@ namespace OPNX.Lib.Common.Serialization
                         return Convert.ChangeType(strValue, targetType);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return GetDefaultOrNull(targetType);
             }
         }
@@ -88,9 +86,8 @@ namespace OPNX.Lib.Common.Serialization
                     _ => GetDefaultOrNull(targetType)
                 };
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return GetDefaultOrNull(targetType);
             }
         }
@@ -130,9 +127,8 @@ namespace OPNX.Lib.Common.Serialization
 
                 return Convert.ChangeType(value, targetType);
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return GetDefaultOrNull(targetType);
             }
         }
@@ -170,3 +166,5 @@ namespace OPNX.Lib.Common.Serialization
             => type.IsValueType ? Activator.CreateInstance(type) : null;
     }
 }
+
+

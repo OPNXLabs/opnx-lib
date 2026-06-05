@@ -1,5 +1,4 @@
-using Microsoft.Win32;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Win32;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Security.Principal;
@@ -35,9 +34,8 @@ namespace OPNX.Lib.Common.Platform.Windows
 
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Failed to install the service. ServiceName={serviceName}, Error={ex.Message}.");
                 return false;
             }
         }
@@ -52,9 +50,8 @@ namespace OPNX.Lib.Common.Platform.Windows
                 RunAsAdministrator("sc.exe", $"delete \"{serviceName}\"");
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Failed to uninstall the service. ServiceName={serviceName}, Error={ex.Message}.");
                 return false;
             }
         }
@@ -97,10 +94,11 @@ namespace OPNX.Lib.Common.Platform.Windows
                 process.Start();
                 process.WaitForExit();
             }
-            catch (System.ComponentModel.Win32Exception ex)
+            catch (System.ComponentModel.Win32Exception)
             {
-                LogManager.Error($"The administrator permission request was denied. Error={ex.Message}.");
             }
         }
     }
 }
+
+

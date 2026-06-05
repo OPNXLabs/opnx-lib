@@ -1,5 +1,4 @@
-﻿using OPNX.Lib.Common.Logging;
-using System.Net;
+﻿using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
@@ -28,9 +27,8 @@ namespace OPNX.Lib.Common.Network
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
 
             return false;
@@ -67,12 +65,14 @@ namespace OPNX.Lib.Common.Network
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
 
             return result;
         }
     }
 }
+
+
+

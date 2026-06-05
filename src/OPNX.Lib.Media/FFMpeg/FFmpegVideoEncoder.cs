@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Media.FFMpeg.EventHandlers;
 using System.Drawing;
 
@@ -26,22 +27,25 @@ namespace OPNX.Lib.Media.FFMpeg
 
         private readonly int _fps = DEFAULT_FPS_VALUE;
         private readonly int _gop = DEFAULT_GOP_VALUE;
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
-        public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height)
-            : this(hwDeviceType, codecID, pixelFormat, width, height, DEFAULT_FPS_VALUE, DEFAULT_GOP_VALUE)
+        public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height, ILogger? logger = null)
+            : this(hwDeviceType, codecID, pixelFormat, width, height, DEFAULT_FPS_VALUE, DEFAULT_GOP_VALUE, logger)
         {
         }
 
-        public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height, int fps, int gop)
-            : this(hwDeviceType, codecID, pixelFormat, width, height, fps, gop, FFmpegHelper.CalculateMiddleBitrate(codecID, width, height))
+        public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height, int fps, int gop, ILogger? logger = null)
+            : this(hwDeviceType, codecID, pixelFormat, width, height, fps, gop, FFmpegHelper.CalculateMiddleBitrate(codecID, width, height), logger)
         {
         }
         public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat,
-            int width, int height, int fps, int gop, long bitRate)
+            int width, int height, int fps, int gop, long bitRate, ILogger? logger = null)
             : base()
         {
+            _logger = logger ?? NullLogger.Instance;
+
             try
             {
                 _fps = fps;
@@ -187,7 +191,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -305,7 +309,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -380,10 +384,11 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
     }
 }
+
 

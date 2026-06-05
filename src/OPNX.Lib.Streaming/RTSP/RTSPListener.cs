@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Messages;
 using OPNX.Lib.Streaming.RTSP.Utils;
 using System.Buffers;
@@ -38,7 +39,7 @@ namespace OPNX.Lib.Streaming.RTSP
             MoreInterleavedData,
         }
 
-        //private readonly ILogger _logger;
+        private readonly ILogger _logger;
         private readonly MemoryPool<byte> _memoryPool;
         private readonly IRtspTransport _transport;
         private readonly SentMessageList _sentMessage = new();
@@ -62,8 +63,10 @@ namespace OPNX.Lib.Streaming.RTSP
         //    MemoryPool<byte> memoryPool = null)
         public RTSPListener(
             IRtspTransport connection,
-            MemoryPool<byte>? memoryPool = null)
+            MemoryPool<byte>? memoryPool = null,
+            ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
             //_logger = logger as ILogger ?? NullLogger.Instance;
             _memoryPool = memoryPool ?? MemoryPool<byte>.Shared;
 
@@ -166,7 +169,7 @@ namespace OPNX.Lib.Streaming.RTSP
             {
                 Opened?.Invoke(this, EventArgs.Empty); //cutom add
 
-                LogManager.Debug("Connection Open");
+                _logger.LogDebug("Connection Open");
                 //var pipe = PipeReader.Create(_stream);
                 while (_transport.Connected && !token.IsCancellationRequested)
                 {
@@ -191,8 +194,8 @@ namespace OPNX.Lib.Streaming.RTSP
                     {
                         // on logue le tout
                         if (currentMessage.SourcePort != null)
-                            LogManager.Debug("Receive from {remoteAdress}", currentMessage.SourcePort.RemoteEndPoint);
-                        LogManager.Debug("{message}", currentMessage);
+                            _logger.LogDebug("Receive from {remoteAdress}", currentMessage.SourcePort.RemoteEndPoint);
+                        _logger.LogDebug("{message}", currentMessage);
                     }
 
                     switch (currentMessage)
@@ -205,7 +208,7 @@ namespace OPNX.Lib.Streaming.RTSP
                             }
                             else
                             {
-                                LogManager.Warning("Receive response not asked {cseq}", response.CSeq);
+                                _logger.LogWarning("Receive response not asked {cseq}", response.CSeq);
                             }
                             OnMessageReceived(new RTSPChunkEventArgs(response));
                             break;
@@ -224,19 +227,19 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (IOException error)
             {
-                LogManager.Warning(error, "IO Error");
+                _logger.LogWarning(error, "IO Error");
             }
             catch (SocketException error)
             {
-                LogManager.Warning(error, "Socket Error");
+                _logger.LogWarning(error, "Socket Error");
             }
             catch (ObjectDisposedException error)
             {
-                LogManager.Warning(error, "Object Disposed");
+                _logger.LogWarning(error, "Object Disposed");
             }
             catch (Exception error)
             {
-                LogManager.Warning(error, "Unknow Error");
+                _logger.LogWarning(error, "Unknow Error");
             }
             finally
             {
@@ -244,7 +247,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 _transport.Close();
             }
 
-            LogManager.Debug("Connection Close");
+            _logger.LogDebug("Connection Close");
             Closed?.Invoke(this, EventArgs.Empty); //custom add
         }
 
@@ -273,7 +276,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 if (!AutoReconnect)
                     return false;
 
-                LogManager.Warning("Reconnect to a client, strange !!");
+                _logger.LogWarning("Reconnect to a client, strange !!");
                 try
                 {
                     Reconnect(); // 이 부분도 비동기화가 가능하면 await ReconnectAsync()로 변경 가능
@@ -292,7 +295,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 _sentMessage.Add(message.CSeq, originalMessage);
             }
 
-            LogManager.Debug("Send Message\n {message}", message);
+            _logger.LogDebug("Send Message\n {message}", message);
 
             await message.SendToAsync(_stream, cancellationToken).ConfigureAwait(false);
             return true;
@@ -317,7 +320,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 if (!AutoReconnect)
                     return false;
 
-                LogManager.Warning("Reconnect to a client, strange !!");
+                _logger.LogWarning("Reconnect to a client, strange !!");
                 try
                 {
                     Reconnect();
@@ -340,7 +343,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 _sentMessage.Add(message.CSeq, originalMessage);
             }
 
-            LogManager.Debug("Send Message\n {message}", message);
+            _logger.LogDebug("Send Message\n {message}", message);
             message.SendTo(_stream);
             return true;
         }
@@ -569,7 +572,7 @@ namespace OPNX.Lib.Streaming.RTSP
                                 break;
                             }
                             byteReaden += byteCount;
-                            LogManager.Debug("Readen {byteReaden} byte of data", byteReaden);
+                            _logger.LogDebug("Readen {byteReaden} byte of data", byteReaden);
                         }
 
                         if (byteReaden >= currentMessage.Data.Length)
@@ -648,7 +651,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 if (!AutoReconnect)
                     throw new Exception("Connection is lost");
 
-                LogManager.Warning("Reconnect to a client, strange.");
+                _logger.LogWarning("Reconnect to a client, strange.");
                 Reconnect();
             }
 
@@ -695,7 +698,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 if (!AutoReconnect)
                     throw new Exception("Connection is lost");
 
-                LogManager.Warning("Reconnect to a client, strange.");
+                _logger.LogWarning("Reconnect to a client, strange.");
                 Reconnect();
             }
 
@@ -753,3 +756,5 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
     }
 }
+
+

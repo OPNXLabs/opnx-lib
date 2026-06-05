@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Buffers;
 using System.Buffers.Text;
 using System.IO.Pipelines;
@@ -68,7 +69,7 @@ namespace OPNX.Lib.Streaming.RTSP
             public override void Write(ReadOnlySpan<byte> buffer) => _outStream.Write(buffer);
         }
 
-        //private readonly ILogger _logger;
+        private readonly ILogger _logger;
         private TcpClient? _postChannelClient;
         private TcpClient? _getChannelClient;
         private Stream? _stream;
@@ -104,10 +105,10 @@ namespace OPNX.Lib.Streaming.RTSP
             }
         }
 
-        //internal RTSPHttpServerTransport(ILogger<RTSPHttpServerTransport> logger)
-        //{
-        //    _logger = logger as ILogger ?? NullLogger.Instance;
-        //}
+        public RTSPHttpServerTransport(ILogger? logger = null)
+        {
+            _logger = logger ?? NullLogger.Instance;
+        }
 
         public void Close()
         {
@@ -124,7 +125,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         internal UpdateState UpdatePostChannel(TcpClient client, Stream stream)
         {
-            LogManager.Debug("New post channel detected");
+            _logger.LogDebug("New post channel detected");
             var wasPresent = _postChannelClient != null;
             _postChannelClient?.Close();
 
@@ -173,12 +174,12 @@ namespace OPNX.Lib.Streaming.RTSP
                         if (flushResult.IsCompleted)
                         {
                             // reader is closed
-                            LogManager.Debug("Dest channel close");
+                            _logger.LogDebug("Dest channel close");
                             break;
                         }
                         if (sourceReadResult.IsCompleted)
                         {
-                            LogManager.Debug("Post Channel close");
+                            _logger.LogDebug("Post Channel close");
                             // source tcp is closed
                             break;
                         }
@@ -186,7 +187,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     }
                     else if (decodeResult != OperationStatus.NeedMoreData)
                     {
-                        LogManager.Warning("Invalid data receive for base64, fail to decode post channel, data ={data}",
+                        _logger.LogWarning("Invalid data receive for base64, fail to decode post channel, data ={data}",
                             Encoding.UTF8.GetString(sourceBuffer.Slice(0, roundLength).ToArray()));
                         break;
                     }
@@ -194,20 +195,20 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (OperationCanceledException)
             {
-                LogManager.Debug("Decode post channel canceled");
+                _logger.LogDebug("Decode post channel canceled");
             }
             catch (IOException ex)
             {
-                LogManager.Warning(ex, "Error during post channel decode");
+                _logger.LogWarning(ex, "Error during post channel decode");
             }
         }
 
         internal UpdateState UpdateGetChannel(TcpClient client, Stream stream)
         {
-            LogManager.Debug("New get channel");
+            _logger.LogDebug("New get channel");
             if (_getChannelClient != null)
             {
-                LogManager.Warning("Get channel already present, fail");
+                _logger.LogWarning("Get channel already present, fail");
                 return UpdateState.Error;
             }
             _getChannelClient = client;
@@ -242,3 +243,5 @@ namespace OPNX.Lib.Streaming.RTSP
         }
     }
 }
+
+

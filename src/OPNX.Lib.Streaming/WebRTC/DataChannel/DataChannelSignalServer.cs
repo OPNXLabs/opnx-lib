@@ -1,5 +1,6 @@
 ﻿using DataChannelDotnet.Bindings;
-using OPNX.Lib.Common.Logging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Events;
 using System.Collections.Concurrent;
@@ -14,9 +15,12 @@ namespace OPNX.Lib.Streaming.WebRTC.DataChannel
     {
         private readonly WebSocketServer webSocketServer;
         private readonly ConcurrentDictionary<Guid, DataChannelPeerConnection> connections = new();
+        private readonly ILogger _logger;
 
-        public DataChannelSignalServer(int port)
+        public DataChannelSignalServer(int port, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             webSocketServer = new WebSocketServer(IPAddress.Any, port);
 
             webSocketServer.AddWebSocketService<DataChannelClientSession>("/", client =>
@@ -79,7 +83,7 @@ namespace OPNX.Lib.Streaming.WebRTC.DataChannel
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -121,7 +125,7 @@ namespace OPNX.Lib.Streaming.WebRTC.DataChannel
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Exception in OnSocketOpened: {ex.Message}");
+                _logger.LogError($"Exception in OnSocketOpened: {ex.Message}");
                 return null;
             }
         }
@@ -233,6 +237,10 @@ namespace OPNX.Lib.Streaming.WebRTC.DataChannel
         }
     }
 }
+
+
+
+
 
 
 

@@ -1,7 +1,8 @@
-﻿using OPNX.Lib.Common.Buffers;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.Buffers;
 using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Network.Abstractions;
 using OPNX.Lib.Network.Abstractions.Events;
@@ -17,6 +18,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
     {
         #region Fields
         protected readonly IConnection _connection;
+        protected readonly ILogger _logger;
 
         private static readonly ZstdCompressionProvider _zstd = new();
 
@@ -35,8 +37,10 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
         #endregion
 
         #region Constructors
-        public OPNXClientBase(IConnection connection, ProtocolOptions? options = null)
+        public OPNXClientBase(IConnection connection, ProtocolOptions? options = null, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
             _connection.Connected += Connection_Connected;
             _connection.Disconnected += Connection_Disconnected;
@@ -131,7 +135,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -175,14 +179,14 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
                 packet.Dispose();
                 MarkDroppedPacket();
-                LogManager.Error("SendData: Channel full or closed.");
+                _logger.LogError("SendData: Channel full or closed.");
                 return false;
             }
             catch (Exception ex)
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -287,7 +291,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An error occurred while disposing the client. Error={ex}.");
+                _logger.LogError(ex, "An error occurred while disposing the client. Error={Message}.", ex.Message);
             }
             finally
             {
@@ -327,9 +331,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     return new Packet(header, owner2, size2);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Failed to process packet data. Error={ex}.");
                 throw;
             }
         }
@@ -426,7 +429,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 // 스냅샷 변수가 null일 수 있으니 아래 정리에서 방어됨
                 readTask = recvTask = sendTask = null;
                 cts = null;
@@ -454,9 +457,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
 
                 cts?.Dispose();
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
 
             MarkDisconnected();
@@ -480,7 +482,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return;
             }
             finally
@@ -566,7 +568,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                             catch (Exception ex)
                             {
                                 packet?.Dispose();
-                                LogManager.Error($"Failed to process the packet. Error={ex}.");
+                                _logger.LogError(ex, "Failed to process the packet. Error={Message}.", ex.Message);
                                 // 다음 프레임 계속
                             }
                         }
@@ -579,7 +581,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                                 disconnectReason = DisconnectReason.Error;
                                 protocolErrorDetected = true;
                                 consumed = buffer.End;
-                                LogManager.Warning("Malformed packet header detected. Closing connection.");
+                                _logger.LogWarning("Malformed packet header detected. Closing connection.");
                             }
                         }
 
@@ -587,7 +589,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Error($"Failed to process the buffer. Error={ex}.");
+                        _logger.LogError(ex, "Failed to process the buffer. Error={Message}.", ex.Message);
                     }
                     finally
                     {
@@ -597,7 +599,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                         }
                         catch (InvalidOperationException ex)
                         {
-                            LogManager.Warning($"Reader advance skipped during shutdown: {ex.Message}");
+                            _logger.LogWarning(ex, "Reader advance skipped during shutdown: {Message}", ex.Message);
                             stopProcessing = true;
                         }
                     }
@@ -619,11 +621,11 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
             catch (ObjectDisposedException ex)
             {
-                LogManager.Error($"Reader object disposed: {ex.Message}");
+                _logger.LogError(ex, "Reader object disposed: {Message}", ex.Message);
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An unexpected error occurred in the packet processor. Error={ex}.");
+                _logger.LogError(ex, "An unexpected error occurred in the packet processor. Error={Message}.", ex.Message);
             }
             finally
             {
@@ -633,7 +635,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"Failed to complete the reader. Error={ex}.");
+                    _logger.LogError(ex, "Failed to complete the reader. Error={Message}.", ex.Message);
                 }
 
                 Disconnect(disconnectReason);
@@ -682,7 +684,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             catch (Exception ex)
             {
                 // 다른 예외 처리
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
             finally
             {
@@ -692,9 +694,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                     if (writer != null)
                         await writer.CompleteAsync().ConfigureAwait(false);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    LogManager.Error(ex);
                 }
             }
         }
@@ -722,9 +723,8 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                             MarkInboundProcessed(packet.Payload.Length);
                             OnPacketReceived(new PacketReceivedEventArgs(SessionID, packet.Header, packet.Payload));
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            LogManager.Error(ex);
                         }
                     }
                 }
@@ -753,10 +753,14 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             catch (Exception ex)
             {
                 // 다른 예외 처리
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
     }
 }
+
+
+
+
 

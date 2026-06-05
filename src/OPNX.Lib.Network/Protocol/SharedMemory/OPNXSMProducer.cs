@@ -1,7 +1,8 @@
-﻿using OPNX.Lib.Common.Buffers;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.Buffers;
 using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Network.Protocol.Abstractions;
 using OPNX.Lib.Network.Protocol.Framing;
@@ -27,6 +28,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         private readonly EventWaitHandle _consumerEvent;
 
         private static readonly ZstdCompressionProvider _zstd = new();
+        private readonly ILogger _logger;
 
         private readonly CancellationTokenSource _sendDataCTS = new();
         private readonly Channel<Packet> _outboundChannel = Channel.CreateUnbounded<Packet>(
@@ -42,8 +44,9 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #endregion
 
         #region Constructors
-        public OPNXSMProducer(SharedMemoryEndPoint endPoint, ProtocolOptions? options = null)
+        public OPNXSMProducer(SharedMemoryEndPoint endPoint, ProtocolOptions? options = null, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
             ArgumentNullException.ThrowIfNull(endPoint, nameof(endPoint));
 
             _options = options ?? ProtocolOptions.Default;
@@ -162,7 +165,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -202,14 +205,14 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                     return true;
 
                 packet.Dispose();
-                LogManager.Error("SendData: Channel full or closed.");
+                _logger.LogError("SendData: Channel full or closed.");
                 return false;
             }
             catch (Exception ex)
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -273,7 +276,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                     {
                         if (!TryWriteToSharedMemory(hdr, packet.Payload.Span))
                         {
-                            LogManager.Warning("SharedMemory full - drop");
+                            _logger.LogWarning("SharedMemory full - drop");
                         }
                     }
                 }
@@ -284,7 +287,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"SendPacketProcessorAsync: {ex}");
+                _logger.LogError($"SendPacketProcessorAsync: {ex}");
             }
         }
 
@@ -409,7 +412,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An error occurred while shutting down the producer. Error={ex}.");
+                _logger.LogError($"An error occurred while shutting down the producer. Error={ex}.");
             }
             finally
             {
@@ -426,4 +429,9 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #endregion
     }
 }
+
+
+
+
+
 

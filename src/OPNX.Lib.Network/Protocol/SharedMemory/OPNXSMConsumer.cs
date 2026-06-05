@@ -1,6 +1,7 @@
-﻿using OPNX.Lib.Common.Compression;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Network.Abstractions.Events;
 using OPNX.Lib.Network.Protocol.Abstractions;
 using OPNX.Lib.Network.Protocol.Framing;
@@ -34,11 +35,13 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         private readonly ProtocolOptions _options;
 
         private static readonly ZstdCompressionProvider _zstd = new();
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
-        public OPNXSMConsumer(SharedMemoryEndPoint endPoint, ProtocolOptions? options = null)
+        public OPNXSMConsumer(SharedMemoryEndPoint endPoint, ProtocolOptions? options = null, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
             ArgumentNullException.ThrowIfNull(endPoint, nameof(endPoint));
 
             _options = options ?? ProtocolOptions.Default;
@@ -122,7 +125,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                         }
                         catch (Exception ex)
                         {
-                            LogManager.Error(ex);
+                            _logger.LogError(ex, "{Message}", ex.Message);
                         }
                     }
                 }
@@ -130,7 +133,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -193,7 +196,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                         catch (Exception ex)
                         {
                             packet?.Dispose();
-                            LogManager.Error($"Failed to process the packet. Error={ex}.");
+                            _logger.LogError($"Failed to process the packet. Error={ex}.");
                         }
                     }
                     finally
@@ -221,9 +224,8 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                 payload.CopyTo(owner2.Memory.Span);
                 return new Packet(header, owner2, size2);
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Failed to process packet data. Error={ex}.");
                 throw;
             }
         }
@@ -246,7 +248,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                     // Producer가 Mutex 잡은 채로 죽은 경우
                     // 이 경우에도 Mutex는 획득된 상태로 간주할 수 있음
                     lockTaken = true;
-                    LogManager.Warning($"[SharedMemory] Abandoned mutex detected. {ex.Message}");
+                    _logger.LogWarning($"[SharedMemory] Abandoned mutex detected. {ex.Message}");
                 }
 
                 if (!lockTaken)
@@ -415,7 +417,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An error occurred while shutting down the producer. Error={ex}.");
+                _logger.LogError($"An error occurred while shutting down the producer. Error={ex}.");
             }
             finally
             {
@@ -433,4 +435,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #endregion
     }
 }
+
+
+
+
+
+
+
 

@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.Primitives.Media;
 using OPNX.Lib.Streaming.WebRTC.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Events;
@@ -18,11 +19,14 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         private readonly WebSocketServer webSocketServer;
 
         private readonly ConcurrentDictionary<Guid, SipsorceryPeerConnection> connections = new();
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
-        public SipsorcerySignalServer(int port)
+        public SipsorcerySignalServer(int port, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             webSocketServer = new WebSocketServer(IPAddress.Any, port);
 
             webSocketServer.AddWebSocketService<SipsorceryClientSession>("/", (client) =>
@@ -38,7 +42,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
 
         #region Events                
         private void OnWebSocketOpened(WebSocketContext context, ref SipsorceryPeerConnection pc)
-        {            
+        {
             Guid connectionID = Guid.Parse(pc.SessionID);
             WebRtcClientOpenedEventArgs args = new(context.RequestUri, connectionID, pc.VideoSourceID);
             ClientOpened?.Invoke(this, args);
@@ -51,7 +55,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         {
             int videoSourceID = pc == null ? int.MinValue : pc.VideoSourceID;
             Guid connectionID = pc == null ? Guid.Empty : Guid.Parse(pc.SessionID);
-         
+
             ClientClosed?.Invoke(this, new WebRtcClientClosedEventArgs(context.RequestUri, connectionID, videoSourceID));
         }
 
@@ -145,7 +149,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -181,7 +185,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Exception in OnSocketOpened: {ex.Message}");
+                _logger.LogError($"Exception in OnSocketOpened: {ex.Message}");
                 return null;
             }
 
@@ -231,7 +235,7 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Exception in OnSocketClosed: {ex}");
+                _logger.LogError($"Exception in OnSocketClosed: {ex}");
             }
 
             OnWebSocketClosed(context, peerConnection);
@@ -452,6 +456,11 @@ namespace OPNX.Lib.Streaming.WebRTC.Sipsorcery
         #endregion
     }
 }
+
+
+
+
+
 
 
 

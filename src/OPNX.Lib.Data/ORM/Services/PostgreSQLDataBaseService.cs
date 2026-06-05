@@ -1,5 +1,6 @@
-﻿using Npgsql;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.Interfaces;
@@ -8,9 +9,11 @@ using System.Data.Common;
 
 namespace OPNX.Lib.Data.ORM.Services
 {
-    public class PostgreSQLDataBaseService(string connectionString, IEntityStore entityStore)
-        : BaseDataBaseService(connectionString, entityStore)
+    public class PostgreSQLDataBaseService(string connectionString, IEntityStore entityStore, ILogger? logger = null)
+        : BaseDataBaseService(connectionString, entityStore, logger)
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
+
         #region Public Methods                
         public override int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList)
         {
@@ -36,7 +39,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -78,7 +81,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -118,7 +121,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -262,3 +265,5 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
     }
 }
+
+

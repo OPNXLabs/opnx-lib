@@ -1,12 +1,15 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Network.Abstractions.Events;
 using System.Net;
 using System.Net.Sockets;
 
 namespace OPNX.Lib.Network.Transport.Tcp
 {
-    public class TcpAcceptor(string address, int port) : IDisposable
+    public class TcpAcceptor(string address, int port, ILogger? logger = null) : IDisposable
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
+
         #region Fields        
         private int _started = 0;
         private readonly string _address = address;
@@ -39,7 +42,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 Interlocked.Exchange(ref _started, 0);
             }
         }
@@ -57,7 +60,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             // ListenAsync가 완료될 때까지 기다립니다.
@@ -75,7 +78,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"listenTask 처리 중 예외 발생. {ex.Message}");
+                    _logger.LogError(ex, "listenTask 처리 중 예외 발생. {Message}", ex.Message);
                 }
             }
         }
@@ -95,7 +98,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
         {
             if (_listener?.Server?.IsBound != true)
             {
-                LogManager.Warning("TCP listener is not properly initialized or bound");
+                _logger.LogWarning("TCP listener is not properly initialized or bound");
                 return;
             }
 
@@ -117,7 +120,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                             }
                             catch (Exception ex)
                             {
-                                LogManager.Error(ex);
+                                _logger.LogError(ex, "{Message}", ex.Message);
                                 try { client?.Close(); } catch { }
                             }
 
@@ -130,7 +133,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                             //    }
                             //    catch (Exception ex)
                             //    {
-                            //        LogManager.Error($"ClientConnected event handler error: {ex}");
+                            //        _logger.LogError(ex, "ClientConnected event handler error: {Message}", ex.Message);
                             //        // 이벤트 처리 실패 시 클라이언트 정리
                             //        try { client?.Close(); } catch { }
                             //    }
@@ -150,12 +153,12 @@ namespace OPNX.Lib.Network.Transport.Tcp
                     catch (SocketException sockEx)
                     {
                         // 네트워크 관련 오류
-                        LogManager.Warning($"A socket error occurred while accepting the client. Error={sockEx.Message}.");
+                        _logger.LogWarning(sockEx, "A socket error occurred while accepting the client. Error={Message}.", sockEx.Message);
 
                         // 심각한 소켓 오류 시 잠시 대기 후 재시도
                         if (IsUnrecoverableSocketError(sockEx.SocketErrorCode))
                         {
-                            LogManager.Error($"Unrecoverable socket error: {sockEx.SocketErrorCode}");
+                            _logger.LogError(sockEx, "Unrecoverable socket error: {SocketErrorCode}", sockEx.SocketErrorCode);
                             break;
                         }
 
@@ -169,7 +172,7 @@ namespace OPNX.Lib.Network.Transport.Tcp
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Error($"An unexpected error occurred in the listener. Error={ex}.");
+                        _logger.LogError(ex, "An unexpected error occurred in the listener. Error={Message}.", ex.Message);
 
                         // 예상치 못한 오류 시 잠시 대기 후 재시도
                         try
@@ -229,3 +232,4 @@ namespace OPNX.Lib.Network.Transport.Tcp
         #endregion
     }
 }
+

@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Onvif;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -6,8 +7,9 @@ using System.Buffers.Binary;
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class H266Payload(bool hasDonl, ILogger<H266Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H266Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
+    public class H266Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null, ILogger? logger = null) : IPayloadProcessor
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
         // H266 / VVC structure.
@@ -47,14 +49,14 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             int Fbit = payloadHeader >> 15 & 0x01;
             if (Fbit != 0)
             {
-                LogManager.Warning("F Bit is set in H266 Payload Header, invalid packet");
+                _logger.LogWarning("F Bit is set in H266 Payload Header, invalid packet");
                 return;
             }
 
             int Zbit = payloadHeader >> 14 & 0x01;
             if (Zbit != 0)
             {
-                LogManager.Warning("Z Bit is set in H266 Payload Header, invalid packet");
+                _logger.LogWarning("Z Bit is set in H266 Payload Header, invalid packet");
                 return;
             }
 
@@ -83,7 +85,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                 // 14=VPS
                 // 15=SPS
                 // 16=PPS
-                LogManager.Verbose("Single NAL");
+                _logger.LogTrace("Single NAL");
                 var nalSpan = PrepareNewNal(payload.Length);
                 payload.CopyTo(nalSpan);
             }
@@ -91,7 +93,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
         private void AggragateFragmentationPayload(ReadOnlySpan<byte> payload, int payloadHeader)
         {
-            LogManager.Verbose("Fragmentation Unit");
+            _logger.LogTrace("Fragmentation Unit");
 
             // Parse Fragmentation Unit Header
             int fu_header_s = payload[2] >> 7 & 0x01;  // start marker
@@ -100,7 +102,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             int fu_header_type = payload[2] & 0x1F; // fu type
             //if (_logger.IsEnabled(LogLevel.Trace))
             //    _logger.LogTrace("Frag FU-A s={headerS} e={headerE} p={headerP}", fu_header_s, fu_header_e, fu_header_p);
-            LogManager.Verbose("Frag FU-A s={headerS} e={headerE} p={headerP}", fu_header_s, fu_header_e, fu_header_p);
+            _logger.LogTrace("Frag FU-A s={headerS} e={headerE} p={headerP}", fu_header_s, fu_header_e, fu_header_p);
 
 
             // Check Start and End flags
@@ -144,7 +146,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
         private void SplitAggregationPayload(ReadOnlySpan<byte> payload)
         {
-            LogManager.Verbose("Aggregation Packet");
+            _logger.LogTrace("Aggregation Packet");
 
             // RTP packet contains multiple NALs, each with a 16 bit header
             //   Read 16 byte size
@@ -169,7 +171,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "H266 Aggregate Packet processing error");
+                _logger.LogError(ex, "H266 Aggregate Packet processing error");
             }
         }
 
@@ -220,3 +222,5 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
         }
     }
 }
+
+

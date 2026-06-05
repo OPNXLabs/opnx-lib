@@ -21,7 +21,7 @@ namespace OPNX.Lib.Streaming.RTSP
             private readonly string _sessionCookie = Guid.NewGuid().ToString("N")[..10];
             private readonly RTSPHttpTransport _parent = parent;
             private TcpClient? _outClient;
-            private readonly MemoryStream _sendBuffer = new();            
+            private readonly MemoryStream _sendBuffer = new();
 
             internal bool Open()
             {
@@ -197,7 +197,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             ArgumentNullException.ThrowIfNull(uri);
 
-            ArgumentNullException.ThrowIfNull(credentials);            
+            ArgumentNullException.ThrowIfNull(credentials);
 
             try
             {

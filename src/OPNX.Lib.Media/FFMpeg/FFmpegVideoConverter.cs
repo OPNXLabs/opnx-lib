@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using System.Drawing;
 
 namespace OPNX.Lib.Media.FFMpeg
@@ -15,12 +16,15 @@ namespace OPNX.Lib.Media.FFMpeg
         private SwsContext* _swsContext;
         private Size _dstSize;
         private readonly AVPixelFormat _dstPixfmt;
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
         public FFmpegVideoConverter(Size sourceSize, AVPixelFormat sourcePixelFormat,
-            Size destinationSize, AVPixelFormat destinationPixelFormat)
+            Size destinationSize, AVPixelFormat destinationPixelFormat, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             _dstSize = destinationSize;
             _dstPixfmt = destinationPixelFormat;
 
@@ -41,7 +45,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             if (_swsContext == null)
@@ -114,7 +118,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
 
             }
 
@@ -151,10 +155,11 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
     }
 }
+
 

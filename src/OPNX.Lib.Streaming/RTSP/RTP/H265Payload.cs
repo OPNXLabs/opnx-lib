@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Onvif;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -11,8 +12,9 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
     // By Roger Hardiman, RJH Technical Consultancy Ltd
     //public class H265Payload(bool hasDonl, ILogger<H265Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H265Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
+    public class H265Payload(bool hasDonl, MemoryPool<byte>? memoryPool = null, ILogger? logger = null) : IPayloadProcessor
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
         // H265 / HEVC structure.
@@ -56,7 +58,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             int Fbit = payloadHeader >> 15 & 0x01;
             if (Fbit != 0)
             {
-                LogManager.Warning("F Bit is set in H265 Payload Header, invalid packet");
+                _logger.LogWarning("F Bit is set in H265 Payload Header, invalid packet");
                 return;
             }
 
@@ -85,7 +87,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                 // 32=VPS
                 // 33=SPS
                 // 34=PPS
-                LogManager.Verbose("Single NAL");
+                _logger.LogTrace("Single NAL");
                 var nalSpan = PrepareNewNal(payload.Length);
                 payload.CopyTo(nalSpan);
             }
@@ -93,7 +95,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
         private void AggragateFragmentationPayload(ReadOnlySpan<byte> payload, int payloadHeader)
         {
-            LogManager.Verbose("Fragmentation Unit");
+            _logger.LogTrace("Fragmentation Unit");
 
             // Parse Fragmentation Unit Header
             int fu_header_s = payload[2] >> 7 & 0x01;  // start marker
@@ -102,13 +104,13 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
             //if (_logger.IsEnabled(LogLevel.Trace))
             //    _logger.LogTrace("Frag FU-A s={headerS} e={headerE}", fu_header_s, fu_header_e);
-            LogManager.Verbose("Frag FU-A s={headerS} e={headerE}", fu_header_s, fu_header_e);
+            _logger.LogTrace("Frag FU-A s={headerS} e={headerE}", fu_header_s, fu_header_e);
 
 
             if (fu_header_type == 19)
             {
                 _isIFrame = true;
-                LogManager.Verbose("Detected I-Frame");
+                _logger.LogTrace("Detected I-Frame");
             }
             else
             {
@@ -157,7 +159,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
         private void SplitAggregationPayload(ReadOnlySpan<byte> payload)
         {
-            LogManager.Verbose("Aggregation Packet");
+            _logger.LogTrace("Aggregation Packet");
 
             // RTP packet contains multiple NALs, each with a 16 bit header
             //   Read 16 byte size
@@ -182,7 +184,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "H265 Aggregate Packet processing error");
+                _logger.LogError(ex, "H265 Aggregate Packet processing error");
             }
         }
 
@@ -257,3 +259,5 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
         }
     }
 }
+
+

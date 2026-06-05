@@ -12,6 +12,7 @@ namespace OPNX.Lib.Data.ORM.Serialization
             .. typeof(T).GetProperties()
                 .Where(property =>
                     property.CanRead &&
+                    property.CanWrite &&
                     property.GetIndexParameters().Length == 0 &&
                     Attribute.IsDefined(property, typeof(DataColumnAttribute)) &&
                     !Attribute.IsDefined(property, typeof(ForeignKeyAttribute)) &&
@@ -20,7 +21,42 @@ namespace OPNX.Lib.Data.ORM.Serialization
 
         public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            if (reader.TokenType == JsonTokenType.Null)
+                return default!;
+
+            if (reader.TokenType != JsonTokenType.StartObject)
+                throw new JsonException($"Expected JSON object for {typeToConvert.Name}.");
+
+            var entity = Activator.CreateInstance(typeToConvert)
+                ?? throw new JsonException($"Could not create an instance of {typeToConvert.Name}.");
+
+            var propertyMap = SerializableProperties.ToDictionary(
+                property => options.PropertyNamingPolicy?.ConvertName(property.Name) ?? property.Name,
+                property => property,
+                options.PropertyNameCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndObject)
+                    return (T)entity;
+
+                if (reader.TokenType != JsonTokenType.PropertyName)
+                    throw new JsonException($"Expected property name while reading {typeToConvert.Name}.");
+
+                var propertyName = reader.GetString();
+                reader.Read();
+
+                if (propertyName == null || !propertyMap.TryGetValue(propertyName, out var property))
+                {
+                    reader.Skip();
+                    continue;
+                }
+
+                var value = JsonSerializer.Deserialize(ref reader, property.PropertyType, options);
+                property.SetValue(entity, value);
+            }
+
+            throw new JsonException($"Unexpected end of JSON while reading {typeToConvert.Name}.");
         }
 
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
@@ -45,39 +81,4 @@ namespace OPNX.Lib.Data.ORM.Serialization
             writer.WriteEndObject();
         }
     }
-    //public class EntityJsonConverter<T>(IEnumerable<string> excludedProperties) : JsonConverter<T>
-    //{
-    //    private readonly HashSet<string> _excludedProperties = [.. excludedProperties];
-
-    //    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
-    //    {
-    //        if (value == null)
-    //        {
-    //            writer.WriteNullValue();
-    //            return;
-    //        }
-
-    //        var tempOptions = new JsonSerializerOptions(options);
-    //        tempOptions.Converters.Remove(this);
-
-    //        var jsonElement = JsonSerializer.SerializeToElement(value, tempOptions);
-
-    //        writer.WriteStartObject();
-
-    //        foreach (var property in jsonElement.EnumerateObject())
-    //        {
-    //            if (!excludedProperties.Contains(property.Name)) // 제외 리스트 확인
-    //            {
-    //                property.WriteTo(writer);
-    //            }
-    //        }
-
-    //        writer.WriteEndObject();
-    //    }
-    //}
 }

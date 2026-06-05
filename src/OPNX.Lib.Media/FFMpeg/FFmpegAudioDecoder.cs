@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Platform.Windows;
 using OPNX.Lib.Media.FFMpeg.EventHandlers;
 using OPNX.Lib.Media.FFMpeg.RawFrames.Audio;
@@ -24,14 +25,17 @@ namespace OPNX.Lib.Media.FFMpeg
         private FFmpegAudioConverter? _converter = null;
 
         private readonly ArrayPool<byte> _audioBufferPool = ArrayPool<byte>.Shared;
+        private readonly ILogger _logger;
 
         //private byte[] pooledBuffer;
         //private int pooledBufferSize = 0;
         #endregion
 
         #region Constructors
-        public FFmpegAudioDecoder(AVCodecID codecID)
+        public FFmpegAudioDecoder(AVCodecID codecID, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             try
             {
                 unsafe
@@ -88,7 +92,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
         }
@@ -217,7 +221,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An exception occurred while decoding audio. Error={ex.Message}.");
+                _logger.LogError(ex, "An exception occurred while decoding audio.");
                 return false;
             }
         }
@@ -295,7 +299,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             return 0;
@@ -348,10 +352,11 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
     }
 }
+
 

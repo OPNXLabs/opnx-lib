@@ -1,5 +1,4 @@
 ﻿using OPNX.Lib.Common.Buffers;
-using OPNX.Lib.Common.Logging;
 using System.Buffers;
 using System.Text.Json;
 
@@ -15,9 +14,8 @@ namespace OPNX.Lib.Common.Serialization
             {
                 return JsonSerializer.Serialize(obj, JsonDefaults.SerializerOptions);
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -42,10 +40,9 @@ namespace OPNX.Lib.Common.Serialization
                 buffer.Dispose(); // Detach 이후 더미 owner dispose
                 return result;
             }
-            catch (Exception ex)
+            catch
             {
                 buffer.Dispose();
-                LogManager.Error(ex);
                 return (MemoryPool<byte>.Shared.Rent(1), 0);
             }
         }
@@ -79,9 +76,8 @@ namespace OPNX.Lib.Common.Serialization
                     _ => default
                 };
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return default;
             }
         }
@@ -94,11 +90,12 @@ namespace OPNX.Lib.Common.Serialization
             {
                 return JsonSerializer.Deserialize<T>(data, JsonDefaults.SerializerOptions);
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return default;
             }
         }
     }
 }
+
+

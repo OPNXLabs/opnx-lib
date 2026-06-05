@@ -1,12 +1,15 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Media.FFMpeg.EventHandlers;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
     public sealed class FFmpegAudioEncoder : DisposableObject
     {
+        private readonly ILogger _logger;
+
         #region Fields
         private unsafe readonly AVCodec* _codec;
         private unsafe readonly AVCodecContext* _codecContext;
@@ -17,9 +20,10 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
 
         #region Constructors
-        public FFmpegAudioEncoder(AVCodecID codecID, AVSampleFormat sampleFormat, int sampleRate, int channels, long bitRate)
+        public FFmpegAudioEncoder(AVCodecID codecID, AVSampleFormat sampleFormat, int sampleRate, int channels, long bitRate, ILogger? logger = null)
            : base()
         {
+            _logger = logger ?? NullLogger.Instance;
             unsafe
             {
                 _codec = ffmpeg.avcodec_find_encoder(codecID);
@@ -439,7 +443,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
@@ -503,10 +507,12 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
     }
 }
+
+
 

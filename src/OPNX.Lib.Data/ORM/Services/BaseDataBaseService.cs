@@ -1,5 +1,6 @@
-﻿using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Common.Network;
 using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Enums;
@@ -22,6 +23,7 @@ namespace OPNX.Lib.Data.ORM.Services
         private static readonly ConcurrentDictionary<string, MethodInfo> _cachedGenericMethods = new();
 
         private readonly IEntityStore _entityStore;
+        private readonly ILogger _logger;
 
         private sealed class TxContext
         {
@@ -40,14 +42,16 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
 
         #region Constructors
-        public BaseDataBaseService(string connectionString)
-            : this(connectionString, new EntityStore())
+        public BaseDataBaseService(string connectionString, ILogger? logger = null)
+            : this(connectionString, new EntityStore(), logger)
         {
         }
 
-        public BaseDataBaseService(string connectionString, IEntityStore? entityStore)
+        public BaseDataBaseService(string connectionString, IEntityStore? entityStore, ILogger? logger = null)
             : base()
         {
+            _logger = logger ?? NullLogger.Instance;
+
             if (!string.IsNullOrEmpty(connectionString))
                 ConnectionString = connectionString;
 
@@ -151,7 +155,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch { }
 
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             return null;
@@ -169,9 +173,8 @@ namespace OPNX.Lib.Data.ORM.Services
             {
                 dbConnection.Dispose();
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
         }
 
@@ -235,7 +238,7 @@ namespace OPNX.Lib.Data.ORM.Services
                     tx?.Rollback();
                 }
                 catch { }
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return default!;
             }
             finally
@@ -307,9 +310,8 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     action();
                 }
-                catch (Exception ex)
+                catch
                 {
-                    LogManager.Error(ex);
                 }
             }
         }
@@ -329,9 +331,8 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     EntityChanged?.Invoke(this, e);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    LogManager.Error(ex);
                 }
             }
         }
@@ -561,9 +562,8 @@ namespace OPNX.Lib.Data.ORM.Services
                             {
                                 propertyVal = Convert.ChangeType(value, targetType!);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
 
                             property.SetValue(result, propertyVal, null);
@@ -614,9 +614,8 @@ namespace OPNX.Lib.Data.ORM.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
 
             return result;
@@ -649,9 +648,8 @@ namespace OPNX.Lib.Data.ORM.Services
                             {
                                 propertyVal = Convert.ChangeType(value, targetType!);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
 
                             property.SetValue(result, propertyVal, null);
@@ -702,9 +700,8 @@ namespace OPNX.Lib.Data.ORM.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
 
             return result;
@@ -712,4 +709,7 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
     }
 }
+
+
+
 

@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
 using System.Net.NetworkInformation;
 
@@ -8,7 +9,12 @@ namespace OPNX.Lib.Streaming.RTSP
     {
         private readonly HashSet<int> portsHashSet = [];
         private readonly Lock portsSetLock = new();
-        //private readonly ILogger _logger = Log.ForContext<UdpPortsWatcherSingleton>();// LogManager.GetLogger("UdpPortsWatcherSingleton");
+        private readonly ILogger _logger;
+
+        public UdpPortsWatcherSingleton(ILogger? logger = null)
+        {
+            _logger = logger ?? NullLogger.Instance;
+        }
 
         static UdpPortsWatcherSingleton()
         {
@@ -25,7 +31,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 if (GetAvailableUdpPorts(startPort, endPort, out dataPortNumber, out controlPortNumber))
                 {
                     portsHashSet.Add(dataPortNumber);
-                    LogManager.Verbose($"UdpClient ports {dataPortNumber}-{controlPortNumber} reserved");
+                    _logger.LogTrace($"UdpClient ports {dataPortNumber}-{controlPortNumber} reserved");
 
                     return true;
                 }
@@ -40,7 +46,7 @@ namespace OPNX.Lib.Streaming.RTSP
             using (portsSetLock.EnterScope())
             {
                 bool portRemoved = portsHashSet.Remove(dataPortNumber);
-                LogManager.Verbose($"UdpClient ports {dataPortNumber}-{controlPortNumber} released");
+                _logger.LogTrace($"UdpClient ports {dataPortNumber}-{controlPortNumber} released");
                 return portRemoved;
             }
 
@@ -48,7 +54,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         public bool GetAvailableUdpPorts(int startPort, int endPort, out int dataPortNumber, out int controlPortNumber)
         {
-            LogManager.Verbose($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort}");
+            _logger.LogTrace($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort}");
 
             IPEndPoint[] endPoints;
             List<int> portArray = [];
@@ -80,14 +86,16 @@ namespace OPNX.Lib.Streaming.RTSP
                 {
                     dataPortNumber = i;
                     controlPortNumber = i + 1;
-                    LogManager.Verbose($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort} finished : {dataPortNumber}-{controlPortNumber} portArray.Count={portArray.Count}, portsHashSet.Count={portsHashSet.Count}");
+                    _logger.LogTrace($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort} finished : {dataPortNumber}-{controlPortNumber} portArray.Count={portArray.Count}, portsHashSet.Count={portsHashSet.Count}");
                     return true;
                 }
             }
 
-            LogManager.Verbose($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort} finished : {dataPortNumber}-{controlPortNumber} portArray.Count={portArray.Count}, portsHashSet.Count={portsHashSet.Count}");
+            _logger.LogTrace($"UdpClient GetAvailableUdpPorts for ports {startPort}-{endPort} finished : {dataPortNumber}-{controlPortNumber} portArray.Count={portArray.Count}, portsHashSet.Count={portsHashSet.Count}");
             return false;
 
         }
     }
 }
+
+

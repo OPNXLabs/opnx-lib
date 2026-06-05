@@ -1,31 +1,13 @@
-# Third-Party Notices
+﻿# Third-Party Notices
 
 This document describes third-party software used by `OPNX.Lib` that is subject to separate license terms.
 
 The OPNX source-available license applies only to OPNX-owned code. Third-party components remain subject to their own licenses and notices.
 
-## Serilog
-
-- Components:
-  - `Serilog` (`4.3.1`)
-  - `Serilog.Sinks.Console` (`6.1.1`)
-  - `Serilog.Sinks.File` (`7.0.0`)
-- Project: [https://serilog.net/](https://serilog.net/)
-- Package references:
-  - [https://www.nuget.org/packages/Serilog](https://www.nuget.org/packages/Serilog)
-  - [https://www.nuget.org/packages/Serilog.Sinks.Console](https://www.nuget.org/packages/Serilog.Sinks.Console)
-  - [https://www.nuget.org/packages/Serilog.Sinks.File](https://www.nuget.org/packages/Serilog.Sinks.File)
-- License: `Apache-2.0`
-- Usage: structured logging infrastructure used by common, media, and streaming components
-
-The full license text is provided in:
-
-- [third_party_licenses/Apache-2.0.txt](third_party_licenses/Apache-2.0.txt)
-
 ## ZstdSharp.Port
 
 - Component: `ZstdSharp.Port`
-- Version: `0.8.7`
+- Version: `0.8.8`
 - Project: [https://www.nuget.org/packages/ZstdSharp.Port](https://www.nuget.org/packages/ZstdSharp.Port)
 - License: `MIT`
 - Usage: Zstandard compression support used by networking/common components
@@ -38,10 +20,10 @@ The full license text is provided in:
 
 - Components:
   - `Microsoft.Extensions.DependencyInjection.Abstractions` (`10.0.0`)
-  - `Microsoft.Extensions.Logging.Abstractions` (`9.0.0` and `10.0.0`)
+  - `Microsoft.Extensions.Logging.Abstractions` (`10.0.0`)
 - Project: [https://dot.net/](https://dot.net/)
 - License: `MIT`
-- Usage: transitive dependencies introduced by `MySqlConnector`, `Npgsql`, and `SIPSorceryMedia.Abstractions`
+- Usage: logging abstractions used directly by OPNX libraries and transitive abstractions introduced by database/media dependencies
 
 Note:
 
@@ -92,7 +74,7 @@ The full license text is provided in:
 ## OpenCvSharp4
 
 - Component: `OpenCvSharp4`
-- Version: `4.13.0.20260318`
+- Version: `4.13.0.20260427`
 - Project: [https://www.nuget.org/packages/OpenCvSharp4](https://www.nuget.org/packages/OpenCvSharp4)
 - License: `Apache-2.0`
 - Usage: image processing support used by `OPNX.Lib.Media`
@@ -131,6 +113,19 @@ The full license text is provided in:
 
 - [third_party_licenses/BSD-3-Clause.txt](third_party_licenses/BSD-3-Clause.txt)
 
+## DataChannelDotnet
+
+- Component: `DataChannelDotnet`
+- Version: `1.3.1`
+- Project: [https://www.nuget.org/packages/DataChannelDotnet](https://www.nuget.org/packages/DataChannelDotnet)
+- Package reference: [https://www.nuget.org/packages/DataChannelDotnet/1.3.1](https://www.nuget.org/packages/DataChannelDotnet/1.3.1)
+- License: `MIT`
+- Usage: WebRTC data channel support used by `OPNX.Lib.Streaming`
+
+The full license text is provided in:
+
+- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+
 ## SIPSorcery Transitive Components
 
 - Components:
@@ -159,7 +154,7 @@ License texts used by this repository:
 ## FFmpeg.AutoGen
 
 - Component: `FFmpeg.AutoGen`
-- Version: `8.0.0.1`
+- Version: `8.1.0`
 - Project: [https://www.nuget.org/packages/FFmpeg.AutoGen](https://www.nuget.org/packages/FFmpeg.AutoGen)
 - Upstream source: [https://github.com/Ruslan-B/FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen)
 - License: `MIT`
@@ -206,3 +201,4 @@ Reference materials included in this repository:
 
 - [third_party_licenses/FFmpeg-License-Reference.txt](third_party_licenses/FFmpeg-License-Reference.txt)
 - [third_party_licenses/FFmpeg-Native-Binaries-NOTICE.txt](third_party_licenses/FFmpeg-Native-Binaries-NOTICE.txt)
+

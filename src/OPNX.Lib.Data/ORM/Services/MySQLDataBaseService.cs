@@ -1,5 +1,6 @@
-﻿using MySqlConnector;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using MySqlConnector;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.Interfaces;
@@ -8,9 +9,11 @@ using System.Data.Common;
 
 namespace OPNX.Lib.Data.ORM.Services
 {
-    public class MySQLDataBaseService(string connectionString, IEntityStore entityStore)
-        : BaseDataBaseService(connectionString, entityStore)
+    public class MySQLDataBaseService(string connectionString, IEntityStore entityStore, ILogger? logger = null)
+        : BaseDataBaseService(connectionString, entityStore, logger)
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
+
         #region Public Methods                
         public override int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList)
         {
@@ -51,7 +54,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -113,7 +116,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -153,7 +156,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
 
                     if (CurrentTransaction != null)
                         throw;
@@ -354,7 +357,7 @@ namespace OPNX.Lib.Data.ORM.Services
         //                        }
         //                        catch (Exception ex)
         //                        {
-        //                            LogManager.Error(ex);
+        //                            _logger.LogError(ex, "{Message}", ex.Message);
         //                        }
 
         //                        columns = string.IsNullOrEmpty(columns) ? propertyInfo.Name : string.Format("{0},{1}", columns, propertyInfo.Name);
@@ -436,3 +439,5 @@ namespace OPNX.Lib.Data.ORM.Services
         #endregion
     }
 }
+
+

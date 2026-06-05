@@ -1,5 +1,6 @@
-﻿using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.EventHandlers;
@@ -17,6 +18,7 @@ namespace OPNX.Lib.Data.ORM
     {
         #region Fields
         private readonly ConcurrentDictionary<Type, object> _allEntitis = new();
+        private readonly ILogger<EntityStore> _logger;
 
         private static readonly ConcurrentDictionary<Type, MethodInfo> _cachedFindEntityMethods = new();
 
@@ -25,9 +27,9 @@ namespace OPNX.Lib.Data.ORM
         #endregion
 
         #region Constructors
-        public EntityStore()
+        public EntityStore(ILogger<EntityStore>? logger = null)
         {
-
+            _logger = logger ?? NullLogger<EntityStore>.Instance;
         }
         #endregion
 
@@ -62,7 +64,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -94,7 +96,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Failed to insert the entity. EntityType={typeof(T).Name}, Error={ex}.");
+                _logger.LogError(ex, "Failed to insert the entity. EntityType={EntityType}.", typeof(T).Name);
             }
 
             return insertEntity.ID;
@@ -132,7 +134,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Failed to update the entity. EntityType={typeof(T).Name}, Error={ex}.");
+                _logger.LogError(ex, "Failed to update the entity. EntityType={EntityType}.", typeof(T).Name);
             }
 
             return false;
@@ -165,7 +167,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Failed to delete the entity. EntityType={typeof(T).Name}, Error={ex}.");
+                _logger.LogError(ex, "Failed to delete the entity. EntityType={EntityType}.", typeof(T).Name);
 
                 return false;
             }
@@ -202,7 +204,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             return null;
@@ -234,7 +236,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             return default;
@@ -255,7 +257,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return default;
             }
         }
@@ -271,7 +273,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error($"Failed to find entities. EntityType={typeof(T).Name}, Error={ex.Message}.");
+                _logger.LogError(ex, "Failed to find entities. EntityType={EntityType}.", typeof(T).Name);
             }
             return [];
         }
@@ -296,7 +298,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         protected void SetEntities<T>(ObservableCollection<T>? entityData) where T : Entity
@@ -320,7 +322,7 @@ namespace OPNX.Lib.Data.ORM
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -416,4 +418,6 @@ namespace OPNX.Lib.Data.ORM
         #endregion
     }
 }
+
+
 

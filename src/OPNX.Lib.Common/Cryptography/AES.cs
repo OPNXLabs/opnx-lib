@@ -1,5 +1,4 @@
-﻿using OPNX.Lib.Common.Logging;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace OPNX.Lib.Common.Cryptography
@@ -32,9 +31,8 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return Convert.ToBase64String(ms.ToArray());
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -65,9 +63,8 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return Encoding.UTF8.GetString(ms.ToArray());
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -112,9 +109,8 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return Convert.ToBase64String(ms.ToArray());
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -156,9 +152,8 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return reader.ReadToEnd();
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -204,9 +199,8 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return Convert.ToBase64String(ms.ToArray());
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
@@ -247,11 +241,13 @@ namespace OPNX.Lib.Common.Cryptography
 
                 return reader.ReadToEnd();
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
                 return string.Empty;
             }
         }
     }
 }
+
+
+

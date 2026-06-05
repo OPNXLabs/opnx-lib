@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.Primitives.Media;
 using OPNX.Lib.Streaming.RTSP.Commons;
 using OPNX.Lib.Streaming.RTSP.Commons.Interfaces;
@@ -35,7 +36,7 @@ namespace OPNX.Lib.Streaming.RTSP
         private readonly IRtspListenSocket _RtspServerListener;
 
         //private readonly ILoggerFactory _loggerFactory;
-        //private readonly ILogger _logger;
+        private readonly ILogger _logger;
         private CancellationTokenSource? _Stopping;
         //private Thread _ListenTread;
         private Task? _ListenTask;
@@ -65,8 +66,8 @@ namespace OPNX.Lib.Streaming.RTSP
         /// 
         /// </summary>
         /// <param name="portNumber"></param>
-        public RTSPServer(int portNumber)
-            : this(portNumber, string.Empty, string.Empty)
+        public RTSPServer(int portNumber, ILogger? logger = null)
+            : this(portNumber, string.Empty, string.Empty, logger)
         {
         }
 
@@ -76,8 +77,8 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <param name="portNumber"></param>
         /// <param name="userName"></param>
         /// <param name="password"></param>
-        public RTSPServer(int portNumber, string userName, string password)
-            : this(portNumber, userName, password, false)
+        public RTSPServer(int portNumber, string userName, string password, ILogger? logger = null)
+            : this(portNumber, userName, password, false, logger)
         {
         }
 
@@ -88,8 +89,8 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <param name="username">username.</param>
         /// <param name="password">password.</param>
         /// <param name="pfxFile">pfxFile used for RTSPS TLS Server Certificate.</param>
-        public RTSPServer(int portNumber, string username, string password, string pfxFile)
-            : this(portNumber, username, password, false)
+        public RTSPServer(int portNumber, string username, string password, string pfxFile, ILogger? logger = null)
+            : this(portNumber, username, password, false, logger)
         {
             if (string.IsNullOrEmpty(pfxFile))
             {
@@ -105,8 +106,9 @@ namespace OPNX.Lib.Streaming.RTSP
         /// <param name="portNumber">A numero port.</param>
         /// <param name="username">username.</param>
         /// <param name="password">password.</param>
-        public RTSPServer(int portNumber, string username, string password, bool useHttpTunnel)
+        public RTSPServer(int portNumber, string username, string password, bool useHttpTunnel, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
             if (portNumber < IPEndPoint.MinPort || portNumber > IPEndPoint.MaxPort)
             {
                 throw new ArgumentOutOfRangeException(nameof(portNumber), portNumber, "Port number must be between System.Net.IPEndPoint.MinPort and System.Net.IPEndPoint.MaxPort");
@@ -246,8 +248,8 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (Exception ex)
             {
-                LogManager.Error($"RTP Write Exception: {ex.Message}");
-                LogManager.Error($"Error writing to listener {rtspConnection.Listener.RemoteEndPoint}");
+                _logger.LogError($"RTP Write Exception: {ex.Message}");
+                _logger.LogError($"Error writing to listener {rtspConnection.Listener.RemoteEndPoint}");
                 RemoveSession(rtspConnection.ConnectionID);
             }
         }
@@ -315,8 +317,8 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (Exception ex)
             {
-                LogManager.Error($"RTP Write Exception: {ex.Message}");
-                LogManager.Error($"Error writing to listener {rtspConnection.Listener.RemoteEndPoint}");
+                _logger.LogError($"RTP Write Exception: {ex.Message}");
+                _logger.LogError($"Error writing to listener {rtspConnection.Listener.RemoteEndPoint}");
                 RemoveSession(rtspConnection.ConnectionID);
             }
         }
@@ -384,7 +386,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     }
                     catch (AuthenticationException)
                     {
-                        LogManager.Debug("Invalid client (maybe RTSP on RTSPS socket)");
+                        _logger.LogDebug("Invalid client (maybe RTSP on RTSPS socket)");
                     }
                 }
             }
@@ -402,11 +404,11 @@ namespace OPNX.Lib.Streaming.RTSP
 
             if (e.Message is not RtspRequest message)
             {
-                LogManager.Debug("RTSP message is not a request. Invalid dialog.");
+                _logger.LogDebug("RTSP message is not a request. Invalid dialog.");
                 return;
             }
 
-            LogManager.Debug($"RTSP message received {message}");
+            _logger.LogDebug($"RTSP message received {message}");
 
             // Check if the RTSP Message has valid authentication (validating against username,password,realm and nonce)
             // skip authentication for OPTIONS for VLC
@@ -553,7 +555,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 udp_pair.ControlReceived += (local_sender, local_e) =>
                 {
                     // RTCP data received
-                    LogManager.Debug($"RTCP data received {local_sender} {local_e.Data.Data.Length}");
+                    _logger.LogDebug($"RTCP data received {local_sender} {local_e.Data.Data.Length}");
                     if (dicRTSPConnection.TryGetValue(listener.ConnectionID, out var connection))
                     {
                         connection.UpdateKeepAlive();
@@ -642,7 +644,7 @@ namespace OPNX.Lib.Streaming.RTSP
             if (!dicRTSPConnection.TryGetValue(listener.ConnectionID, out var rtspConnection))
                 return;
 
-            //LogManager.Debug($"Request for {message.RtspUri}");
+            //_logger.LogDebug($"Request for {message.RtspUri}");
 
             // TODO. Check the requsted_url is valid. In this example we accept any RTSP URL
 
@@ -732,9 +734,9 @@ namespace OPNX.Lib.Streaming.RTSP
 
             // 디버깅용 출력 (옵션)
             string sdpOutput = sdp.ToString();
-            //LogManager.Debug("=== Generated SDP ===");
-            //LogManager.Debug(sdpOutput);
-            //LogManager.Debug("====================");
+            //_logger.LogDebug("=== Generated SDP ===");
+            //_logger.LogDebug(sdpOutput);
+            //_logger.LogDebug("====================");
 
             byte[] sdp_bytes = Encoding.ASCII.GetBytes(sdpOutput);
 
@@ -790,7 +792,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    {
         //        if (dicRTSPConnection.TryRemove(key, out var removed))
         //        {
-        //            LogManager.Debug($"Removing session {removed.session_id} due to TIMEOUT");
+        //            _logger.LogDebug($"Removing session {removed.session_id} due to TIMEOUT");
         //        }
         //    }
 
@@ -875,8 +877,8 @@ namespace OPNX.Lib.Streaming.RTSP
         //            }
         //            catch (Exception e)
         //            {
-        //                LogManager.Error($"UDP Write Exception. {e.Message}");
-        //                LogManager.Error($"Error writing to listener {connection.Listener.RemoteEndPoint}");
+        //                _logger.LogError($"UDP Write Exception. {e.Message}");
+        //                _logger.LogError($"Error writing to listener {connection.Listener.RemoteEndPoint}");
         //                write_error = true;
         //            }
         //        }
@@ -912,7 +914,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //        if (!connection.play) return;
 
         //        if (connection.video.rtpChannel is null) return;
-        //        LogManager.Debug($"Sending video session {connection.session_id} {TransportLogName(connection.video.rtpChannel)} Timestamp(ms)={timestamp_ms}. RTP timestamp={rtp_timestamp}. Sequence={videoSequenceNumber}");
+        //        _logger.LogDebug($"Sending video session {connection.session_id} {TransportLogName(connection.video.rtpChannel)} Timestamp(ms)={timestamp_ms}. RTP timestamp={rtp_timestamp}. Sequence={videoSequenceNumber}");
 
         //        if (connection.video.mustSendRtcpPacket && !await SendRTCP(rtp_timestamp, connection, connection.video))
         //        {
@@ -974,7 +976,6 @@ namespace OPNX.Lib.Streaming.RTSP
             var rtpChannel = stream.rtpChannel;
             if (rtpChannel == null)
             {
-                LogManager.Error($"RTP channel is null for listener {connection.Listener.RemoteEndPoint}");
                 return false;
             }
 
@@ -983,9 +984,8 @@ namespace OPNX.Lib.Streaming.RTSP
                 rtpChannel.WriteToControlPort(rtcpBuffer.Span);
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Error writing RTCP to listener {connection.Listener.RemoteEndPoint}. {ex.Message}");
                 return false;
             }
         }
@@ -1013,7 +1013,6 @@ namespace OPNX.Lib.Streaming.RTSP
             var rtpChannel = stream.rtpChannel;
             if (rtpChannel == null)
             {
-                LogManager.Error($"RTP channel is null for listener {connection.Listener.RemoteEndPoint}");
                 return false;
             }
 
@@ -1022,9 +1021,8 @@ namespace OPNX.Lib.Streaming.RTSP
                 await rtpChannel.WriteToControlPortAsync(rtcpBuffer);
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Error writing RTCP to listener {connection.Listener.RemoteEndPoint}. {ex.Message}");
                 return false;
             }
         }
@@ -1249,3 +1247,8 @@ namespace OPNX.Lib.Streaming.RTSP
         }
     }
 }
+
+
+
+
+

@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Messages;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -7,10 +8,10 @@ using System.Text;
 
 namespace OPNX.Lib.Streaming.RTSP
 {
-    public class RtspOverHttpListenSocket(TcpListener tcpListener) : IRtspListenSocket
+    public class RtspOverHttpListenSocket(TcpListener tcpListener, ILogger? logger = null) : IRtspListenSocket
     {
         private readonly TcpListener _tcpListener = tcpListener;
-        //private readonly ILogger _logger;
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
         //private readonly ILoggerFactory _loggerFactory;
         private CancellationTokenSource? _stop;
 
@@ -76,7 +77,7 @@ namespace OPNX.Lib.Streaming.RTSP
 #else
                     var client = await _tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
 #endif
-                    LogManager.Debug("Connection from {remoteEndPoint}", client.Client.RemoteEndPoint?.ToString() ?? "unknown");
+                    _logger.LogDebug("Connection from {remoteEndPoint}", client.Client.RemoteEndPoint?.ToString() ?? "unknown");
                     await HandleHeaderAndAddToSessions(client, cancellationToken).ConfigureAwait(false);
 
                     // remove old session
@@ -92,7 +93,7 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (OperationCanceledException)
             {
-                LogManager.Debug("Accept connections canceled");
+                _logger.LogDebug("Accept connections canceled");
             }
         }
 
@@ -116,7 +117,7 @@ namespace OPNX.Lib.Streaming.RTSP
                         isPostChannel = true;
                         break;
                     default:
-                        LogManager.Warning("Invalid message receive {message}", firstLine?.ToString() ?? "unknown");
+                        _logger.LogWarning("Invalid message receive {message}", firstLine?.ToString() ?? "unknown");
                         client.Dispose();
                         return;
                 }
@@ -125,16 +126,16 @@ namespace OPNX.Lib.Streaming.RTSP
 
                 if (!headers.TryGetValue("x-sessioncookie", out var sessionCookie))
                 {
-                    LogManager.Warning("No session cookie find");
+                    _logger.LogWarning("No session cookie find");
                     client.Dispose();
                     return;
                 }
 
                 if (!_activesSessions.TryGetValue(sessionCookie, out var session))
                 {
-                    LogManager.Debug("Create session {sessionCookie}", sessionCookie);
+                    _logger.LogDebug("Create session {sessionCookie}", sessionCookie);
                     //session = new(_loggerFactory?.CreateLogger<RTSPHttpServerTransport>());
-                    session = new();
+                    session = new(logger);
                     _activesSessions[sessionCookie] = session;
                 }
 
@@ -143,7 +144,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     if (!headers.TryGetValue(RtspHeaderNames.ContentType, out var value)
                         || string.Equals(value, "application/x-rtsp-tunnelled", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        LogManager.Warning("Invalid content-type header");
+                        _logger.LogWarning("Invalid content-type header");
                         client.Dispose();
                         return;
                     }
@@ -157,7 +158,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                     if (inError)
                     {
-                        LogManager.Warning("Removing session {sessionCookie} due to error", sessionCookie);
+                        _logger.LogWarning("Removing session {sessionCookie} due to error", sessionCookie);
                         session.Close();
                         _activesSessions.TryRemove(sessionCookie, out session);
                     }
@@ -167,7 +168,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     if (!headers.TryGetValue("Accept", out var value)
                         || string.Equals(value, "application/x-rtsp-tunnelled", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        LogManager.Warning("Invalid accept header");
+                        _logger.LogWarning("Invalid accept header");
                         client.Dispose();
                         return;
                     }
@@ -183,7 +184,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                     if (inError)
                     {
-                        LogManager.Warning("Removing session {sessionCookie} due to error", sessionCookie);
+                        _logger.LogWarning("Removing session {sessionCookie} due to error", sessionCookie);
                         session.Close();
                         _activesSessions.TryRemove(sessionCookie, out session);
                     }
@@ -192,17 +193,17 @@ namespace OPNX.Lib.Streaming.RTSP
             }
             catch (InvalidDataException ex)
             {
-                LogManager.Warning(ex, "Invalid data from client");
+                _logger.LogWarning(ex, "Invalid data from client");
                 client.Dispose();
             }
             catch (OperationCanceledException)
             {
-                LogManager.Debug("Operation canceled");
+                _logger.LogDebug("Operation canceled");
                 client.Dispose();
             }
             catch (IOException)
             {
-                LogManager.Warning("Error during read");
+                _logger.LogWarning("Error during read");
                 client.Dispose();
             }
         }
@@ -266,3 +267,5 @@ namespace OPNX.Lib.Streaming.RTSP
         }
     }
 }
+
+

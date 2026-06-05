@@ -169,7 +169,7 @@ mode                =    <"> *Method <"> | Method
         public static RtspTransport Parse(string aTransportString)
         {
             ArgumentNullException.ThrowIfNull(aTransportString);
-            
+
             Contract.EndContractBlock();
 
             RtspTransport returnValue = new();

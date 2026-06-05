@@ -1,4 +1,6 @@
-﻿using OPNX.Lib.Common.LifeCycle;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Network.Abstractions.Events;
 using OPNX.Lib.Network.Transport.Tcp;
 
@@ -11,15 +13,19 @@ namespace OPNX.Lib.Network.Protocol.Tcp
         #endregion
 
         #region Constructors
-
-        public OPNXTcpServer(int port)
-            : this(string.Empty, port)
+        public OPNXTcpServer(int port, ILoggerFactory? loggerFactory = null)
+            : this(string.Empty, port, loggerFactory)
         {
         }
 
-        public OPNXTcpServer(string address, int port)
+        public OPNXTcpServer(string address, int port, ILoggerFactory? loggerFactory = null)
         {
-            _tcpAcceptor = new TcpAcceptor(address, port);
+            loggerFactory ??= NullLoggerFactory.Instance;
+
+            _tcpAcceptor = new TcpAcceptor(
+                address,
+                port,
+                loggerFactory.CreateLogger<TcpAcceptor>());
             _tcpAcceptor.ClientAccepted += TcpAcceptor_ClientAccepted;
         }
         #endregion
@@ -60,4 +66,3 @@ namespace OPNX.Lib.Network.Protocol.Tcp
         #endregion
     }
 }
-

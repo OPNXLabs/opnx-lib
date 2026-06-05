@@ -1,6 +1,5 @@
 ﻿using OPNX.Lib.Streaming.RTSP.Commons.Interfaces;
 using System.Collections.Concurrent;
-using System.Net;
 
 namespace OPNX.Lib.Streaming.RTSP.Commons
 {
@@ -65,7 +64,7 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         public VideoSource CreateVideoSource(VideoSource videoSource)
         {
             if (_videoSources.TryGetValue(videoSource.EntityID, out var result))
-                return result;            
+                return result;
 
             //if (_videoSources.Any(x => x.Value.RtspURL == videoSource.RtspURL && x.Value.RequestURL == videoSource.RequestURL))
             //{

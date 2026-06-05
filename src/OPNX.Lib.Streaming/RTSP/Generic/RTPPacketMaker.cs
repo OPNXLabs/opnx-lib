@@ -1,12 +1,15 @@
-﻿using OPNX.Lib.Common.Primitives.Media;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.Primitives.Media;
 using OPNX.Lib.Streaming.RTSP.RTP;
-using System.Diagnostics;
 
 namespace OPNX.Lib.Streaming.RTSP.Generic
 {
-    public class RTPPacketMaker(int payloadType, uint syncSource)
+    public class RTPPacketMaker(int payloadType, uint syncSource, ILogger? logger = null)
     {
         #region Fields
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
+
         private const int RTP_HEADER_SIZE = 12;
         private const int FU_A_HEADER_SIZE = 2;
         private const int MAX_RTP_PKT_LENGTH = 1400; //일반적은 MTU값. 환경에 따라 조정 필요
@@ -490,12 +493,17 @@ namespace OPNX.Lib.Streaming.RTSP.Generic
                 }
                 else
                 {
-                    Debug.WriteLine($"Unsupported codec: {codec}");
+                    _logger.LogWarning("Unsupported RTP codec. Codec={Codec}.", codec);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                _logger.LogError(
+                    ex,
+                    "Failed to create RTP packets. Codec={Codec}, Timestamp={Timestamp}, MediaLength={MediaLength}.",
+                    codec,
+                    timeStamp,
+                    mediaStream.Length);
             }
             return rtpPackets;
         }

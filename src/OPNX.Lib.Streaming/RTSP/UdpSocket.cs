@@ -2,7 +2,6 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 
 namespace OPNX.Lib.Streaming.RTSP
 {
@@ -190,13 +189,13 @@ namespace OPNX.Lib.Streaming.RTSP
         }
 
         public void WriteToControlPort(ReadOnlySpan<byte> data) => controlSocket.Send(data, _controlEndPoint);
-        
 
-        public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data) => controlSocket.SendAsync(data, _controlEndPoint, _cancellationTokenSource.Token).AsTask();        
 
-        public void WriteToDataPort(ReadOnlySpan<byte> data) => dataSocket.Send(data, _dataEndPoint);        
+        public Task WriteToControlPortAsync(ReadOnlyMemory<byte> data) => controlSocket.SendAsync(data, _controlEndPoint, _cancellationTokenSource.Token).AsTask();
 
-        public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data) => dataSocket.SendAsync(data, _dataEndPoint, _cancellationTokenSource.Token).AsTask();      
+        public void WriteToDataPort(ReadOnlySpan<byte> data) => dataSocket.Send(data, _dataEndPoint);
+
+        public Task WriteToDataPortAsync(ReadOnlyMemory<byte> data) => dataSocket.SendAsync(data, _dataEndPoint, _cancellationTokenSource.Token).AsTask();
 
         protected virtual void Dispose(bool disposing)
         {

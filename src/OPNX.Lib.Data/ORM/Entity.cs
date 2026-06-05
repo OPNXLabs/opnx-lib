@@ -452,7 +452,6 @@ namespace OPNX.Lib.Data.ORM
         //    }
         //    catch (Exception ex)
         //    {
-        //        LogManager.Error(ex);
         //    }
         //    return null;
         //}
@@ -550,3 +549,4 @@ namespace OPNX.Lib.Data.ORM
         #endregion
     }
 }
+

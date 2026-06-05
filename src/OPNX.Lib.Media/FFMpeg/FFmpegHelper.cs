@@ -1,7 +1,6 @@
 ﻿using FFmpeg.AutoGen;
 using Microsoft.Win32;
 using OpenCvSharp;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Platform.Windows;
 using SkiaSharp;
 using System.Buffers;
@@ -79,9 +78,8 @@ namespace OPNX.Lib.Media.FFMpeg
                 videoFrame->height = height;
                 videoFrame->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
             finally
             {
@@ -329,9 +327,8 @@ namespace OPNX.Lib.Media.FFMpeg
                                 result = new Mat();
                                 Cv2.CvtColor(tmpMat, result, ColorConversionCodes.YUV2BGR_I420);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
                             finally
                             {
@@ -382,9 +379,8 @@ namespace OPNX.Lib.Media.FFMpeg
                                 result = new Mat();
                                 Cv2.CvtColor(tmpMat, result, ColorConversionCodes.YUV2BGR_I420);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
                             finally
                             {
@@ -416,9 +412,8 @@ namespace OPNX.Lib.Media.FFMpeg
                                 result = new Mat();
                                 Cv2.CvtColor(tmpMat, result, ColorConversionCodes.YUV2BGR_NV12);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
                             finally
                             {
@@ -456,9 +451,8 @@ namespace OPNX.Lib.Media.FFMpeg
                                 result = new Mat();
                                 Cv2.CvtColor(tmpMat, result, ColorConversionCodes.YUV2BGR_NV12);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                LogManager.Error(ex);
                             }
                             finally
                             {
@@ -634,9 +628,8 @@ namespace OPNX.Lib.Media.FFMpeg
                     return true;
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error(ex);
             }
             return false;
         }
@@ -812,7 +805,7 @@ namespace OPNX.Lib.Media.FFMpeg
 
             //        Marshal.Copy(result, 0, imgPtr, result.Length);        // byte[]에서 할당된 메모리로 데이터 복사
             //    }
-            //    catch (Exception ex)
+            //    catch
             //    {
             //        Console.WriteLine(ex);
             //    }
@@ -904,3 +897,5 @@ namespace OPNX.Lib.Media.FFMpeg
         }
     }
 }
+
+

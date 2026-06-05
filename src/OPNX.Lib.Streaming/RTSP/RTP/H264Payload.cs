@@ -1,4 +1,5 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Onvif;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -6,8 +7,9 @@ using System.Buffers.Binary;
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class H264Payload(ILogger<H264Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class H264Payload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
+    public class H264Payload(MemoryPool<byte>? memoryPool = null, ILogger? logger = null) : IPayloadProcessor
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
         private int norm, fu_a, fu_b, stap_a, stap_b, mtap16, mtap24; // used for diagnostics stats
@@ -34,14 +36,14 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             // 일반 NAL (1-23)
             if (nal_header_type >= 1 && nal_header_type <= 23)
             {
-                LogManager.Debug("Normal NAL");
+                _logger.LogDebug("Normal NAL");
                 norm++;
 
                 // ✅ 여기서도 I-Frame 판단 추가
                 if (nal_header_type == 5)  // IDR (I-Frame)
                 {
                     _isIFrame = true;
-                    LogManager.Debug("IDR Frame (I-Frame) detected in normal NAL");
+                    _logger.LogDebug("IDR Frame (I-Frame) detected in normal NAL");
                 }
                 else if (nal_header_type == 1)  // Non-IDR (P/B-Frame)
                 {
@@ -55,7 +57,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             // STAP-A (여러 NAL 집합)
             else if (nal_header_type == 24)
             {
-                LogManager.Debug("Agg STAP-A");
+                _logger.LogDebug("Agg STAP-A");
                 stap_a++;
 
                 try
@@ -71,7 +73,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                         if (inner_nal_type == 5)
                         {
                             _isIFrame = true;
-                            LogManager.Debug("IDR Frame detected in STAP-A");
+                            _logger.LogDebug("IDR Frame detected in STAP-A");
                         }
                         else if (inner_nal_type == 1)
                         {
@@ -85,28 +87,28 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                 }
                 catch (Exception err)
                 {
-                    LogManager.Warning(err, "H264 Aggregate Packet processing error");
+                    _logger.LogWarning(err, "H264 Aggregate Packet processing error");
                 }
             }
             else if (nal_header_type == 25)
             {
-                LogManager.Debug("Agg STAP-B not supported");
+                _logger.LogDebug("Agg STAP-B not supported");
                 stap_b++;
             }
             else if (nal_header_type == 26)
             {
-                LogManager.Debug("Agg MTAP16 not supported");
+                _logger.LogDebug("Agg MTAP16 not supported");
                 mtap16++;
             }
             else if (nal_header_type == 27)
             {
-                LogManager.Debug("Agg MTAP24 not supported");
+                _logger.LogDebug("Agg MTAP24 not supported");
                 mtap24++;
             }
             // FU-A (분할 패킷)
             else if (nal_header_type == 28)
             {
-                LogManager.Debug("Frag FU-A");
+                _logger.LogDebug("Frag FU-A");
                 fu_a++;
 
                 bool startMarker = (payload[1] >> 7 & 0x01) == 1;
@@ -119,7 +121,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
                     if (fu_header_type == 5)
                     {
                         _isIFrame = true;
-                        LogManager.Debug("IDR Frame (I-Frame) detected in FU-A");
+                        _logger.LogDebug("IDR Frame (I-Frame) detected in FU-A");
                     }
                     else if (fu_header_type == 1)
                     {
@@ -142,12 +144,12 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             }
             else if (nal_header_type == 29)
             {
-                LogManager.Debug("Frag FU-B not supported");
+                _logger.LogDebug("Frag FU-B not supported");
                 fu_b++;
             }
             else
             {
-                LogManager.Debug("Unknown NAL header {nalHeaderType} not supported", nal_header_type);
+                _logger.LogDebug("Unknown NAL header {nalHeaderType} not supported", nal_header_type);
 
                 //if (_logger.IsEnabled(LogLevel.Debug))
                 //    _logger.LogDebug
@@ -176,7 +178,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             // Output some statistics
             //if (_logger.IsEnabled(LogLevel.Debug))
             //    _logger.LogDebug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
-            LogManager.Debug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
+            _logger.LogDebug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
 
             // End Marker is set return the list of NALs
             // clone list of nalUnits and owners
@@ -206,7 +208,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
             // Output some statistics
             //if (_logger.IsEnabled(LogLevel.Debug))
             //    _logger.LogDebug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
-            LogManager.Debug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
+            _logger.LogDebug("Norm={norm} ST-A={stapA} ST-B={stapB} M16={mtap16} M24={mtap24} FU-A={fuA} FU-B={fuB}", norm, stap_a, stap_b, mtap16, mtap24, fu_a, fu_b);
 
             // End Marker is set return the list of NALs
             // clone list of nalUnits and owners
@@ -251,3 +253,5 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
         }
     }
 }
+
+

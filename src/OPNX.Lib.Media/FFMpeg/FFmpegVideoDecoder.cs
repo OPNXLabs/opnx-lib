@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Platform.Windows;
 using OPNX.Lib.Media.FFMpeg.EventHandlers;
 using OPNX.Lib.Media.FFMpeg.RawFrames.Video;
@@ -57,16 +58,19 @@ namespace OPNX.Lib.Media.FFMpeg
         private readonly List<ReadOnlyMemory<byte>> _pendingParameterSets = [];
 
         private readonly byte[] _tempBuffer = new byte[64 * 1024]; // 임시 버퍼 재사용
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
-        public FFmpegVideoDecoder(AVCodecID codecID)
-            : this(AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, codecID)
+        public FFmpegVideoDecoder(AVCodecID codecID, ILogger? logger = null)
+            : this(AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, codecID, logger)
         {
         }
-        public FFmpegVideoDecoder(AVHWDeviceType hwDeviceType, AVCodecID codecID)
+        public FFmpegVideoDecoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, ILogger? logger = null)
             : base()
         {
+            _logger = logger ?? NullLogger.Instance;
+
             try
             {
                 unsafe
@@ -241,7 +245,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
         #endregion
@@ -434,7 +438,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -518,7 +522,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return -99; // 예외 코드 반환
             }
 
@@ -589,7 +593,7 @@ namespace OPNX.Lib.Media.FFMpeg
         //    }
         //    catch (Exception ex)
         //    {
-        //        LogManager.Error(ex);
+        //        _logger.LogError(ex, "{Message}", ex.Message);
         //    }
 
         //    return 0;
@@ -647,7 +651,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -873,7 +877,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return null;
             }
             finally
@@ -1015,7 +1019,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
             finally
@@ -1210,4 +1214,5 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+
 

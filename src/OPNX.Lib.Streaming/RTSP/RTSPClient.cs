@@ -1,11 +1,12 @@
-﻿using OPNX.Lib.Streaming.RTSP.Commons;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Streaming.RTSP.Commons;
 using OPNX.Lib.Streaming.RTSP.Commons.Interfaces;
 using OPNX.Lib.Streaming.RTSP.Messages;
 using OPNX.Lib.Streaming.RTSP.Onvif;
 using OPNX.Lib.Streaming.RTSP.RTCP;
 using OPNX.Lib.Streaming.RTSP.RTP;
 using OPNX.Lib.Streaming.RTSP.Sdp;
-using Serilog;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -82,7 +83,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         private readonly VideoSource _videoSource;
 
-        private readonly ILogger _logger = Log.ForContext<RTSPClient>();// LogManager.GetLogger("RtspClient");        
+        private readonly ILogger _logger;
 
         //private DateTime _prevReceivedFrameTime = DateTime.MinValue;
         //private const int UPDATE_INTERVAL_MS = 1000; // 1초를 밀리초로 변환
@@ -100,8 +101,10 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
 
         #region Constructors
-        public RTSPClient(VideoSource videoSource)
+        public RTSPClient(VideoSource videoSource, ILogger? logger = null)
         {
+            _logger = logger ?? NullLogger.Instance;
+
             _videoSource = videoSource;
 
             _keepaliveTimer = new System.Timers.Timer();
@@ -142,14 +145,14 @@ namespace OPNX.Lib.Streaming.RTSP
         #region Public Methods
         public void Start()
         {
-            _logger.Information($"Start rtsp client for source {EntityID}");
+            _logger.LogInformation($"Start rtsp client for source {EntityID}");
 
             Connect(_videoSource, _videoSource.UseTCP ? RTP_TRANSPORT.TCP : RTP_TRANSPORT.UDP);
         }
 
         public async Task StartAsync()
         {
-            _logger.Information($"Start rtsp client for source {EntityID}");
+            _logger.LogInformation($"Start rtsp client for source {EntityID}");
 
             await ConnectAsync(_videoSource, _videoSource.UseTCP ? RTP_TRANSPORT.TCP : RTP_TRANSPORT.UDP);
         }
@@ -166,7 +169,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (_rtspSocket is null || _uri is null)
             {
-                _logger.Information("Not Connected");
+                _logger.LogInformation("Not Connected");
                 return false;
             }
 
@@ -187,7 +190,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (_rtspSocket is null || _uri is null)
             {
-                _logger.Information("Not Connected");
+                _logger.LogInformation("Not Connected");
                 return false;
             }
 
@@ -222,7 +225,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (_rtspSocket is null || _uri is null)
             {
-                _logger.Information("Not connected");
+                _logger.LogInformation("Not connected");
                 return false;
             }
             if (!_ready) return false;
@@ -255,7 +258,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (_rtspSocket is null || _uri is null)
             {
-                _logger.Information("Not connected");
+                _logger.LogInformation("Not connected");
                 return false;
             }
             if (!_ready) return false;
@@ -288,7 +291,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (_rtspSocket is null || _uri is null)
             {
-                _logger.Information("Not connected");
+                _logger.LogInformation("Not connected");
                 return false;
             }
 
@@ -318,7 +321,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     }
                     catch (Exception ex)
                     {
-                        _logger.Warning($"Transport disposal failed: {ex.Message}");
+                        _logger.LogWarning($"Transport disposal failed: {ex.Message}");
                     }
                 }
             }
@@ -333,7 +336,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Video payload processor dispose failed");
+                    _logger.LogWarning(ex, "Video payload processor dispose failed");
                 }
             }
 
@@ -345,7 +348,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Audio payload processor dispose failed");
+                    _logger.LogWarning(ex, "Audio payload processor dispose failed");
                 }
             }
 
@@ -379,7 +382,7 @@ namespace OPNX.Lib.Streaming.RTSP
             var rtspClient = _rtspClient;
             if (_rtspSocket is null || _uri is null || rtspClient is null)
             {
-                _logger.Information("Not connected");
+                _logger.LogInformation("Not connected");
                 return false;
             }
             if (!_ready) { return false; }
@@ -403,7 +406,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning($"Transport disposal failed: {ex.Message}");
+                    _logger.LogWarning($"Transport disposal failed: {ex.Message}");
                 }
             }
 
@@ -418,7 +421,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Video payload processor dispose failed");
+                    _logger.LogWarning(ex, "Video payload processor dispose failed");
                 }
             }
 
@@ -430,7 +433,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Audio payload processor dispose failed");
+                    _logger.LogWarning(ex, "Audio payload processor dispose failed");
                 }
             }
 
@@ -469,11 +472,11 @@ namespace OPNX.Lib.Streaming.RTSP
 
             if (sender is not IRtpTransport transport)
             {
-                _logger.Warning("No RTP Transport");
+                _logger.LogWarning("No RTP Transport");
                 return;
             }
 
-            _logger.Debug("Received a RTCP message ");
+            _logger.LogDebug("Received a RTCP message ");
 
             // RTCP Packet
             // - Version, Padding and Receiver Report Count
@@ -489,7 +492,7 @@ namespace OPNX.Lib.Streaming.RTSP
             {
                 if (!rtcpPacket.IsWellFormed)
                 {
-                    _logger.Debug("Invalid RTCP packet");
+                    _logger.LogDebug("Invalid RTCP packet");
                     break;
                 }
 
@@ -501,7 +504,7 @@ namespace OPNX.Lib.Streaming.RTSP
                 // 204 = APP = Application Specific Method
                 // 207 = XR = Extended Reports
 
-                _logger.Debug("RTCP Data. PacketType={rtcp_packet_type}", rtcpPacket.PacketType);
+                _logger.LogDebug("RTCP Data. PacketType={rtcp_packet_type}", rtcpPacket.PacketType);
 
                 if (rtcpPacket.PacketType == RtcpPacketUtil.RTCP_PACKET_TYPE_SENDER_REPORT)
                 {
@@ -510,8 +513,8 @@ namespace OPNX.Lib.Streaming.RTSP
                     var time = rtcpPacket.SenderReport.Clock;
                     var rtp_timestamp = rtcpPacket.SenderReport.RtpTimestamp;
 
-                    _logger.Debug("RTCP time (UTC) for RTP timestamp {timestamp} is {time} SSRC {ssrc}", rtp_timestamp, time, rtcpPacket.SenderSsrc);
-                    _logger.Debug("Packet Count {packetCount} Octet Count {octetCount}", rtcpPacket.SenderReport.PacketCount, rtcpPacket.SenderReport.OctetCount);
+                    _logger.LogDebug("RTCP time (UTC) for RTP timestamp {timestamp} is {time} SSRC {ssrc}", rtp_timestamp, time, rtcpPacket.SenderSsrc);
+                    _logger.LogDebug("Packet Count {packetCount} Octet Count {octetCount}", rtcpPacket.SenderReport.PacketCount, rtcpPacket.SenderReport.OctetCount);
 
                     // Send a Receiver Report
                     try
@@ -532,7 +535,7 @@ namespace OPNX.Lib.Streaming.RTSP
                     }
                     catch
                     {
-                        _logger.Debug("Error writing RTCP packet");
+                        _logger.LogDebug("Error writing RTCP packet");
                     }
                 }
                 rtcpPacket = rtcpPacket.Next;
@@ -594,7 +597,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
             RtspUtils.RegisterUri();
 
-            _logger.Debug($"{EntityID} Connecting to " + videoSource.RtspURL);
+            _logger.LogDebug($"{EntityID} Connecting to " + videoSource.RtspURL);
             _uri = uri;
 
             _playbackSession = playbackSession;
@@ -639,7 +642,7 @@ namespace OPNX.Lib.Streaming.RTSP
             catch
             {
                 rtspSocketStatus = RTSP_STATUS.ConnectFailed;
-                _logger.Warning($"{EntityID} Error - connection failed");
+                _logger.LogWarning($"{EntityID} Error - connection failed");
                 OnStopped(RTSPClientStopReason.CONNECTION_FAILED);
                 return;
             }
@@ -647,7 +650,7 @@ namespace OPNX.Lib.Streaming.RTSP
             if (!_rtspSocket.Connected)
             {
                 rtspSocketStatus = RTSP_STATUS.ConnectFailed;
-                _logger.Warning($"{EntityID} Error - connection failed");
+                _logger.LogWarning($"{EntityID} Error - connection failed");
                 OnStopped(RTSPClientStopReason.CONNECTION_FAILED);
                 return;
             }
@@ -830,7 +833,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //    }
         //    catch (Exception ex)
         //    {
-        //        _logger.Warning($"Error on sending teardown rtsp client for source {VideoSourceID}: {ex}");
+        //        _logger.LogWarning($"Error on sending teardown rtsp client for source {VideoSourceID}: {ex}");
         //    }
 
         //}
@@ -847,13 +850,13 @@ namespace OPNX.Lib.Streaming.RTSP
         //    if (rtpPacket.PayloadType != _videoPayload)
         //    {
         //        // Check the payload type in the RTP packet matches the Payload Type value from the SDP
-        //        _logger.Debug("Ignoring this Video RTP payload");
+        //        _logger.LogDebug("Ignoring this Video RTP payload");
         //        return; // ignore this data
         //    }
 
         //    if (videoPayloadProcessor is null)
         //    {
-        //        _logger.Warning("No video Processor");
+        //        _logger.LogWarning("No video Processor");
         //        return;
         //    }
 
@@ -878,13 +881,13 @@ namespace OPNX.Lib.Streaming.RTSP
         //    // Check the payload type in the RTP packet matches the Payload Type value from the SDP
         //    if (rtpPacket.PayloadType != _audioPayload)
         //    {
-        //        _logger.Debug("Ignoring this Audio RTP payload");
+        //        _logger.LogDebug("Ignoring this Audio RTP payload");
         //        return; // ignore this data
         //    }
 
         //    if (audioPayloadProcessor is null)
         //    {
-        //        _logger.Warning("No parser for RTP payload {audioPayload}", _audioPayload);
+        //        _logger.LogWarning("No parser for RTP payload {audioPayload}", _audioPayload);
         //        return;
         //    }
 
@@ -939,7 +942,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
         //    if (trace)
         //    {
-        //        _logger.Verbose("RTP Data"
+        //        _logger.LogTrace("RTP Data"
         //        + " V=" + rtp_version
         //        + " P=" + rtp_padding
         //        + " X=" + rtp_extension
@@ -1172,7 +1175,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //                    {
         //                        case int payloadType when payloadType != _videoPayload || payloadType == 26:
         //                            {
-        //                                _logger.Debug(payloadType == 26 ? "No parser has been written for JPEG RTP packets. Please help write one" : "Ignoring this Video RTP payload");
+        //                                _logger.LogDebug(payloadType == 26 ? "No parser has been written for JPEG RTP packets. Please help write one" : "Ignoring this Video RTP payload");
         //                            }
         //                            return;
         //                        default:
@@ -1189,7 +1192,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //                    //{
         //                    //    case int payloadType when payloadType != _audioPayload:
         //                    //        {
-        //                    //            _logger.Debug("Ignoring this Audio RTP payload");
+        //                    //            _logger.LogDebug("Ignoring this Audio RTP payload");
         //                    //        }
         //                    //        break;
         //                    //    case int payloadType when payloadType == 0 || payloadType == 8:
@@ -1220,7 +1223,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //                break;
         //            default:
         //                {
-        //                    _logger.Warning("No parser for RTP payload " + rtpPacket.PayloadType);
+        //                    _logger.LogWarning("No parser for RTP payload " + rtpPacket.PayloadType);
         //                }
         //                break;
         //        }
@@ -1235,14 +1238,14 @@ namespace OPNX.Lib.Streaming.RTSP
         //        //// Check the payload type in the RTP packet matches the Payload Type value from the SDP
         //        //if (data_received.Channel == _videoDataChannel && rtp_payload_type != _videoPayload)
         //        //{
-        //        //    _logger.Debug("Ignoring this Video RTP payload");
+        //        //    _logger.LogDebug("Ignoring this Video RTP payload");
         //        //    return; // ignore this data
         //        //}
 
         //        //// Check the payload type in the RTP packet matches the Payload Type value from the SDP
         //        //else if (data_received.Channel == _audioDataChannel && rtp_payload_type != _audioPayload)
         //        //{
-        //        //    _logger.Debug("Ignoring this Audio RTP payload");
+        //        //    _logger.LogDebug("Ignoring this Audio RTP payload");
         //        //    return; // ignore this data
         //        //}
         //        //else if (data_received.Channel == _videoDataChannel
@@ -1330,7 +1333,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //        }
         //    }
 
-        //    _logger.Debug($"{VideoSourceID} WWW Authorize parsed for " + _authType + " " + _realm + " " + _nonce);
+        //    _logger.LogDebug($"{VideoSourceID} WWW Authorize parsed for " + _authType + " " + _realm + " " + _nonce);
         //}
 
 
@@ -1513,13 +1516,13 @@ namespace OPNX.Lib.Streaming.RTSP
         //    // Got a reply for DESCRIBE
         //    if (message.IsOk == false)
         //    {
-        //        _logger.Debug($"{EntityID} Got Error in DESCRIBE Reply " + message.ReturnCode + " " + message.ReturnMessage);
+        //        _logger.LogDebug($"{EntityID} Got Error in DESCRIBE Reply " + message.ReturnCode + " " + message.ReturnMessage);
         //        return;
         //    }
 
         //    // Examine the SDP
 
-        //    _logger.Debug($"{EntityID} " + System.Text.Encoding.UTF8.GetString(message.Data.Span));            
+        //    _logger.LogDebug($"{EntityID} " + System.Text.Encoding.UTF8.GetString(message.Data.Span));            
 
         //    SdpFile sdp_data;
         //    using (var sdpStream = new MemoryStream(message.Data.ToArray()))
@@ -1758,11 +1761,11 @@ namespace OPNX.Lib.Streaming.RTSP
         //    // Got Reply to SETUP
         //    if (message.IsOk == false)
         //    {
-        //        _logger.Debug($"{EntityID} Got Error in SETUP Reply " + message.ReturnCode + " " + message.ReturnMessage);
+        //        _logger.LogDebug($"{EntityID} Got Error in SETUP Reply " + message.ReturnCode + " " + message.ReturnMessage);
         //        return;
         //    }
 
-        //    _logger.Debug($"{EntityID} Got reply from Setup. Session is " + message.Session);
+        //    _logger.LogDebug($"{EntityID} Got reply from Setup. Session is " + message.Session);
 
         //    _session = message.Session; // Session value used with Play, Pause, Teardown and and additional Setups
         //    if (_keepaliveTimer != null && message.Timeout > 0 && message.Timeout > _keepaliveTimer.Interval / 1000)
@@ -1882,13 +1885,13 @@ namespace OPNX.Lib.Streaming.RTSP
 
             if (!audioPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor? audioPayloadProcessor))
             {
-                _logger.Debug($"No audiopayload for this type.");
+                _logger.LogDebug($"No audiopayload for this type.");
                 return;
             }
 
             if (!audioPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string? payloadName))
             {
-                _logger.Debug($"No audiopayload mapping for this type.");
+                _logger.LogDebug($"No audiopayload mapping for this type.");
                 return;
             }
 
@@ -1911,18 +1914,18 @@ namespace OPNX.Lib.Streaming.RTSP
 
             if (!videoPayloadProcessors.TryGetValue(rtpPacket.PayloadType, out IPayloadProcessor? videoPayloadProcessor))
             {
-                _logger.Warning($"No videopayload for this type.");
+                _logger.LogWarning($"No videopayload for this type.");
                 return;
             }
 
             if (!videoPayloadMapping.TryGetValue(rtpPacket.PayloadType, out string? payloadName))
             {
-                _logger.Warning($"No videopayload mapping for this type.");
+                _logger.LogWarning($"No videopayload mapping for this type.");
                 return;
             }
             if (videoPayloadProcessor is null)
             {
-                _logger.Warning("No video Processor");
+                _logger.LogWarning("No video Processor");
                 return;
             }
 
@@ -1940,12 +1943,12 @@ namespace OPNX.Lib.Streaming.RTSP
         //    // Got Reply to PLAY
         //    if (message.IsOk == false)
         //    {
-        //        _logger.Debug($"{VideoSourceID} Got Error in PLAY Reply " + message.ReturnCode + " " + message.ReturnMessage);
+        //        _logger.LogDebug($"{VideoSourceID} Got Error in PLAY Reply " + message.ReturnCode + " " + message.ReturnMessage);
         //        _readyEvent.Set();
         //        return;
         //    }
 
-        //    _logger.Debug($"{VideoSourceID} Got reply from Play  " + message.Command);
+        //    _logger.LogDebug($"{VideoSourceID} Got reply from Play  " + message.Command);
         //    _readyEvent.Set();
         //    _playing = true;
 
@@ -1967,7 +1970,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //        {
         //            AddAuthorization(resend_message, _username, _password, _authType, _realm, _nonce, _url);
         //        }
-        //        _logger.Debug($"{VideoSourceID} Resend failed message " + resend_message.GetType().ToString());
+        //        _logger.LogDebug($"{VideoSourceID} Resend failed message " + resend_message.GetType().ToString());
         //        _rtspClient.SendMessage(resend_message);
         //    }
         //    else
@@ -1982,14 +1985,14 @@ namespace OPNX.Lib.Streaming.RTSP
             if (e.Message is not RtspResponse message)
                 return;
 
-            _logger.Debug($"{EntityID} Received RTSP Message " + message.OriginalRequest?.ToString());
+            _logger.LogDebug($"{EntityID} Received RTSP Message " + message.OriginalRequest?.ToString());
 
             // If message has a 401 - Unauthorised Error, then we re-send the message with Authorization
             // using the most recently received 'realm' and 'nonce'
             if (message.IsOk == false)
 
             {
-                _logger.Debug($"{EntityID} Got Error in RTSP Reply " + message.ReturnCode + " " + message.ReturnMessage);
+                _logger.LogDebug($"{EntityID} Got Error in RTSP Reply " + message.ReturnCode + " " + message.ReturnMessage);
 
                 if (message.ReturnCode == 401
                     && message.OriginalRequest?.Headers.ContainsKey(RtspHeaderNames.Authorization) == true
@@ -2011,7 +2014,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                     string www_authenticate = value ?? string.Empty;
                     _authentication = Authentication.Create(_credentials, www_authenticate);
-                    _logger.Debug("WWW Authorize parsed for {authentication}", _authentication);
+                    _logger.LogDebug("WWW Authorize parsed for {authentication}", _authentication);
                 }
 
                 RtspMessage? resend_message = message.OriginalRequest?.Clone() as RtspMessage;
@@ -2089,7 +2092,7 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             Debug.Assert(message.OriginalRequest is RtspRequestSetup, "Expected a SETUP request");
 
-            _logger.Debug("Got reply from Setup. Session is {session}", message.Session);
+            _logger.LogDebug("Got reply from Setup. Session is {session}", message.Session);
 
             // Session value used with Play, Pause, Teardown and and additional Setups
             _session = message.Session ?? "";
@@ -2213,12 +2216,12 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             if (message.Data.IsEmpty)
             {
-                _logger.Warning("Invalid SDP");
+                _logger.LogWarning("Invalid SDP");
                 return;
             }
 
             // Examine the SDP
-            _logger.Debug("Sdp:\n{sdp}", Encoding.UTF8.GetString(message.Data.Span));
+            _logger.LogDebug("Sdp:\n{sdp}", Encoding.UTF8.GetString(message.Data.Span));
 
             SdpFile sdp_data;
             using (var sdpStream = new MemoryStream(message.Data.ToArray()))
@@ -2250,7 +2253,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                     if (!string.IsNullOrEmpty(_setupPreferredVideoRtpMap) && !(rtpmap?.EncodingName?.Equals(_setupPreferredVideoRtpMap, StringComparison.OrdinalIgnoreCase) ?? true))
                     {
-                        _logger.Debug($"Not requested one.");
+                        _logger.LogDebug($"Not requested one.");
                         continue;
                     }
 
@@ -2555,7 +2558,7 @@ namespace OPNX.Lib.Streaming.RTSP
         //            }
         //        default:
         //            {
-        //                _logger.Error(se.Message);
+        //                _logger.LogError(se.Message);
         //                return;
         //            }
         //    }
@@ -2652,3 +2655,4 @@ namespace OPNX.Lib.Streaming.RTSP
         #endregion
     }
 }
+

@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Media.FFMpeg.Generic;
 
 namespace OPNX.Lib.Media.FFMpeg
@@ -22,19 +23,22 @@ namespace OPNX.Lib.Media.FFMpeg
 
         private long _firstPTS = long.MinValue;
         private long _currentPTS = long.MinValue;
+        private readonly ILogger _logger;
         #endregion
 
-        public FFmpegVideoMuxer(string filePath, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height)
-            : this(filePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, codecID, pixelFormat, width, height)
+        public FFmpegVideoMuxer(string filePath, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height, ILogger? logger = null)
+            : this(filePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, codecID, pixelFormat, width, height, logger)
         {
         }
 
-        public FFmpegVideoMuxer(string filePath, AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height)
+        public FFmpegVideoMuxer(string filePath, AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height, ILogger? logger = null)
             : base()
         {
+            _logger = logger ?? NullLogger.Instance;
+
             try
             {
-                _encoder = new FFmpegVideoEncoder(hwDeviceType, codecID, pixelFormat, width, height);
+                _encoder = new FFmpegVideoEncoder(hwDeviceType, codecID, pixelFormat, width, height, logger);
                 _encoder.VideoFrameEncoded += Encoder_VideoFrameEncoded;
 
                 fixed (AVFormatContext** pFormatContext = &_formatContext)
@@ -82,7 +86,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -107,7 +111,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex.Message);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
             return result;
         }
@@ -196,7 +200,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
             finally
             {
@@ -257,4 +261,6 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
     }
 }
+
+
 

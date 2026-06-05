@@ -1,5 +1,6 @@
-﻿using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Network.Abstractions;
 using OPNX.Lib.Network.Abstractions.Events;
 using System.IO.Pipelines;
@@ -8,8 +9,10 @@ using System.Net;
 
 namespace OPNX.Lib.Network.Transport.NamedPipe
 {
-    public class NamedPipeConnection(NamedPipeConnectionOptions? options = null) : DisposableObject, IConnection
+    public class NamedPipeConnection(NamedPipeConnectionOptions? options = null, ILogger? logger = null) : DisposableObject, IConnection
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
+
         #region Fields
         // 상태 전이(Connect/Disconnect/Dispose)를 "한 번에 하나만" 수행하기 위한 게이트
         private readonly SemaphoreSlim _gate = new(1, 1);
@@ -109,12 +112,12 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
                 }
                 catch (IOException ioEx)
                 {
-                    LogManager.Error($"An I/O error occurred while connecting to the pipe. PipeName={pipeName}, Error={ioEx.Message}.");
+                    _logger.LogError(ioEx, "An I/O error occurred while connecting to the pipe. PipeName={PipeName}.", pipeName);
                     connected = false;
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"An unexpected error occurred while connecting to the pipe. PipeName={pipeName}, Error={ex}.");
+                    _logger.LogError(ex, "An unexpected error occurred while connecting to the pipe. PipeName={PipeName}.", pipeName);
                     connected = false;
                 }
                 finally
@@ -134,7 +137,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             if (connected && connectedHandlers is not null && connectedArgs is not null)
             {
                 try { connectedHandlers.Invoke(this, connectedArgs); }
-                catch (Exception ex) { LogManager.Error(ex); }
+                catch (Exception ex) { _logger.LogError(ex, "{Message}", ex.Message); }
             }
 
             return connected;
@@ -151,7 +154,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -185,7 +188,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             if (shouldRaise && disconnectedHandlers is not null && disconnectedArgs is not null)
             {
                 try { disconnectedHandlers.Invoke(this, disconnectedArgs); }
-                catch (Exception ex) { LogManager.Error(ex); }
+                catch (Exception ex) { _logger.LogError(ex, "{Message}", ex.Message); }
             }
         }
         #endregion
@@ -208,14 +211,14 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             if (_writer is not null)
             {
                 try { await _writer.CompleteAsync().ConfigureAwait(false); }
-                catch (Exception ex) { LogManager.Error(ex); }
+                catch (Exception ex) { _logger.LogError(ex, "{Message}", ex.Message); }
                 _writer = null;
             }
 
             if (_reader is not null)
             {
                 try { await _reader.CompleteAsync().ConfigureAwait(false); }
-                catch (Exception ex) { LogManager.Error(ex); }
+                catch (Exception ex) { _logger.LogError(ex, "{Message}", ex.Message); }
                 _reader = null;
             }
 
@@ -223,7 +226,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             if (_pipeClient is not null)
             {
                 try { await _pipeClient.DisposeAsync().ConfigureAwait(false); }
-                catch (Exception ex) { LogManager.Error(ex); }
+                catch (Exception ex) { _logger.LogError(ex, "{Message}", ex.Message); }
                 _pipeClient = null;
             }
         }
@@ -237,7 +240,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -252,7 +255,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
             finally
             {
@@ -262,4 +265,7 @@ namespace OPNX.Lib.Network.Transport.NamedPipe
         #endregion
     }
 }
+
+
+
 

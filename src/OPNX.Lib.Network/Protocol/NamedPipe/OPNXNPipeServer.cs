@@ -1,7 +1,8 @@
-﻿using OPNX.Lib.Common.Buffers;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OPNX.Lib.Common.Buffers;
 using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
-using OPNX.Lib.Common.Logging;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Network.Abstractions;
 using OPNX.Lib.Network.Abstractions.Events;
@@ -37,12 +38,15 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         private TaskCompletionSource<bool>? _connectionClosedSignal;
 
         private readonly ProtocolOptions _options;
+        private readonly ILogger _logger;
         #endregion
 
         #region Constructors
-        public OPNXNPipeServer(NamedPipeEndPoint nPipeEndpoint, ProtocolOptions? options = null)
+        public OPNXNPipeServer(NamedPipeEndPoint nPipeEndpoint, ProtocolOptions? options = null, ILogger? logger = null)
         {
-            _npAcceptor = new NamedPipeAcceptor(nPipeEndpoint);
+            _logger = logger ?? NullLogger.Instance;
+
+            _npAcceptor = new NamedPipeAcceptor(nPipeEndpoint, logger: logger);
             _npAcceptor.Connected += NPAcceptor_Connected;
             _npAcceptor.Disconnected += NPAcceptor_Disconnected;
 
@@ -139,7 +143,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -180,14 +184,14 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                     return true;
 
                 packet.Dispose();
-                LogManager.Error("SendData: Channel full or closed.");
+                _logger.LogError("SendData: Channel full or closed.");
                 return false;
             }
             catch (Exception ex)
             {
                 packet?.Dispose();
                 owner?.Dispose();
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return false;
             }
         }
@@ -284,7 +288,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 // 스냅샷 변수가 null일 수 있으니 아래 정리에서 방어됨
                 readTask = recvTask = sendTask = null;
                 cts = null;
@@ -314,7 +318,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
 
             _connectionClosedSignal?.TrySetResult(true);
@@ -339,7 +343,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
                 return;
             }
             finally
@@ -371,7 +375,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"The named pipe accept loop failed. Error={ex}.");
+                    _logger.LogError($"The named pipe accept loop failed. Error={ex}.");
 
                     try
                     {
@@ -410,9 +414,8 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                     return new Packet(header, owner2, size2);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogManager.Error($"Failed to process packet data. Error={ex}.");
                 throw;
             }
         }
@@ -489,7 +492,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                             catch (Exception ex)
                             {
                                 packet?.Dispose();
-                                LogManager.Error($"Failed to process the packet. Error={ex}.");
+                                _logger.LogError($"Failed to process the packet. Error={ex}.");
                                 // 다음 프레임 계속
                             }
                         }
@@ -498,7 +501,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Error($"Failed to process the buffer. Error={ex}.");
+                        _logger.LogError($"Failed to process the buffer. Error={ex}.");
                     }
                     finally
                     {
@@ -511,7 +514,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (OperationCanceledException)
             {
-                LogManager.Error("Packet processing operation cancelled");
+                _logger.LogError("Packet processing operation cancelled");
             }
             catch (IOException)
             {
@@ -519,11 +522,11 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (ObjectDisposedException ex)
             {
-                LogManager.Error($"Reader object disposed: {ex.Message}");
+                _logger.LogError($"Reader object disposed: {ex.Message}");
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An unexpected error occurred in the packet processor. Error={ex}.");
+                _logger.LogError($"An unexpected error occurred in the packet processor. Error={ex}.");
             }
             finally
             {
@@ -533,7 +536,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error($"Failed to complete the reader. Error={ex}.");
+                    _logger.LogError($"Failed to complete the reader. Error={ex}.");
                 }
 
                 await _npAcceptor.HandleDisconnectedAsync(disconnectReason);
@@ -584,7 +587,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                         }
                         catch (Exception ex)
                         {
-                            LogManager.Warning($"Packet ignored due to disconnection: {ex.Message}");
+                            _logger.LogWarning($"Packet ignored due to disconnection: {ex.Message}");
                         }
                         finally
                         {
@@ -617,7 +620,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             catch (Exception ex)
             {
                 // 다른 예외 처리
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
             finally
             {
@@ -629,7 +632,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Error(ex);
+                    _logger.LogError(ex, "{Message}", ex.Message);
                 }
             }
         }
@@ -658,7 +661,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                         }
                         catch (Exception ex)
                         {
-                            LogManager.Error(ex);
+                            _logger.LogError(ex, "{Message}", ex.Message);
                         }
                     }
                 }
@@ -687,7 +690,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             catch (Exception ex)
             {
                 // 다른 예외 처리
-                LogManager.Error(ex);
+                _logger.LogError(ex, "{Message}", ex.Message);
             }
         }
 
@@ -722,7 +725,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
             }
             catch (Exception ex)
             {
-                LogManager.Error($"An error occurred while disposing the named pipe server. Error={ex}.");
+                _logger.LogError($"An error occurred while disposing the named pipe server. Error={ex}.");
             }
             finally
             {
@@ -735,4 +738,10 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         #endregion
     }
 }
+
+
+
+
+
+
 

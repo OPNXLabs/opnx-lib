@@ -1,5 +1,4 @@
-﻿using OPNX.Lib.Common.Logging;
-using OPNX.Lib.Data.ORM.Interfaces;
+﻿using OPNX.Lib.Data.ORM.Interfaces;
 
 namespace OPNX.Lib.Data.ORM.EventHandlers
 {
@@ -26,9 +25,8 @@ namespace OPNX.Lib.Data.ORM.EventHandlers
                     if (propertyInfo != null)
                         Value = propertyInfo.GetValue(newEntity);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    LogManager.Error(ex);
                 }
             }
         }
@@ -56,9 +54,10 @@ namespace OPNX.Lib.Data.ORM.EventHandlers
             //}
             //catch (Exception ex)
             //{
-            //    LogManager.Error(ex);
             //}
             //return default(T);
         }
     }
 }
+
+

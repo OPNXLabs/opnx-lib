@@ -1,12 +1,14 @@
-﻿using OPNX.Lib.Common.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.RTSP.Onvif;
 using System.Buffers;
 
 namespace OPNX.Lib.Streaming.RTSP.RTP
 {
     //public class AV1Payload(ILogger<AV1Payload> logger = null, MemoryPool<byte> memoryPool = null) : IPayloadProcessor
-    public class AV1Payload(MemoryPool<byte>? memoryPool = null) : IPayloadProcessor
+    public class AV1Payload(MemoryPool<byte>? memoryPool = null, ILogger? logger = null) : IPayloadProcessor
     {
+        private readonly ILogger _logger = logger ?? NullLogger.Instance;
         //private readonly ILogger _logger = logger as ILogger ?? NullLogger.Instance;
 
         // AV1 structure.
@@ -57,7 +59,7 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
 
             if (wSize != 0 && wSize != obuCount)
             {
-                LogManager.Error($"Mismatched OBU count");
+                _logger.LogError($"Mismatched OBU count");
             }
         }
 
@@ -238,3 +240,5 @@ namespace OPNX.Lib.Streaming.RTSP.RTP
         }
     }
 }
+
+

@@ -11,12 +11,15 @@ namespace OPNX.Lib.Data.ORM.Serialization
         [
             .. typeof(T).GetProperties()
                 .Where(property =>
-                    property.CanRead &&
-                    property.CanWrite &&
-                    property.GetIndexParameters().Length == 0 &&
-                    Attribute.IsDefined(property, typeof(DataColumnAttribute)) &&
-                    !Attribute.IsDefined(property, typeof(ForeignKeyAttribute)) &&
-                    !Attribute.IsDefined(property, typeof(JsonIgnoreAttribute)))
+                property.CanRead &&
+                property.CanWrite &&
+                property.GetIndexParameters().Length == 0 &&
+                (
+                Attribute.IsDefined(property, typeof(DataColumnAttribute), inherit: true) ||
+                Attribute.IsDefined(property, typeof(CustomEntityPropertyAttribute), inherit: true)
+                ) &&
+                !Attribute.IsDefined(property, typeof(ForeignKeyAttribute)) &&
+                !Attribute.IsDefined(property, typeof(JsonIgnoreAttribute)))
         ];
 
         public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

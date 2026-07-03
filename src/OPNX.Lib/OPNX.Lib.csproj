@@ -13,6 +13,9 @@
     <Version>0.1.0-preview.20260410.2</Version>
     <InformationalVersion>0.1.0-preview.20260410.2</InformationalVersion>
     <Platforms>AnyCPU;x64</Platforms>
+    <PackageLicenseFile>License.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,7 +36,9 @@
 
   <ItemGroup>
     <None Include="..\..\License.txt" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\License.ko.txt" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\README.ko.md" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\third_party_licenses\Apache-2.0.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\BSD-3-Clause.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />

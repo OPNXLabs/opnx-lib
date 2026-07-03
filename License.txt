@@ -1,55 +1,139 @@
-OPNX License (Learning, Evaluation, Research, and Non-Commercial Use)
+OPNX License
+Learning, Evaluation, Research, Testing, and Non-Commercial Use
 
 Copyright (c) 2026 OPNX
 
+This English version is the legally controlling version of this license.
+Any translation, including a Korean translation, is provided for convenience
+only. If there is any conflict between this English version and a translation,
+this English version controls.
+
 Important Notice Regarding Third-Party Components
 This license applies only to OPNX-owned code in this repository.
-Third-party components included in or derived into this repository remain
+Third-party components, source-derived portions, native runtimes, notices,
+and attribution materials included in or used by this repository remain
 subject to their own license terms, notices, and attribution requirements.
 Nothing in this license limits or replaces rights granted under any applicable
 third-party license.
 
-1. Grant of License
-This software and associated documentation (the "Software") are provided
-for learning, evaluation, research, testing, and other non-commercial use only.
+1. Definitions
 
-2. Permitted Non-Commercial Use
+"Software" means the OPNX-owned source code, object code, documentation,
+and related materials provided in this repository, excluding third-party
+components and materials that are subject to separate license terms.
+
+"Non-Commercial Use" means use that is not intended for, directed toward,
+or connected with commercial advantage, monetary compensation, revenue
+generation, paid services, production business operations, or commercial
+product or service offerings.
+
+"Commercial Use" means any use of the Software, in whole or in part, for
+commercial advantage, monetary compensation, revenue generation, business
+operations, production environments, customer-facing services, paid services,
+commercial products, OEM offerings, bundled offerings, embedded offerings,
+or other commercial purposes.
+
+2. Grant of License
+
+Subject to the terms of this license, OPNX grants you a limited, non-exclusive,
+non-transferable, revocable license to use, copy, modify, and study the
+Software solely for learning, evaluation, research, testing, and other
+Non-Commercial Use.
+
+3. Permitted Non-Commercial Use
+
 You may use, copy, modify, and study the Software for personal, educational,
-research, evaluation, and other non-commercial purposes.
+academic, research, evaluation, testing, and other Non-Commercial Use.
 
-3. Commercial Use Restriction
-Any commercial use of the Software, in whole or in part, requires prior
+Internal evaluation by a commercial organization is permitted only for
+non-production evaluation, testing, proof-of-concept work, and technical
+review. Such internal evaluation does not permit production use,
+customer-facing use, revenue-generating use, redistribution, sublicensing,
+or inclusion in any commercial product or service.
+
+4. Commercial Use Restriction
+
+Any Commercial Use of the Software, in whole or in part, requires prior
 written permission from OPNX.
 
-Commercial use includes, but is not limited to:
+Commercial Use includes, but is not limited to:
 - selling or licensing the Software;
 - integrating the Software into commercial products or services;
 - using the Software in business or production environments;
+- using the Software in customer-facing systems or hosted services;
 - providing the Software as part of a paid or revenue-generating service;
-- OEM, bundled, embedded, or redistributed use in commercial offerings.
+- OEM, bundled, embedded, or redistributed use in commercial offerings;
+- using modified versions of the Software for any of the above purposes.
 
-4. Redistribution
+5. Redistribution
+
 Redistribution of the Software, whether modified or unmodified, requires
 prior written permission from OPNX.
 
-5. Intellectual Property
+This restriction does not limit redistribution rights that you may have under
+applicable third-party licenses for third-party components that are separate
+from OPNX-owned code.
+
+6. Intellectual Property
+
 All rights, title, and interest in the Software, including all intellectual
 property rights, remain the exclusive property of OPNX.
 
-6. No Warranty
+Except for the limited license expressly granted in this license, no rights
+are granted by implication, exhaustion, estoppel, or otherwise.
+
+7. Patents
+
+No patent license is granted under this license. Any patent rights that may
+be necessary for Commercial Use, redistribution, implementation, deployment,
+or production use must be obtained separately, if applicable.
+
+8. Trademarks
+
+This license does not grant permission to use the names, trademarks, service
+marks, logos, product names, project names, or branding of OPNX, except as
+necessary for reasonable and customary reference to the Software.
+
+You may not use OPNX names or branding to imply endorsement, sponsorship,
+affiliation, or official status without prior written permission from OPNX.
+
+9. Third-Party Components
+
+Third-party components used by, included with, or derived into this repository
+remain subject to their own license terms, notices, and attribution
+requirements.
+
+Native FFmpeg binaries are not licensed under this license. Any party that
+obtains, bundles, redistributes, or deploys FFmpeg native binaries is
+responsible for complying with the license terms that apply to the specific
+FFmpeg build and enabled components.
+
+See THIRD-PARTY-NOTICES.md for additional third-party notices.
+
+10. No Warranty
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
 
-7. Limitation of Liability
+11. Limitation of Liability
+
 IN NO EVENT SHALL OPNX BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF,
-OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
-8. Termination
-This license is automatically terminated if you violate any of its terms.
+12. Termination
 
-9. Contact
-For commercial licensing, OEM agreements, or partnership inquiries, contact:
+This license automatically terminates if you violate any of its terms.
+
+Upon termination, you must stop using the Software and delete or destroy all
+copies of the Software in your possession or control, except to the extent
+retention is required by applicable law.
+
+13. Commercial Licensing And Contact
+
+For commercial licensing, OEM agreements, redistribution permission,
+partnership inquiries, or other written permission, contact:
 
 opnx@opnx.kr

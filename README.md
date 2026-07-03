@@ -96,6 +96,18 @@ The public API surface is being stabilized, and samples/API documentation will b
 
 The current repository should be treated as a preview-quality SDK for evaluation, integration testing, research, non-commercial experimentation, and early feedback rather than as a production-ready SDK.
 
+## NuGet Package
+
+OPNX.Lib is published as a preview NuGet package.
+
+Install:
+
+```powershell
+dotnet add package OPNX.Lib --version 0.1.0-preview.20260704.1
+```
+
+This package is intended for preview evaluation and integration testing. API compatibility, package structure, and documentation may change before a stable release.
+
 ## Build
 
 Requirements:

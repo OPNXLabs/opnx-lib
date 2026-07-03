@@ -19,7 +19,7 @@
 
     <!-- URL -->
     <PackageProjectUrl>https://www.opnx.kr/</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/OPNXLabs</RepositoryUrl>
+    <RepositoryUrl>https://github.com/OPNXLabs/opnx-lib</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
 
     <!-- License -->
@@ -28,6 +28,9 @@
 
     <!-- Readme -->
     <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- NuGet discovery -->
+    <PackageTags>opnx;video;vms;nvr;rtsp;streaming;media;dotnet</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

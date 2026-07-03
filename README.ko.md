@@ -96,6 +96,18 @@ OPNX.Lib는 현재 활발히 개발 중입니다.
 
 현재 저장소는 production-ready SDK라기보다는 평가, 통합 테스트, 연구, 비상업적 실험, 초기 피드백을 위한 preview-quality SDK로 보아야 합니다.
 
+## NuGet 패키지
+
+OPNX.Lib는 preview NuGet 패키지로 배포됩니다.
+
+설치:
+
+```powershell
+dotnet add package OPNX.Lib --version 0.1.0-preview.20260704.1
+```
+
+이 패키지는 preview 평가와 통합 테스트를 위한 버전입니다. 안정 버전이 나오기 전까지 API 호환성, 패키지 구조, 문서는 변경될 수 있습니다.
+
 ## 빌드
 
 요구 사항:

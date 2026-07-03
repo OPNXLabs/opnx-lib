@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x64</Platforms>
     <IsPackable>false</IsPackable>
+    <Description>Data and entity storage infrastructure for OPNX applications that keep stateful entities in memory and synchronize them with database-backed persistence.</Description>
   </PropertyGroup>
 
   <ItemGroup>

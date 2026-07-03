@@ -7,15 +7,8 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <IncludeReferencedProjects>true</IncludeReferencedProjects>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
-    <Company>OPNX</Company>
-    <Authors>OPNX</Authors>
-    <Description>OPNX platform SDK for networking, media processing, and streaming infrastructure.</Description>
-    <Version>0.1.0-preview.20260410.2</Version>
-    <InformationalVersion>0.1.0-preview.20260410.2</InformationalVersion>
+    <Description>Modular .NET infrastructure SDK for building stateful video systems with networking, media processing, real-time streaming, and database-backed entity storage.</Description>
     <Platforms>AnyCPU;x64</Platforms>
-    <PackageLicenseFile>License.txt</PackageLicenseFile>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>

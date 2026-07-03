@@ -8,6 +8,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <IsPackable>false</IsPackable>
+    <Description>Common infrastructure for OPNX libraries, including lifecycle management, serialization, compression, reflection, shared models, and utility components.</Description>
   </PropertyGroup>
 
   <ItemGroup>

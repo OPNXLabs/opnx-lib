@@ -7,6 +7,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
+    <Description>Networking and protocol infrastructure for OPNX systems, including TCP, named pipes, shared memory, framing, packets, and connection-oriented communication.</Description>
   </PropertyGroup>
 
   <ItemGroup>

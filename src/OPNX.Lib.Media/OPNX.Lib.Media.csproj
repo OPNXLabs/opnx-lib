@@ -8,6 +8,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <EnableLibraryImportGenerator>true</EnableLibraryImportGenerator>
     <IsPackable>false</IsPackable>
+    <Description>Media processing infrastructure for OPNX systems, including FFmpeg, OpenCV, and SkiaSharp-based encoding, decoding, conversion, filtering, muxing, and media data handling.</Description>
   </PropertyGroup>
 
   <ItemGroup>

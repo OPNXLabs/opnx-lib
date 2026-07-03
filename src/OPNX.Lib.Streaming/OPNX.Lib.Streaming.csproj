@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x64</Platforms>
     <IsPackable>false</IsPackable>
+    <Description>Real-time streaming infrastructure for OPNX systems, including RTSP-oriented components and reusable building blocks for media transport.</Description>
   </PropertyGroup>
 
   <ItemGroup>

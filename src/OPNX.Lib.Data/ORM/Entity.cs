@@ -176,8 +176,7 @@ namespace OPNX.Lib.Data.ORM
             GC.SuppressFinalize(this);
         }
 
-        public virtual T Update<T>(T newEntity)
-            where T : IEntity
+        public virtual T NotifyUpdated<T>(T newEntity) where T : IEntity
         {
             EntityChanges fieldChanges = this.GetChangedFields<T>(newEntity);
             if (fieldChanges.Count > 0)
@@ -188,12 +187,12 @@ namespace OPNX.Lib.Data.ORM
             return (T)(object)this;
         }
 
-        public virtual void Delete<T>() where T : IEntity
+        public virtual void NotifyDeleted<T>() where T : IEntity
         {
             IsDeleted = true;
         }
 
-        public virtual void Insert<T>() where T : IEntity { }
+        public virtual void NotifyInserted<T>() where T : IEntity { }
 
         //public T clone<T>(T original)
         //{

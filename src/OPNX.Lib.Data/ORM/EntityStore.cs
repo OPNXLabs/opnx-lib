@@ -14,23 +14,16 @@ using System.Runtime.CompilerServices;
 namespace OPNX.Lib.Data.ORM
 {
     [Serializable]
-    public partial class EntityStore : DisposableObject, IEntityStore, INotifyPropertyChanged
+    public partial class EntityStore(ILogger<EntityStore>? logger = null) : DisposableObject, IEntityStore, INotifyPropertyChanged
     {
         #region Fields
         private readonly ConcurrentDictionary<Type, object> _allEntitis = new();
-        private readonly ILogger<EntityStore> _logger;
+        private readonly ILogger<EntityStore> _logger = logger ?? NullLogger<EntityStore>.Instance;
 
         private static readonly ConcurrentDictionary<Type, MethodInfo> _cachedFindEntityMethods = new();
 
         protected static readonly ConcurrentDictionary<(Type typeT, Type typeU), MethodInfo> _cachedRefreshMethods = new();
         protected static readonly ConcurrentDictionary<(string methodName, Type type), MethodInfo> _cachedGenericHandlers = new();
-        #endregion
-
-        #region Constructors
-        public EntityStore(ILogger<EntityStore>? logger = null)
-        {
-            _logger = logger ?? NullLogger<EntityStore>.Instance;
-        }
         #endregion
 
         #region Properties
@@ -88,7 +81,7 @@ namespace OPNX.Lib.Data.ORM
                 insertEntity.Initialize(this);
                 items.Add(insertEntity);
 
-                insertEntity.Insert<T>();
+                insertEntity.NotifyInserted<T>();
                 insertEntity.PropertyChanged += Entity_PropertyChanged;
 
                 RefreshRelationProperties(insertEntity);
@@ -124,9 +117,10 @@ namespace OPNX.Lib.Data.ORM
                 }
                 else
                 {
-                    findEntity.Update<T>(updateEntity);
+                    T updatedEntity = findEntity.NotifyUpdated<T>(updateEntity);
                     RefreshRelationProperties(findEntity);
-                    OnEntityChanged(DataChangedTypes.Update, findEntity, findEntity.Update<T>(updateEntity));
+                    OnEntityChanged(DataChangedTypes.Update, findEntity, updatedEntity);
+
                     findEntity.PropertyChanged += Entity_PropertyChanged;
                 }
 
@@ -158,7 +152,7 @@ namespace OPNX.Lib.Data.ORM
                 items.Remove(findEntity);
 
                 findEntity.PropertyChanged -= Entity_PropertyChanged;
-                findEntity.Delete<T>();
+                findEntity.NotifyDeleted<T>();
 
                 RefreshRelationProperties(findEntity);
                 OnEntityChanged(DataChangedTypes.Delete, null, findEntity);

@@ -1,6 +1,6 @@
 ﻿namespace OPNX.Lib.Data.ORM.Datas.Attributes
 {
-    [AttributeUsage(AttributeTargets.Property, Inherited =true)]
+    [AttributeUsage(AttributeTargets.Property, Inherited = true)]
     public class CustomEntityPropertyAttribute : Attribute
     {
         public CustomEntityPropertyAttribute(string _fieldName, Type _entityType)

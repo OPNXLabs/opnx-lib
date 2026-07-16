@@ -6,16 +6,20 @@
     <LangVersion>latest</LangVersion>
 
     <!-- Common package metadata -->
-    <Company>OPNX</Company>
+    <Company>오픈엑스 (OPNX)</Company>
     <Authors>OPNX</Authors>
     <Product>OPNX.Lib</Product>
-    <Copyright>Copyright (c) 2026 OPNX</Copyright>
+    <Copyright>Copyright (c) 2026 오픈엑스 (OPNX)</Copyright>
 
-    <!-- Common version -->
-    <Version>0.1.0-preview.20260704.1</Version>
+    <!-- Common version: the date follows the local build date; increment only PreviewRevision manually. -->
+    <BaseVersion>0.1.0</BaseVersion>
+    <PreviewDate>$([System.DateTime]::Now.ToString('yyyyMMdd'))</PreviewDate>
+    <PreviewRevision>1</PreviewRevision>
+    <Version>$(BaseVersion)-preview.$(PreviewDate).$(PreviewRevision)</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
-    <InformationalVersion>0.1.0-preview.20260704.1</InformationalVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- URL -->
     <PackageProjectUrl>https://www.opnx.kr/</PackageProjectUrl>

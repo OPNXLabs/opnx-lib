@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <IncludeReferencedProjects>true</IncludeReferencedProjects>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
-    <Description>Modular .NET infrastructure SDK for building stateful video systems with networking, media processing, real-time streaming, and database-backed entity storage.</Description>
+    <Description>Modular .NET infrastructure SDK for stateful video systems. Preview package for non-commercial evaluation; commercial or production use requires a written OPNX license.</Description>
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 

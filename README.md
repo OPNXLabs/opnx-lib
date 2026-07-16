@@ -2,6 +2,8 @@
 
 [Korean](README.ko.md)
 
+> **License notice:** OPNX.Lib is source-available software, not open-source software. Commercial use and redistribution require prior written permission from OPNX. See [License.txt](License.txt).
+
 OPNX.Lib is a modular .NET infrastructure SDK for building stateful video systems, including VMS, NVR, streaming servers, device gateways, media processing services, and video-platform applications.
 
 The library provides reusable .NET modules for the foundations that video systems repeatedly need: network communication, packet-oriented protocol handling, media processing, real-time streaming, and database-backed entity storage.
@@ -92,7 +94,7 @@ OPNX.Lib is designed as an infrastructure layer for larger video systems, not as
 
 OPNX.Lib is under active development.
 
-The public API surface is being stabilized, and samples/API documentation will be added separately as the project matures.
+The public API surface is being stabilized. Runnable examples are maintained in the separate [OPNX Samples repository](https://github.com/OPNXLabs/opnx-samples), while API and integration documentation will continue to evolve as the project matures.
 
 The current repository should be treated as a preview-quality SDK for evaluation, integration testing, research, non-commercial experimentation, and early feedback rather than as a production-ready SDK.
 
@@ -103,7 +105,7 @@ OPNX.Lib is published as a preview NuGet package.
 Install:
 
 ```powershell
-dotnet add package OPNX.Lib --version 0.1.0-preview.20260704.1
+dotnet add package OPNX.Lib --prerelease
 ```
 
 This package is intended for preview evaluation and integration testing. API compatibility, package structure, and documentation may change before a stable release.
@@ -120,11 +122,16 @@ Build:
 dotnet build OPNX.Lib.slnx -c Debug
 ```
 
-## Samples And Documentation Roadmap
+## Samples And Documentation
 
-Samples, API documentation, and integration guides are not included yet.
+Runnable sample applications are available in [OPNXLabs/opnx-samples](https://github.com/OPNXLabs/opnx-samples):
 
-Initial documentation targets are expected to cover:
+- `OPNX.Samples.EntityStore` — entity store and data infrastructure usage
+- `OPNX.Samples.TcpChat` — TCP networking and packet flow
+- `OPNX.Samples.RtspMultiLiveViewer` — RTSP streaming and media integration
+- `OPNX.Samples.PlaybackTimeline` — integration between OPNX.Lib data models and OPNX.UI playback controls
+
+The samples are preview-quality examples and follow the package versions documented by the samples repository. Planned documentation topics include:
 
 - network connections and packet flow
 - entity store and database usage
@@ -159,14 +166,25 @@ See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for details.
 
 ## Related Projects
 
+- [`OPNX Samples`](https://github.com/OPNXLabs/opnx-samples)
+  Runnable examples for OPNX.Lib and OPNX.UI.
+
 - `OPNX.UI`  
-  WPF UI control library for OPNX-based applications.
+  UI solution family for OPNX client applications. Its current implementation, `OPNX.UI.WPF`, provides reusable WPF controls for Windows clients, with room for additional platform-specific UI implementations in the future.
 
 - `OPNX.V`  
   Video platform applications built on top of OPNX.Lib and OPNX.UI.
 
 ## Commercial And OEM Inquiries
 
+OPNX.Lib is developed and distributed by 오픈엑스 (OPNX), a business registered in the Republic of Korea.
+
 For commercial licensing, OEM agreements, or partnership inquiries, contact:
 
+- [https://www.opnx.kr/](https://www.opnx.kr/)
 - `opnx@opnx.kr`
+
+## Security And Contributions
+
+- Report security issues privately as described in [SECURITY.md](https://github.com/OPNXLabs/opnx-lib/blob/master/SECURITY.md).
+- Review [CONTRIBUTING.md](https://github.com/OPNXLabs/opnx-lib/blob/master/CONTRIBUTING.md) before opening an issue or proposing a change.

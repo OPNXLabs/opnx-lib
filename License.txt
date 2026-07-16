@@ -1,7 +1,7 @@
 OPNX License
 Learning, Evaluation, Research, Testing, and Non-Commercial Use
 
-Copyright (c) 2026 OPNX
+Copyright (c) 2026 오픈엑스 (OPNX)
 
 This English version is the legally controlling version of this license.
 Any translation, including a Korean translation, is provided for convenience
@@ -16,11 +16,21 @@ subject to their own license terms, notices, and attribution requirements.
 Nothing in this license limits or replaces rights granted under any applicable
 third-party license.
 
+Acceptance
+By exercising any permission granted under this license, including using,
+copying, or modifying the Software, you accept and agree to these terms.
+If you do not agree to these terms, you may not exercise the permissions
+granted under this license.
+
 1. Definitions
 
+"OPNX" means 오픈엑스 (OPNX), a business registered in the Republic
+of Korea and operating through https://www.opnx.kr/.
+
 "Software" means the OPNX-owned source code, object code, documentation,
-and related materials provided in this repository, excluding third-party
-components and materials that are subject to separate license terms.
+and related materials provided with or under this license, including through
+a source repository or package distribution, excluding third-party components
+and materials that are subject to separate license terms.
 
 "Non-Commercial Use" means use that is not intended for, directed toward,
 or connected with commercial advantage, monetary compensation, revenue
@@ -36,9 +46,9 @@ or other commercial purposes.
 2. Grant of License
 
 Subject to the terms of this license, OPNX grants you a limited, non-exclusive,
-non-transferable, revocable license to use, copy, modify, and study the
-Software solely for learning, evaluation, research, testing, and other
-Non-Commercial Use.
+non-transferable license to use, copy, modify, and study the Software solely
+for learning, evaluation, research, testing, and other Non-Commercial Use.
+This license terminates as provided in Section 12.
 
 3. Permitted Non-Commercial Use
 
@@ -69,6 +79,12 @@ Commercial Use includes, but is not limited to:
 
 Redistribution of the Software, whether modified or unmodified, requires
 prior written permission from OPNX.
+
+Making a repository public on GitHub permits users to view and fork the
+repository through GitHub's service functionality under GitHub's terms.
+Such service-level permission does not grant any right to use the Software
+outside the permissions of this license, and does not authorize Commercial
+Use or redistribution outside GitHub's service.
 
 This restriction does not limit redistribution rights that you may have under
 applicable third-party licenses for third-party components that are separate
@@ -131,9 +147,19 @@ Upon termination, you must stop using the Software and delete or destroy all
 copies of the Software in your possession or control, except to the extent
 retention is required by applicable law.
 
-13. Commercial Licensing And Contact
+13. Severability And No Waiver
+
+If any provision of this license is held to be unenforceable, that provision
+will be limited or modified to the minimum extent necessary, and the remaining
+provisions will remain in effect.
+
+Failure by OPNX to enforce any provision of this license is not a waiver of
+its right to enforce that provision or any other provision later.
+
+14. Commercial Licensing And Contact
 
 For commercial licensing, OEM agreements, redistribution permission,
 partnership inquiries, or other written permission, contact:
 
+Website: https://www.opnx.kr/
 opnx@opnx.kr

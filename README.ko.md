@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+> **라이선스 안내:** OPNX.Lib는 오픈 소스 소프트웨어가 아닌 source-available 소프트웨어입니다. 상업적 사용과 재배포에는 OPNX의 사전 서면 허가가 필요합니다. 자세한 내용은 [License.txt](License.txt)를 확인하십시오.
+
 OPNX.Lib는 VMS, NVR, 스트리밍 서버, 디바이스 게이트웨이, 미디어 처리 서비스, 영상 플랫폼 애플리케이션을 만들기 위한 모듈형 .NET 인프라 SDK입니다.
 
 이 라이브러리는 네트워크 통신, 패킷 기반 프로토콜 처리, 미디어 처리, 실시간 스트리밍, 데이터베이스 기반 엔티티 저장소처럼 영상 시스템에서 반복적으로 필요한 기반 기능을 재사용 가능한 .NET 모듈로 제공합니다.
@@ -92,7 +94,7 @@ OPNX.Lib는 단일 애플리케이션 전용 코드가 아니라, 더 큰 영상
 
 OPNX.Lib는 현재 활발히 개발 중입니다.
 
-공개 API는 안정화 중이며, 샘플과 API 문서는 프로젝트가 성숙함에 따라 별도로 추가될 예정입니다.
+공개 API는 안정화 중입니다. 실행 가능한 예제는 별도의 [OPNX Samples 저장소](https://github.com/OPNXLabs/opnx-samples)에서 제공하며, API 및 통합 문서는 프로젝트가 성숙함에 따라 계속 보강할 예정입니다.
 
 현재 저장소는 production-ready SDK라기보다는 평가, 통합 테스트, 연구, 비상업적 실험, 초기 피드백을 위한 preview-quality SDK로 보아야 합니다.
 
@@ -103,7 +105,7 @@ OPNX.Lib는 preview NuGet 패키지로 배포됩니다.
 설치:
 
 ```powershell
-dotnet add package OPNX.Lib --version 0.1.0-preview.20260704.1
+dotnet add package OPNX.Lib --prerelease
 ```
 
 이 패키지는 preview 평가와 통합 테스트를 위한 버전입니다. 안정 버전이 나오기 전까지 API 호환성, 패키지 구조, 문서는 변경될 수 있습니다.
@@ -120,11 +122,16 @@ dotnet add package OPNX.Lib --version 0.1.0-preview.20260704.1
 dotnet build OPNX.Lib.slnx -c Debug
 ```
 
-## 샘플 및 문서 계획
+## 샘플 및 문서
 
-샘플, API 문서, 통합 가이드는 아직 포함되어 있지 않습니다.
+실행 가능한 샘플 애플리케이션은 [OPNXLabs/opnx-samples](https://github.com/OPNXLabs/opnx-samples)에서 제공합니다.
 
-우선적으로 다음 항목에 대한 문서화를 계획하고 있습니다.
+- `OPNX.Samples.EntityStore` — 엔티티 저장소와 데이터 인프라 사용
+- `OPNX.Samples.TcpChat` — TCP 네트워크와 패킷 흐름
+- `OPNX.Samples.RtspMultiLiveViewer` — RTSP 스트리밍과 미디어 통합
+- `OPNX.Samples.PlaybackTimeline` — OPNX.Lib 데이터 모델과 OPNX.UI 재생 컨트롤 통합
+
+샘플은 preview 단계의 예제이며 샘플 저장소에 명시된 패키지 버전을 따릅니다. 향후 다음 항목에 대한 문서를 보강할 예정입니다.
 
 - 네트워크 연결 및 패킷 흐름
 - 엔티티 저장소 및 데이터베이스 사용
@@ -159,14 +166,25 @@ OPNX.Lib는 source-available 형태로 공개됩니다. 그러나 permissive ope
 
 ## 관련 프로젝트
 
+- [`OPNX Samples`](https://github.com/OPNXLabs/opnx-samples)
+  OPNX.Lib와 OPNX.UI를 위한 실행 가능한 예제 모음입니다.
+
 - `OPNX.UI`  
-  OPNX 기반 애플리케이션을 위한 WPF UI 컨트롤 라이브러리입니다.
+  OPNX 클라이언트 애플리케이션을 위한 UI 솔루션 제품군입니다. 현재 구현체인 `OPNX.UI.WPF`는 Windows 클라이언트를 위한 재사용 가능한 WPF 컨트롤을 제공하며, 향후 플랫폼별 UI 구현체로 확장할 수 있습니다.
 
 - `OPNX.V`  
   OPNX.Lib와 OPNX.UI 위에서 구축되는 영상 플랫폼 애플리케이션입니다.
 
 ## 상업 라이선스 및 OEM 문의
 
+OPNX.Lib는 대한민국에 사업자로 등록된 오픈엑스(OPNX)가 개발하고 배포합니다.
+
 상업적 사용, OEM 계약, 파트너십 문의는 아래 연락처로 문의하십시오.
 
+- [https://www.opnx.kr/](https://www.opnx.kr/)
 - `opnx@opnx.kr`
+
+## 보안 및 기여
+
+- 보안 문제는 [SECURITY.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/SECURITY.ko.md)의 절차에 따라 비공개로 제보해 주세요.
+- 이슈 등록이나 변경 제안 전 [CONTRIBUTING.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/CONTRIBUTING.ko.md)를 확인해 주세요.

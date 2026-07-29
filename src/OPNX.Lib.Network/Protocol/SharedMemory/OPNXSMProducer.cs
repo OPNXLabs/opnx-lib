@@ -31,14 +31,10 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         private readonly ILogger _logger;
 
         private readonly CancellationTokenSource _sendDataCTS = new();
-        private readonly Channel<Packet> _outboundChannel = Channel.CreateUnbounded<Packet>(
-            new UnboundedChannelOptions
-            {
-                SingleReader = true,   // 기본값 false지만 실제로는 1 reader만 사용하므로 true
-                SingleWriter = false
-            });
+        private readonly Channel<Packet> _outboundChannel;
 
         private readonly Task _sendProcessTask;
+        private int _completionRequested;
 
         private readonly ProtocolOptions _options;
         #endregion
@@ -52,6 +48,13 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             _options = options ?? ProtocolOptions.Default;
             _endPoint = endPoint;
             ValidateEndPoint(_endPoint);
+            _outboundChannel = Channel.CreateBounded<Packet>(
+                new BoundedChannelOptions(Math.Max(1, _options.OutboundChannelCapacity))
+                {
+                    SingleReader = true,
+                    SingleWriter = false,
+                    FullMode = BoundedChannelFullMode.Wait
+                });
 
             string mapName = _endPoint.MapName;
             long bufferSize = _endPoint.BufferCapacity;
@@ -112,7 +115,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         #region Public Methods
         public async ValueTask<bool> SendDataAsync<T>(PacketHeader header, T data, CancellationToken cancellationToken = default)
         {
-            if (IsDisposed)
+            if (IsDisposed || Volatile.Read(ref _completionRequested) != 0)
                 return false;
 
             var outbound = _outboundChannel;
@@ -171,7 +174,7 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
         }
         public bool SendData<T>(PacketHeader header, T data)
         {
-            if (IsDisposed)
+            if (IsDisposed || Volatile.Read(ref _completionRequested) != 0)
                 return false;
 
             var outbound = _outboundChannel;
@@ -245,6 +248,14 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             return packet;
         }
 
+        public async Task CompleteAsync(CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _completionRequested, 1) == 0)
+                _outboundChannel.Writer.TryComplete();
+
+            await _sendProcessTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         private static PacketHeader CreatePayloadHeader(PacketHeader header, PacketFlags flags, int payloadSize)
         {
             return new PacketHeader(
@@ -274,9 +285,27 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
 
                     using (packet)
                     {
-                        if (!TryWriteToSharedMemory(hdr, packet.Payload.Span))
+                        DateTime waitStartedUtc = default;
+                        DateTime lastWarningUtc = default;
+                        while (!TryWriteToSharedMemory(hdr, packet.Payload.Span))
                         {
-                            _logger.LogWarning("SharedMemory full - drop");
+                            if (waitStartedUtc == default)
+                                waitStartedUtc = DateTime.UtcNow;
+
+                            DateTime nowUtc = DateTime.UtcNow;
+                            if (nowUtc - waitStartedUtc >= TimeSpan.FromSeconds(10) &&
+                                nowUtc - lastWarningUtc >= TimeSpan.FromSeconds(10))
+                            {
+                                lastWarningUtc = nowUtc;
+                                _logger.LogWarning(
+                                    "SharedMemory full. Waiting for consumer without dropping data. MapName={MapName}, WaitSeconds={WaitSeconds:F1}.",
+                                    _endPoint.MapName,
+                                    (nowUtc - waitStartedUtc).TotalSeconds);
+                            }
+
+                            int signaled = WaitHandle.WaitAny([_consumerEvent, token.WaitHandle], 100);
+                            if (signaled == 1 || token.IsCancellationRequested)
+                                throw new OperationCanceledException(token);
                         }
                     }
                 }
@@ -391,18 +420,22 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
         }
 
-        protected override async void OnDispose()
+        protected override void OnDispose()
         {
-            await OnDisposeAsync();
+            OnDisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         protected override async ValueTask OnDisposeAsync()
         {
             try
             {
-                _sendDataCTS.Cancel();
+                if (Interlocked.Exchange(ref _completionRequested, 1) == 0)
+                {
+                    _outboundChannel.Writer.TryComplete();
+                }
 
-                _outboundChannel?.Writer.Complete();
+                if (!_sendProcessTask.IsCompleted)
+                    _sendDataCTS.Cancel();
 
                 await Task.WhenAll(_sendProcessTask ?? Task.CompletedTask).ConfigureAwait(false);
             }

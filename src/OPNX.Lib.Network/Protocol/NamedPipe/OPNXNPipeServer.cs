@@ -392,34 +392,6 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
         private static TaskCompletionSource<bool> CreateSignal()
             => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        private static Packet ProcessPacket(PacketHeader header, ReadOnlySequence<byte> payload)
-        {
-            try
-            {
-                if (header.IsCompressed)
-                {
-                    //var (packetData, packetDataSize) = await Task.Run(() =>
-                    //_zstd.Decompress(payload), cencelToken).ConfigureAwait(false);
-                    var (owner, size) = _zstd.Decompress(payload);
-                    return new Packet(header, owner, size);
-                }
-                else
-                {
-                    if (payload.IsSingleSegment)
-                        return new Packet(header, payload.First);
-
-                    int size2 = checked((int)payload.Length);
-                    var owner2 = MemoryPool<byte>.Shared.Rent(size2);
-                    payload.CopyTo(owner2.Memory.Span);
-                    return new Packet(header, owner2, size2);
-                }
-            }
-            catch
-            {
-                throw;
-            }
-        }
-
         private bool ShouldTerminate(CancellationToken token) => token.IsCancellationRequested || IsDisposed || !IsConnected;
 
         private async Task ReadPacketProcessorAsync(CancellationToken cancelToken)
@@ -467,7 +439,7 @@ namespace OPNX.Lib.Network.Protocol.NamedPipe
                             Packet? packet = null;
                             try
                             {
-                                packet = ProcessPacket(header, payload);
+                                packet = PacketProcessor.Process(header, payload);
 
                                 if (inbound.Writer.TryWrite(packet))
                                 {

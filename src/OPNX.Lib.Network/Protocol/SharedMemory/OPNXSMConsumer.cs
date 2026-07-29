@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using OPNX.Lib.Common.Compression;
 using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Network.Abstractions.Events;
 using OPNX.Lib.Network.Protocol.Abstractions;
@@ -34,7 +33,6 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
 
         private readonly ProtocolOptions _options;
 
-        private static readonly ZstdCompressionProvider _zstd = new();
         private readonly ILogger _logger;
         #endregion
 
@@ -86,10 +84,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             _producerEvent = new EventWaitHandle(false, EventResetMode.AutoReset, $"{mapName}_PRODUCER_EVENT");
             _consumerEvent = new EventWaitHandle(false, EventResetMode.AutoReset, $"{mapName}_CONSUMER_EVENT");
 
-            _readChannel = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+            _readChannel = Channel.CreateBounded<Packet>(new BoundedChannelOptions(Math.Max(1, _options.InboundChannelCapacity))
             {
                 SingleReader = true,
-                SingleWriter = false, // Allow multiple producers if needed
+                SingleWriter = true,
+                FullMode = BoundedChannelFullMode.Wait
             });
 
             _processingTask = Task.Run(() => ProcessAsync(_cts.Token));
@@ -151,7 +150,9 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                 if (token.IsCancellationRequested)
                     break;
 
-                if (ReadFromSharedMemory(buffer, out int length) && length > 0)
+                while (!token.IsCancellationRequested &&
+                       ReadFromSharedMemory(buffer, out int length) &&
+                       length > 0)
                 {
                     byte[] rented = ArrayPool<byte>.Shared.Rent(length);
                     buffer.AsSpan(0, length).CopyTo(rented);
@@ -167,12 +168,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                         Packet? packet = null;
                         try
                         {
-                            packet = ProcessPacket(header, payload);
+                            packet = PacketProcessor.Process(header, payload);
 
                             if (_readChannel.Writer.TryWrite(packet))
                             {
                                 packet = null; // 소유권 채널로 이동
-                                continue;
                             }
                             else
                             {
@@ -204,29 +204,6 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                         ArrayPool<byte>.Shared.Return(rented);
                     }
                 }
-            }
-        }
-
-        private static Packet ProcessPacket(PacketHeader header, ReadOnlySequence<byte> payload)
-        {
-            try
-            {
-                if (header.IsCompressed)
-                {
-                    // 압축 해제는 MemoryPool owner로 반환 (rented 참조 없음)
-                    var (owner, size) = _zstd.Decompress(payload);
-                    return new Packet(header, owner, size);
-                }
-
-                // 비압축도 항상 MemoryPool로 복사 (rented 참조 없음)
-                int size2 = checked((int)payload.Length);
-                var owner2 = MemoryPool<byte>.Shared.Rent(size2);
-                payload.CopyTo(owner2.Memory.Span);
-                return new Packet(header, owner2, size2);
-            }
-            catch
-            {
-                throw;
             }
         }
 
@@ -431,6 +408,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             }
 
             await base.OnDisposeAsync();
+        }
+
+        protected override void OnDispose()
+        {
+            OnDisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         #endregion
     }

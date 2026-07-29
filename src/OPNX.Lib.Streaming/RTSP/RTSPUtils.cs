@@ -5,20 +5,25 @@ namespace OPNX.Lib.Streaming.RTSP
 {
     public static class RtspUtils
     {
+        private static readonly object _uriRegistrationLock = new();
+
         /// <summary>
         /// Registers the rtsp scheùe for uri.
         /// </summary>
         public static void RegisterUri()
         {
-            if (!UriParser.IsKnownScheme("rtsp"))
+            lock (_uriRegistrationLock)
             {
-                UriParser.Register(new HttpStyleUriParser(), "rtsp", 554);
-            }
+                if (!UriParser.IsKnownScheme("rtsp"))
+                {
+                    UriParser.Register(new HttpStyleUriParser(), "rtsp", 554);
+                }
 
-            if (!UriParser.IsKnownScheme("rtsps"))
-            {
-                // Port 322 is indicated in RFC 7826 (we are RTSP 1.0 but we keep the same port)
-                UriParser.Register(new HttpStyleUriParser(), "rtsps", 322);
+                if (!UriParser.IsKnownScheme("rtsps"))
+                {
+                    // Port 322 is indicated in RFC 7826 (we are RTSP 1.0 but we keep the same port)
+                    UriParser.Register(new HttpStyleUriParser(), "rtsps", 322);
+                }
             }
         }
 

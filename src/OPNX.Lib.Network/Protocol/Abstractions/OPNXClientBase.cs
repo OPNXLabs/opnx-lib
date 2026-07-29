@@ -301,42 +301,6 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             await base.OnDisposeAsync();
         }
 
-        private static Packet ProcessPacket(PacketHeader header, ReadOnlySequence<byte> payload)
-        {
-            try
-            {
-                if (header.IsCompressed)
-                {
-                    //var (packetData, packetDataSize) = await Task.Run(() =>
-                    //_zstd.Decompress(payload), cencelToken).ConfigureAwait(false);
-                    var (owner, size) = _zstd.Decompress(payload);
-                    var decompressedHeader = new PacketHeader(
-                        header.Flags & ~PacketFlags.Compressed,
-                        header.PacketType,
-                        header.PayloadType,
-                        checked((uint)size),
-                        header.Version,
-                        header.Reserved);
-
-                    return new Packet(decompressedHeader, owner, size);
-                }
-                else
-                {
-                    if (payload.IsSingleSegment)
-                        return new Packet(header, payload.First);
-
-                    int size2 = checked((int)payload.Length);
-                    var owner2 = MemoryPool<byte>.Shared.Rent(size2);
-                    payload.CopyTo(owner2.Memory.Span);
-                    return new Packet(header, owner2, size2);
-                }
-            }
-            catch
-            {
-                throw;
-            }
-        }
-
         protected virtual bool ShouldTerminate(CancellationToken token) => token.IsCancellationRequested || IsDisposed || !IsConnected;
 
         private bool DiagnosticsEnabled => _options.EnableDiagnostics;
@@ -543,7 +507,7 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
                             Packet? packet = null;
                             try
                             {
-                                packet = ProcessPacket(header, payload);
+                                packet = PacketProcessor.Process(header, payload);
 
                                 if (inbound.Writer.TryWrite(packet))
                                 {

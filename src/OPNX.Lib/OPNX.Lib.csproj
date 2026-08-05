@@ -16,6 +16,7 @@
     <ProjectReference Include="..\OPNX.Lib.Data\OPNX.Lib.Data.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\OPNX.Lib.Media\OPNX.Lib.Media.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\OPNX.Lib.Network\OPNX.Lib.Network.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.Onvif\OPNX.Lib.Onvif.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\OPNX.Lib.Streaming\OPNX.Lib.Streaming.csproj" PrivateAssets="all" />
   </ItemGroup>
 

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+    <Description>ONVIF client services for network video devices.</Description>
+    <PackageTags>$(PackageTags);onvif;ptz;camera;device-control</PackageTags>
+  </PropertyGroup>
+
+</Project>

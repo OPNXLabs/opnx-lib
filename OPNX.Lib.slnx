@@ -27,6 +27,9 @@
   <Project Path="src/OPNX.Lib.Network/OPNX.Lib.Network.csproj" Id="b6ad1d7d-ec1b-4efe-ba2d-b9d6656fa6c5">
     <Platform Solution="*|x64" Project="x64" />
   </Project>
+  <Project Path="src/OPNX.Lib.Onvif/OPNX.Lib.Onvif.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
   <Project Path="src/OPNX.Lib.Streaming/OPNX.Lib.Streaming.csproj">
     <Platform Solution="*|x64" Project="x64" />
   </Project>

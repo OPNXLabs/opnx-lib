@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Common.Serialization;
@@ -361,31 +361,31 @@ namespace OPNX.Lib.Data.ORM
             }
         }
 
-        protected static IReadOnlyList<(PropertyInfo Property, DataColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
+        protected static IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
         {
             return typeof(T).GetProperties()
-                .Select(p => (Property: p, Attribute: p.GetCustomAttribute<DataColumnAttribute>(inherit: true)))
+                .Select(p => (Property: p, Attribute: p.GetCustomAttribute<EntityColumnAttribute>(inherit: true)))
                 .Where(x => x.Attribute?.ForeignType != null)          // Attribute != null 이고 ForeignType != null
                 .Select(x => (x.Property, x.Attribute!))               // 여기서 Attribute는 null 아님을 확정
                 .ToList();
             //return typeof(T).GetProperties()
             //    .Select(p => (
             //        p,
-            //        p.GetCustomAttribute<DataColumnAttribute>(inherit: true)
+            //        p.GetCustomAttribute<EntityColumnAttribute>(inherit: true)
             //    ))
             //    .Where(x => x.Item2?.ForeignType != null)
             //    .ToList();
         }
 
-        //protected static List<(PropertyInfo Property, DataColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
+        //protected static List<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
         //{
         //    return typeof(T).GetProperties()
-        //                    .Where(p => p.IsDefined(typeof(DataColumnAttribute), true)) // DataColumnAttribute가 정의된 속성만 선택
+        //                    .Where(p => p.IsDefined(typeof(EntityColumnAttribute), true)) // EntityColumnAttribute가 정의된 속성만 선택
         //                    .Select(p => new
         //                    {
         //                        Property = p,
-        //                        Attribute = p.GetCustomAttributes(typeof(DataColumnAttribute), false)
-        //                                     .Cast<DataColumnAttribute>()
+        //                        Attribute = p.GetCustomAttributes(typeof(EntityColumnAttribute), false)
+        //                                     .Cast<EntityColumnAttribute>()
         //                                     .FirstOrDefault()
         //                    })
         //                    .Where(x => x.Attribute != null && x.Attribute.ForeignType != null) // ForeignType이 null이 아닌 속성만 필터링

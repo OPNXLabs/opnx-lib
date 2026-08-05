@@ -1,4 +1,4 @@
-﻿using OPNX.Lib.Data.ORM.Datas.Attributes;
+using OPNX.Lib.Data.ORM.Datas.Attributes;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -15,7 +15,7 @@ namespace OPNX.Lib.Data.ORM.Serialization
                 property.CanWrite &&
                 property.GetIndexParameters().Length == 0 &&
                 (
-                Attribute.IsDefined(property, typeof(DataColumnAttribute), inherit: true) ||
+                Attribute.IsDefined(property, typeof(EntityColumnAttribute), inherit: true) ||
                 Attribute.IsDefined(property, typeof(CustomEntityPropertyAttribute), inherit: true)
                 ) &&
                 !Attribute.IsDefined(property, typeof(ForeignKeyAttribute)) &&

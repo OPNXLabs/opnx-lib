@@ -6,6 +6,7 @@ using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.EventHandlers;
 using OPNX.Lib.Data.ORM.Interfaces;
+using OPNX.Lib.Data.ORM.Mapping;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Data;
@@ -24,6 +25,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private readonly IEntityStore _entityStore;
         private readonly ILogger _logger;
+        private readonly DataRowMapper _dataRowMapper = new();
 
         private sealed class TxContext
         {
@@ -123,8 +125,11 @@ namespace OPNX.Lib.Data.ORM.Services
         #region Public Methods
         public virtual void LoadDataBase() { }
         public virtual void LoadEntity(Type entityType) { }
+        public virtual string GetTableIdentifier(Type entityType) => DatabaseNaming.GetTableName(entityType);
 
         public DbConnection? OpenDataBase() => OpenDataBase(_connectionString);
+
+        public Task<DbConnection?> OpenDataBaseAsync(CancellationToken cancellationToken = default) => OpenDataBaseAsync(_connectionString, cancellationToken);
 
         public DbConnection? OpenDataBase(string connectionString)
         {
@@ -161,6 +166,36 @@ namespace OPNX.Lib.Data.ORM.Services
             return null;
         }
 
+        public async Task<DbConnection?> OpenDataBaseAsync(string connectionString, CancellationToken cancellationToken = default)
+        {
+            if (IsDisposed)
+                return null;
+
+            if (CurrentConnection != null)
+                return CurrentConnection.State == ConnectionState.Open ? CurrentConnection : null;
+
+            DbConnection? connection = null;
+            try
+            {
+                connection = CreateConnection(connectionString);
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                return connection;
+            }
+            catch (OperationCanceledException)
+            {
+                if (connection != null)
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                if (connection != null)
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                _logger.LogError(ex, "{Message}", ex.Message);
+                return null;
+            }
+        }
+
         public void CloseDataBase(DbConnection dbConnection)
         {
             if (dbConnection == null)
@@ -178,8 +213,23 @@ namespace OPNX.Lib.Data.ORM.Services
             }
         }
 
+        public async ValueTask CloseDataBaseAsync(DbConnection dbConnection)
+        {
+            if (dbConnection == null || ReferenceEquals(dbConnection, CurrentConnection))
+                return;
+
+            try
+            {
+                await dbConnection.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+
         public void ExecuteInTransaction(Action work)
         {
+            ArgumentNullException.ThrowIfNull(work);
             ExecuteInTransaction(() =>
             {
                 work();
@@ -187,8 +237,27 @@ namespace OPNX.Lib.Data.ORM.Services
             });
         }
 
-        public TResult ExecuteInTransaction<TResult>(Func<TResult> work)
+        public void ExecuteInTransaction(Action<IDataBaseService> work)
         {
+            ArgumentNullException.ThrowIfNull(work);
+            ExecuteInTransactionCore(() =>
+            {
+                work(this);
+                return true;
+            }, true);
+        }
+
+        public TResult ExecuteInTransaction<TResult>(Func<IDataBaseService, TResult> work)
+        {
+            ArgumentNullException.ThrowIfNull(work);
+            return ExecuteInTransactionCore(() => work(this), true);
+        }
+
+        public TResult ExecuteInTransaction<TResult>(Func<TResult> work) => ExecuteInTransactionCore(work, false);
+
+        private TResult ExecuteInTransactionCore<TResult>(Func<TResult> work, bool throwOnError)
+        {
+            ArgumentNullException.ThrowIfNull(work);
             if (_tx.Value != null)
             {
                 _tx.Value.Depth++;
@@ -204,7 +273,11 @@ namespace OPNX.Lib.Data.ORM.Services
 
             var conn = OpenDataBase();
             if (conn == null)
+            {
+                if (throwOnError)
+                    throw new InvalidOperationException("Failed to open the database connection for the transaction.");
                 return default!;
+            }
 
             DbTransaction? tx = null;
             TxContext ctx;
@@ -239,6 +312,8 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
                 catch { }
                 _logger.LogError(ex, "{Message}", ex.Message);
+                if (throwOnError)
+                    throw;
                 return default!;
             }
             finally
@@ -255,11 +330,115 @@ namespace OPNX.Lib.Data.ORM.Services
             }
         }
 
+        public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(work);
+            await ExecuteInTransactionAsync(async token =>
+            {
+                await work(token).ConfigureAwait(false);
+                return true;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        public Task ExecuteInTransactionAsync(Func<IDataBaseService, CancellationToken, Task> work, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(work);
+            return ExecuteInTransactionAsyncCore(async token =>
+            {
+                await work(this, token).ConfigureAwait(false);
+                return true;
+            }, true, cancellationToken);
+        }
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<IDataBaseService, CancellationToken, Task<TResult>> work, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(work);
+            return ExecuteInTransactionAsyncCore(token => work(this, token), true, cancellationToken);
+        }
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<CancellationToken, Task<TResult>> work, CancellationToken cancellationToken = default) => ExecuteInTransactionAsyncCore(work, false, cancellationToken);
+
+        private async Task<TResult> ExecuteInTransactionAsyncCore<TResult>(Func<CancellationToken, Task<TResult>> work, bool throwOnError, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(work);
+            if (_tx.Value != null)
+            {
+                _tx.Value.Depth++;
+                try
+                {
+                    return await work(cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _tx.Value.Depth--;
+                }
+            }
+
+            DbConnection? connection = await OpenDataBaseAsync(cancellationToken).ConfigureAwait(false);
+            if (connection == null)
+            {
+                if (throwOnError)
+                    throw new InvalidOperationException("Failed to open the database connection for the transaction.");
+                return default!;
+            }
+
+            DbTransaction? transaction = null;
+            TxContext? context = null;
+            try
+            {
+                transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                context = new TxContext { Connection = connection, Transaction = transaction, Depth = 1 };
+                _tx.Value = context;
+
+                TResult result = await work(cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                FlushPendingStoreActions(context);
+                FlushPendingEntityEvents(context);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                if (transaction != null)
+                {
+                    try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                if (transaction != null)
+                {
+                    try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                }
+                _logger.LogError(ex, "{Message}", ex.Message);
+                if (throwOnError)
+                    throw;
+                return default!;
+            }
+            finally
+            {
+                _tx.Value = null;
+                if (transaction != null)
+                    await transaction.DisposeAsync().ConfigureAwait(false);
+                await CloseDataBaseAsync(connection).ConfigureAwait(false);
+            }
+        }
+
         public virtual int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList) => int.MinValue;
+
+        public virtual Task<int> ExecuteNonQueryAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default) => Task.FromResult(int.MinValue);
 
         public virtual DataTable? ExecuteReader(string sqlQuery, List<KeyValuePair<string, object>> paramList) => null;
 
+        public virtual Task<DataTable?> ExecuteReaderAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default) => Task.FromResult<DataTable?>(null);
+
+        public virtual IReadOnlyList<T> Query<T>(string sqlQuery, List<KeyValuePair<string, object>> paramList) => _dataRowMapper.Map<T>(ExecuteReader(sqlQuery, paramList), typeof(IEntity).IsAssignableFrom(typeof(T)) ? _entityStore : null);
+
+        public virtual async Task<IReadOnlyList<T>> QueryAsync<T>(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default) => _dataRowMapper.Map<T>(await ExecuteReaderAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false), typeof(IEntity).IsAssignableFrom(typeof(T)) ? _entityStore : null);
+
         public virtual object? ExecuteScalar(string sqlQuery, List<KeyValuePair<string, object>> paramList) => null;
+
+        public virtual Task<object?> ExecuteScalarAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default) => Task.FromResult<object?>(null);
 
         public virtual int InsertEntity<T>(T insertEntity) where T : IEntity
         {
@@ -267,6 +446,56 @@ namespace OPNX.Lib.Data.ORM.Services
                 return ExecuteInTransaction(() => InsertEntityCore(insertEntity));
 
             return InsertEntityCore(insertEntity);
+        }
+
+        public virtual Task<int> InsertEntityAsync<T>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
+                return ExecuteInTransactionAsync(token => InsertEntityCoreAsync(insertEntity, token), cancellationToken);
+
+            return InsertEntityCoreAsync(insertEntity, cancellationToken);
+        }
+
+        public virtual int BatchInsert<T>(IReadOnlyList<T> insertEntities) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(insertEntities);
+            if (insertEntities.Count == 0)
+                return 0;
+
+            return ExecuteInTransaction(() =>
+            {
+                int insertedCount = 0;
+                foreach (T insertEntity in insertEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(insertEntity);
+                    if (InsertEntityCore(insertEntity) <= 0)
+                        throw new InvalidOperationException($"Failed to insert {typeof(T).Name} in batch.");
+
+                    insertedCount++;
+                }
+
+                return insertedCount;
+            });
+        }
+
+        public virtual Task<int> BatchInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(insertEntities);
+            if (insertEntities.Count == 0)
+                return Task.FromResult(0);
+
+            return ExecuteInTransactionAsync(async token =>
+            {
+                int insertedCount = 0;
+                foreach (T insertEntity in insertEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(insertEntity);
+                    if (await InsertEntityCoreAsync(insertEntity, token).ConfigureAwait(false) <= 0)
+                        throw new InvalidOperationException($"Failed to insert {typeof(T).Name} in batch.");
+                    insertedCount++;
+                }
+                return insertedCount;
+            }, cancellationToken);
         }
 
         public virtual bool UpdateEntity<T>(T updateEntity) where T : IEntity
@@ -277,12 +506,112 @@ namespace OPNX.Lib.Data.ORM.Services
             return UpdateEntityCore(updateEntity);
         }
 
+        public virtual Task<bool> UpdateEntityAsync<T>(T updateEntity, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
+                return ExecuteInTransactionAsync(token => UpdateEntityCoreAsync(updateEntity, token), cancellationToken);
+
+            return UpdateEntityCoreAsync(updateEntity, cancellationToken);
+        }
+
+        public virtual int BatchUpdate<T>(IReadOnlyList<T> updateEntities) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(updateEntities);
+            if (updateEntities.Count == 0)
+                return 0;
+
+            return ExecuteInTransaction(() =>
+            {
+                int updatedCount = 0;
+                foreach (T updateEntity in updateEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(updateEntity);
+                    if (!UpdateEntityCore(updateEntity))
+                        throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch.");
+
+                    updatedCount++;
+                }
+
+                return updatedCount;
+            });
+        }
+
+        public virtual Task<int> BatchUpdateAsync<T>(IReadOnlyList<T> updateEntities, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(updateEntities);
+            if (updateEntities.Count == 0)
+                return Task.FromResult(0);
+
+            return ExecuteInTransactionAsync(async token =>
+            {
+                int updatedCount = 0;
+                foreach (T updateEntity in updateEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(updateEntity);
+                    if (!await UpdateEntityCoreAsync(updateEntity, token).ConfigureAwait(false))
+                        throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch.");
+                    updatedCount++;
+                }
+                return updatedCount;
+            }, cancellationToken);
+        }
+
         public virtual bool DeleteEntity<T>(T deleteEntity) where T : IEntity
         {
             if (AutoTransactionForEntityOperations && CurrentTransaction == null)
                 return ExecuteInTransaction(() => DeleteEntityCore(deleteEntity));
 
             return DeleteEntityCore(deleteEntity);
+        }
+
+        public virtual Task<bool> DeleteEntityAsync<T>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
+                return ExecuteInTransactionAsync(token => DeleteEntityCoreAsync(deleteEntity, token), cancellationToken);
+
+            return DeleteEntityCoreAsync(deleteEntity, cancellationToken);
+        }
+
+        public virtual int BatchDelete<T>(IReadOnlyList<T> deleteEntities) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(deleteEntities);
+            if (deleteEntities.Count == 0)
+                return 0;
+
+            return ExecuteInTransaction(() =>
+            {
+                int deletedCount = 0;
+                foreach (T deleteEntity in deleteEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(deleteEntity);
+                    if (!DeleteEntityCore(deleteEntity))
+                        throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch.");
+
+                    deletedCount++;
+                }
+
+                return deletedCount;
+            });
+        }
+
+        public virtual Task<int> BatchDeleteAsync<T>(IReadOnlyList<T> deleteEntities, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(deleteEntities);
+            if (deleteEntities.Count == 0)
+                return Task.FromResult(0);
+
+            return ExecuteInTransactionAsync(async token =>
+            {
+                int deletedCount = 0;
+                foreach (T deleteEntity in deleteEntities)
+                {
+                    ArgumentNullException.ThrowIfNull(deleteEntity);
+                    if (!await DeleteEntityCoreAsync(deleteEntity, token).ConfigureAwait(false))
+                        throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch.");
+                    deletedCount++;
+                }
+                return deletedCount;
+            }, cancellationToken);
         }
         #endregion
 
@@ -350,24 +679,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
             object? returnObj = ExecuteScalar(sqlQuery, paramList);
 
-            int newId = 0;
-
-            if (returnObj is int intValue)
-            {
-                newId = intValue;
-            }
-            else if (returnObj is long longValue)
-            {
-                newId = (int)longValue; // 주의: long이 int 범위 넘어가면 Overflow 발생
-            }
-            else if (returnObj is decimal decimalValue)
-            {
-                newId = (int)decimalValue;
-            }
-            else if (returnObj != null && int.TryParse(returnObj.ToString(), out int parsed))
-            {
-                newId = parsed;
-            }
+            int newId = GetInsertedID(returnObj);
 
             if (newId <= 0)
                 return insertEntity.ID;
@@ -420,7 +732,95 @@ namespace OPNX.Lib.Data.ORM.Services
 
             return false;
         }
+
+        private async Task<int> InsertEntityCoreAsync<T>(T insertEntity, CancellationToken cancellationToken) where T : IEntity
+        {
+            if (insertEntity.InsertTime <= DateTime.MinValue)
+                insertEntity.InsertTime = DateTime.Now;
+
+            List<KeyValuePair<string, object>> paramList = [];
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Insert, insertEntity, ref paramList);
+            if (string.IsNullOrEmpty(sqlQuery))
+                return insertEntity.ID;
+
+            int newID = GetInsertedID(await ExecuteScalarAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false));
+            if (newID <= 0)
+                return insertEntity.ID;
+
+            insertEntity.ID = newID;
+            ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
+            await CascadeEntityActionAsync(insertEntity, nameof(CascadeInsertEntityAsync), cancellationToken).ConfigureAwait(false);
+            return insertEntity.ID;
+        }
+
+        private async Task<bool> UpdateEntityCoreAsync<T>(T updateEntity, CancellationToken cancellationToken) where T : IEntity
+        {
+            await CascadeEntityActionAsync(updateEntity, nameof(CascadeUpdateEntityAsync), cancellationToken).ConfigureAwait(false);
+
+            T? findEntity = _entityStore.FindEntity<T>(x => x.ID == updateEntity.ID);
+            if (findEntity == null)
+                return false;
+
+            EntityChanges fieldChanges = findEntity.GetChangedFields<T>(updateEntity);
+            if (fieldChanges.Count <= 0)
+                return true;
+
+            updateEntity.UpdateTime = DateTime.Now;
+            List<KeyValuePair<string, object>> paramList = [];
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
+            if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
+            {
+                ApplyOrEnqueueStoreAction(() => _entityStore.UpdateEntity<T>(updateEntity));
+                return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> DeleteEntityCoreAsync<T>(T deleteEntity, CancellationToken cancellationToken) where T : IEntity
+        {
+            await CascadeEntityActionAsync(deleteEntity, nameof(CascadeDeleteEntityAsync), cancellationToken).ConfigureAwait(false);
+
+            List<KeyValuePair<string, object>> paramList = [];
+            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
+            if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
+            {
+                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(deleteEntity));
+                return true;
+            }
+
+            return false;
+        }
+
+        private static int GetInsertedID(object? value)
+        {
+            if (value is int intValue)
+                return intValue;
+            if (value is long longValue)
+                return checked((int)longValue);
+            if (value is decimal decimalValue)
+                return checked((int)decimalValue);
+            return value != null && int.TryParse(value.ToString(), out int parsed) ? parsed : 0;
+        }
+
         protected abstract DbConnection CreateConnection(string connectionString);
+
+        protected static async Task<DataTable> ReadDataTableAsync(DbDataReader reader, CancellationToken cancellationToken)
+        {
+            DataTable table = new();
+            for (int index = 0; index < reader.FieldCount; index++)
+                table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));
+
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                object[] values = new object[reader.FieldCount];
+                reader.GetValues(values);
+                table.Rows.Add(values);
+            }
+
+            return table;
+        }
+
         private void CascadeEntityAction<T>(T entity, string methodName) where T : IEntity
         {
             var propertySchemas = entity.GetRelatedListProps();
@@ -454,6 +854,32 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     methodInfo.Invoke(this, [value]);
                 }
+            }
+        }
+
+        private async Task CascadeEntityActionAsync<T>(T entity, string methodName, CancellationToken cancellationToken) where T : IEntity
+        {
+            foreach (var propertySchema in entity.GetRelatedListProps())
+            {
+                object? value = propertySchema.Property.GetValue(entity);
+                if (value == null)
+                    continue;
+
+                Type type = propertySchema.ForeignKeyAttribs.RelatedType;
+                string cacheKey = $"{methodName}_{type.FullName}";
+                if (!_cachedGenericMethods.TryGetValue(cacheKey, out MethodInfo? methodInfo))
+                {
+                    MethodInfo? baseMethod = GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (baseMethod == null)
+                        continue;
+
+                    methodInfo = baseMethod.MakeGenericMethod(type);
+                    _cachedGenericMethods.TryAdd(cacheKey, methodInfo);
+                }
+
+                object? result = methodName == nameof(CascadeDeleteEntityAsync) ? methodInfo.Invoke(this, [value, cancellationToken]) : methodInfo.Invoke(this, [value, propertySchema.ForeignKeyAttribs.ForeignKeyField, entity.ID, cancellationToken]);
+                if (result is Task task)
+                    await task.ConfigureAwait(false);
             }
         }
 
@@ -499,6 +925,41 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
 
                 InsertEntity<T>(item);
+            }
+        }
+
+        protected async Task CascadeUpdateEntityAsync<T>(ObservableCollection<T> updateEntities, string fkFieldName, int fkID, CancellationToken cancellationToken) where T : Entity
+        {
+            foreach (T item in updateEntities)
+            {
+                if (item.ID <= 0)
+                {
+                    PropertyInfo? property = item.GetType().GetProperty(fkFieldName);
+                    if (property != null && property.CanWrite)
+                        property.SetValue(item, fkID);
+                    await InsertEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await UpdateEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        protected async Task CascadeDeleteEntityAsync<T>(ObservableCollection<T> deleteEntities, CancellationToken cancellationToken) where T : Entity
+        {
+            foreach (T item in deleteEntities)
+                await DeleteEntityAsync(item, cancellationToken).ConfigureAwait(false);
+        }
+
+        protected async Task CascadeInsertEntityAsync<T>(ObservableCollection<T> insertEntities, string fkFieldName, int fkID, CancellationToken cancellationToken) where T : Entity
+        {
+            foreach (T item in insertEntities)
+            {
+                PropertyInfo? property = item.GetType().GetProperty(fkFieldName);
+                if (property != null && property.CanWrite)
+                    property.SetValue(item, fkID);
+                await InsertEntityAsync(item, cancellationToken).ConfigureAwait(false);
             }
         }
 

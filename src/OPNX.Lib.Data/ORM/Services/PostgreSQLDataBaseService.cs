@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
+using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.Interfaces;
@@ -15,6 +16,8 @@ namespace OPNX.Lib.Data.ORM.Services
         private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
         #region Public Methods                
+        public override string GetTableIdentifier(Type entityType) => $"\"{DatabaseNaming.GetTableName(entityType).Replace("\"", "\"\"")}\"";
+
         public override int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList)
         {
             DbConnection? dbConnection = OpenDataBase();
@@ -50,6 +53,38 @@ namespace OPNX.Lib.Data.ORM.Services
                 }
             }
             return int.MinValue;
+        }
+
+        public override async Task<int> ExecuteNonQueryAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default)
+        {
+            DbConnection? dbConnection = await OpenDataBaseAsync(cancellationToken).ConfigureAwait(false);
+            if (dbConnection == null)
+                return int.MinValue;
+
+            try
+            {
+                await using NpgsqlCommand sqlCmd = new(sqlQuery, (NpgsqlConnection)dbConnection) { CommandTimeout = CommandTimeout };
+                if (CurrentTransaction is NpgsqlTransaction transaction)
+                    sqlCmd.Transaction = transaction;
+                foreach (KeyValuePair<string, object> param in paramList)
+                    sqlCmd.Parameters.AddWithValue(param.Key, param.Value);
+                return await sqlCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                if (CurrentTransaction != null)
+                    throw;
+                return int.MinValue;
+            }
+            finally
+            {
+                await CloseDataBaseAsync(dbConnection).ConfigureAwait(false);
+            }
         }
 
         public override DataTable? ExecuteReader(string sqlQuery, List<KeyValuePair<string, object>> paramList)
@@ -95,6 +130,39 @@ namespace OPNX.Lib.Data.ORM.Services
             return result;
         }
 
+        public override async Task<DataTable?> ExecuteReaderAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default)
+        {
+            DbConnection? dbConnection = await OpenDataBaseAsync(cancellationToken).ConfigureAwait(false);
+            if (dbConnection == null)
+                return null;
+
+            try
+            {
+                await using NpgsqlCommand sqlCmd = new(sqlQuery, (NpgsqlConnection)dbConnection) { CommandTimeout = CommandTimeout };
+                if (CurrentTransaction is NpgsqlTransaction transaction)
+                    sqlCmd.Transaction = transaction;
+                foreach (KeyValuePair<string, object> param in paramList)
+                    sqlCmd.Parameters.AddWithValue(param.Key, param.Value);
+                await using NpgsqlDataReader reader = await sqlCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                return await ReadDataTableAsync(reader, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                if (CurrentTransaction != null)
+                    throw;
+                return null;
+            }
+            finally
+            {
+                await CloseDataBaseAsync(dbConnection).ConfigureAwait(false);
+            }
+        }
+
         public override object? ExecuteScalar(string sqlQuery, List<KeyValuePair<string, object>> paramList)
         {
             DbConnection? dbConnection = OpenDataBase();
@@ -134,6 +202,38 @@ namespace OPNX.Lib.Data.ORM.Services
 
             return null;
         }
+
+        public override async Task<object?> ExecuteScalarAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default)
+        {
+            DbConnection? dbConnection = await OpenDataBaseAsync(cancellationToken).ConfigureAwait(false);
+            if (dbConnection == null)
+                return null;
+
+            try
+            {
+                await using NpgsqlCommand sqlCmd = new(sqlQuery, (NpgsqlConnection)dbConnection) { CommandTimeout = CommandTimeout };
+                if (CurrentTransaction is NpgsqlTransaction transaction)
+                    sqlCmd.Transaction = transaction;
+                foreach (KeyValuePair<string, object> param in paramList)
+                    sqlCmd.Parameters.AddWithValue(param.Key, param.Value);
+                return await sqlCmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                if (CurrentTransaction != null)
+                    throw;
+                return null;
+            }
+            finally
+            {
+                await CloseDataBaseAsync(dbConnection).ConfigureAwait(false);
+            }
+        }
         #endregion
 
         #region Properties
@@ -148,7 +248,9 @@ namespace OPNX.Lib.Data.ORM.Services
 
         protected override string GetSqlQueryCommand<T>(DatabaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
         {
-            string tableName = QuotePgIdent(typeof(T).Name);
+            string tableName = GetTableIdentifier(typeof(T));
+            System.Reflection.PropertyInfo idProperty = typeof(T).GetProperty(nameof(IEntity.ID))!;
+            string idColumnName = QuotePgIdent(DatabaseNaming.GetColumnName(idProperty));
 
             switch (queryType)
             {
@@ -157,21 +259,22 @@ namespace OPNX.Lib.Data.ORM.Services
                         var props = typeof(T).GetProperties()
                             .Where(p =>
                                 p.CanWrite &&
-                                !string.Equals(p.Name, "ID", StringComparison.OrdinalIgnoreCase) &&
-                                p.IsDefined(typeof(DataColumnAttribute), inherit: true))
+                                p.IsDefined(typeof(EntityColumnAttribute), inherit: true) &&
+                                !GetColumnAttribute(p).IsIdentity &&
+                                !GetColumnAttribute(p).IsReadOnly)
                             .ToList();
 
                         if (props.Count == 0)
-                            return $"INSERT INTO {tableName} DEFAULT VALUES RETURNING {QuotePgIdent("ID")};";
+                            return $"INSERT INTO {tableName} DEFAULT VALUES RETURNING {idColumnName};";
 
-                        string columns = string.Join(",", props.Select(p => QuotePgIdent(p.Name)));
+                        string columns = string.Join(",", props.Select(p => QuotePgIdent(DatabaseNaming.GetColumnName(p))));
                         string values = string.Join(",", props.Select(p => $"@{p.Name}"));
 
                         foreach (var p in props)
                             AddParamIfMissing(paramList, p, entity);
 
                         // PostgreSQL: ID 반환
-                        return $"INSERT INTO {tableName}({columns}) VALUES({values}) RETURNING {QuotePgIdent("ID")};";
+                        return $"INSERT INTO {tableName}({columns}) VALUES({values}) RETURNING {idColumnName};";
                     }
 
                 case DatabaseQueryType.Update:
@@ -179,19 +282,21 @@ namespace OPNX.Lib.Data.ORM.Services
                         var props = typeof(T).GetProperties()
                             .Where(p =>
                                 p.CanWrite &&
-                                !string.Equals(p.Name, "ID", StringComparison.OrdinalIgnoreCase) &&
-                                !string.Equals(p.Name, "InsertTime", StringComparison.OrdinalIgnoreCase) &&
-                                p.IsDefined(typeof(DataColumnAttribute), inherit: true))
+                                p.IsDefined(typeof(EntityColumnAttribute), inherit: true) &&
+                                !GetColumnAttribute(p).IsPrimaryKey &&
+                                !GetColumnAttribute(p).IsIdentity &&
+                                !GetColumnAttribute(p).IsReadOnly &&
+                                !string.Equals(p.Name, "InsertTime", StringComparison.OrdinalIgnoreCase))
                             .ToList();
 
                         object? idValue = typeof(T).GetProperty("ID")?.GetValue(entity);
                         paramList.Add(new KeyValuePair<string, object>("@ID", idValue ?? DBNull.Value));
 
                         if (props.Count == 0)
-                            return $"UPDATE {tableName} SET {QuotePgIdent("ID")}={QuotePgIdent("ID")} WHERE {QuotePgIdent("ID")}=@ID;";
+                            return $"UPDATE {tableName} SET {idColumnName}={idColumnName} WHERE {idColumnName}=@ID;";
 
-                        string updates = string.Join(",", props.Select(p => $"{QuotePgIdent(p.Name)}=@{p.Name}"));
-                        string wheres = $"{QuotePgIdent("ID")}=@ID";
+                        string updates = string.Join(",", props.Select(p => $"{QuotePgIdent(DatabaseNaming.GetColumnName(p))}=@{p.Name}"));
+                        string wheres = $"{idColumnName}=@ID";
 
                         foreach (var p in props)
                             AddParamIfMissing(paramList, p, entity);
@@ -204,7 +309,7 @@ namespace OPNX.Lib.Data.ORM.Services
                         object? idValue = typeof(T).GetProperty("ID")?.GetValue(entity);
                         paramList.Add(new KeyValuePair<string, object>("@ID", idValue ?? DBNull.Value));
 
-                        return $"DELETE FROM {tableName} WHERE {QuotePgIdent("ID")}=@ID;";
+                        return $"DELETE FROM {tableName} WHERE {idColumnName}=@ID;";
                     }
 
                 default:
@@ -212,6 +317,8 @@ namespace OPNX.Lib.Data.ORM.Services
             }
 
             // ----------------- helpers -----------------
+
+            static EntityColumnAttribute GetColumnAttribute(System.Reflection.PropertyInfo property) => property.GetCustomAttributes(typeof(EntityColumnAttribute), true).Cast<EntityColumnAttribute>().First();
 
             static void AddParamIfMissing<TEnt>(List<KeyValuePair<string, object>> list, System.Reflection.PropertyInfo property, TEnt entity)
             {
@@ -227,8 +334,8 @@ namespace OPNX.Lib.Data.ORM.Services
 
             static object NormalizeValue(System.Reflection.PropertyInfo property, object? value)
             {
-                var attr = property.GetCustomAttributes(typeof(DataColumnAttribute), false)
-                    .Cast<DataColumnAttribute>()
+                var attr = property.GetCustomAttributes(typeof(EntityColumnAttribute), false)
+                    .Cast<EntityColumnAttribute>()
                     .FirstOrDefault();
 
                 // FK 규칙

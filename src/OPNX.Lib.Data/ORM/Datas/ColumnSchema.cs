@@ -1,4 +1,4 @@
-﻿using OPNX.Lib.Data.ORM.Datas.Attributes;
+using OPNX.Lib.Data.ORM.Datas.Attributes;
 using System.ComponentModel;
 using System.Data;
 using System.Reflection;
@@ -8,16 +8,16 @@ namespace OPNX.Lib.Data.ORM.Datas
     /// <summary>
     /// Provides simplified access to data column properties for use with SundanceSchema.
     /// </summary>
-    public class ColumnSchema(PropertyInfo prop, DataColumnAttribute attribs) : IComparable
+    public class ColumnSchema(PropertyInfo prop, EntityColumnAttribute attribs) : IComparable
     {
         private readonly PropertyInfo _prop = prop;
-        private readonly DataColumnAttribute _attribs = attribs;
+        private readonly EntityColumnAttribute _attribs = attribs;
         private readonly DefaultValueAttribute? _defaultValueAttrib = GetAttrib<DefaultValueAttribute>(prop);
         //SoftwareIdentityAttribute identityAttrib;
         private int _lastId;
 
         /// <summary>
-        /// Constructor requires the PropertyInfo and DataColumnAttribute.
+        /// Constructor requires the PropertyInfo and EntityColumnAttribute.
         /// </summary>
         /// <param name="columnProp"></param>
         /// <param name="_attribs"></param>
@@ -28,7 +28,7 @@ namespace OPNX.Lib.Data.ORM.Datas
         //    defaultValueAttrib = GetAttrib<DefaultValueAttribute>(columnProp);
         //}
 
-        //public ColumnSchema(PropertyInfo columnProp, DataColumnAttribute _attribs, SoftwareIdentityAttribute _identityAttrib)
+        //public ColumnSchema(PropertyInfo columnProp, EntityColumnAttribute _attribs, SoftwareIdentityAttribute _identityAttrib)
         //{
         //    prop = columnProp;
         //    attribs = _attribs;
@@ -84,7 +84,7 @@ namespace OPNX.Lib.Data.ORM.Datas
         /// <summary>
         /// Returns the attributes provided in the constructor, which were set as attributes of column properties in auto-generated entity classes.
         /// </summary>
-        public DataColumnAttribute Attributes
+        public EntityColumnAttribute Attributes
         {
             get { return _attribs; }
         }

@@ -1,4 +1,4 @@
-﻿using OnEyes.DataBase.Datas;
+using OnEyes.DataBase.Datas;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
@@ -79,28 +79,28 @@ namespace OPNX.Lib.Data.ORM
         [JsonIgnore]
         public virtual string EntityTypeName => this.GetType().FullName!;
 
-        [DataColumn(ColIndex = 0, SqlDataType = System.Data.SqlDbType.Int, AllowNull = false, IsPrimaryKey = true)]
+        [EntityColumn(ColIndex = 0, SqlDataType = System.Data.SqlDbType.Int, AllowNull = false, IsIdentity = true, IsPrimaryKey = true)]
         public int ID
         {
             get => id;
             set => SetProperty(ref id, value);
         }
 
-        [DataColumn(ColIndex = 100, SqlDataType = System.Data.SqlDbType.TinyInt, AllowNull = true, IsPrimaryKey = false)]
+        [EntityColumn(ColIndex = 100, SqlDataType = System.Data.SqlDbType.TinyInt, AllowNull = true, IsPrimaryKey = false)]
         public virtual bool IsDeleted
         {
             get => isDeleted;
             set => SetProperty(ref isDeleted, value);
         }
 
-        [DataColumn(ColIndex = 101, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
+        [EntityColumn(ColIndex = 101, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
         public virtual DateTime InsertTime
         {
             get => insertTime;
             set => SetProperty(ref insertTime, value);
         }
 
-        [DataColumn(ColIndex = 102, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
+        [EntityColumn(ColIndex = 102, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
         public virtual DateTime UpdateTime
         {
             get => updateTime;
@@ -421,13 +421,13 @@ namespace OPNX.Lib.Data.ORM
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0051")]
-        private static DataColumnAttribute? GetDataColumnAttrib(PropertyInfo propInfo)
+        private static EntityColumnAttribute? GetEntityColumnAttribute(PropertyInfo propInfo)
         {
             object[] attrs = propInfo.GetCustomAttributes(true);
 
             for (int i = 0; i < attrs.Length; i++)
             {
-                if (attrs[i] is DataColumnAttribute attr)
+                if (attrs[i] is EntityColumnAttribute attr)
                     return attr;
             }
 
@@ -486,7 +486,7 @@ namespace OPNX.Lib.Data.ORM
             // 병렬로 처리
             Parallel.ForEach(Properties, propInfo =>
             {
-                DataColumnAttribute? attrib = GetAttrib<DataColumnAttribute>(propInfo);
+                EntityColumnAttribute? attrib = GetAttrib<EntityColumnAttribute>(propInfo);
                 if (attrib != null)
                 {
                     // 캐싱

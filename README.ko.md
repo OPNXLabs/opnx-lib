@@ -4,111 +4,125 @@
 
 > **라이선스 안내:** OPNX.Lib는 오픈 소스 소프트웨어가 아닌 source-available 소프트웨어입니다. 상업적 사용과 재배포에는 OPNX의 사전 서면 허가가 필요합니다. 자세한 내용은 [License.txt](License.txt)를 확인하십시오.
 
-OPNX.Lib는 VMS, NVR, 스트리밍 서버, 디바이스 게이트웨이, 미디어 처리 서비스, 영상 플랫폼 애플리케이션을 만들기 위한 모듈형 .NET 인프라 SDK입니다.
+OPNX.Lib는 VMS, NVR, 스트리밍 서버, 장치 게이트웨이, 미디어 처리 서비스 및 모니터링 애플리케이션과 같은 상태 기반 영상 시스템을 위한 모듈형 .NET 인프라 SDK입니다.
 
-이 라이브러리는 네트워크 통신, 패킷 기반 프로토콜 처리, 미디어 처리, 실시간 스트리밍, 데이터베이스 기반 엔티티 저장소처럼 영상 시스템에서 반복적으로 필요한 기반 기능을 재사용 가능한 .NET 모듈로 제공합니다.
+네트워크 통신, 미디어 처리, 실시간 스트리밍, ONVIF 장치 연동 및 데이터베이스 기반 엔티티 관리를 위한 재사용 가능한 기반 기능을 제공합니다. OPNX.Lib는 OPNX.V와 OPNX.UI를 포함한 OPNX 애플리케이션에서 사용하는 핵심 라이브러리 계층입니다.
 
-OPNX.Lib는 OPNX 생태계의 핵심 라이브러리 계층입니다. 개별 애플리케이션의 제품 로직과 복잡한 영상 플랫폼 인프라를 분리하여, 상위 애플리케이션이 더 안정적이고 일관된 기반 위에서 개발될 수 있도록 설계되었습니다.
+## 주요 기능
 
-## OPNX.Lib를 만든 이유
+- **공통 인프라** — 수명 주기 관리, 직렬화, 압축, 리플렉션, 공통 모델 및 유틸리티
+- **네트워크 및 프로토콜** — TCP, Named Pipe, Shared Memory, 프레이밍, 패킷 및 연결 기반 통신
+- **미디어 처리** — FFmpeg, OpenCV 및 SkiaSharp 기반 인코딩, 디코딩, 변환, 필터링, muxing 및 미디어 데이터 처리
+- **실시간 스트리밍** — RTSP 중심의 스트리밍 인프라 및 재사용 가능한 미디어 전송 구성 요소
+- **ONVIF 장치 연동** — 장치 서비스 초기화, 미디어 프로필, RTSP URI 조회, PTZ, Preset, Imaging 제어, Relay 및 PullPoint Event
+- **데이터 및 엔티티 저장소** — PostgreSQL/MySQL 저장, 타입 기반 조회, 엔티티 저장소, 동기·비동기 CRUD, Batch 및 Transaction
 
-영상 시스템은 단순한 미디어 재생 애플리케이션이 아닙니다.
+## 프로젝트 모듈
 
-실제 VMS, NVR, 관제 클라이언트, 스트리밍 서버, 디바이스 연동 서버를 만들다 보면 다음과 같은 기반 기능이 반복적으로 필요합니다.
+| 모듈 | 역할 |
+| --- | --- |
+| `OPNX.Lib.Common` | 공통 자료형, 수명 주기 관리, 직렬화, 압축, 리플렉션 및 유틸리티 |
+| `OPNX.Lib.Network` | TCP, Named Pipe, Shared Memory, 프레이밍, 패킷 및 연결 관리 |
+| `OPNX.Lib.Media` | FFmpeg, OpenCV 및 SkiaSharp 기반 미디어 처리 구성 요소 |
+| `OPNX.Lib.Streaming` | RTSP 중심 인프라 및 실시간 미디어 전송 구성 요소 |
+| `OPNX.Lib.Onvif` | 네트워크 영상 장치를 위한 ONVIF SOAP 클라이언트 서비스 |
+| `OPNX.Lib.Data` | PostgreSQL과 MySQL을 위한 EntityStore 및 ORM 스타일 저장 기능 |
+| `OPNX.Lib` | 주요 모듈을 포함하는 통합 SDK 패키지 |
 
-- 장시간 유지되는 네트워크 연결
-- 패킷 기반 프로토콜 처리
-- 실시간 영상 및 오디오 스트림 처리
-- RTSP, RTP, WebRTC와 같은 미디어 전송 기반
-- FFmpeg, OpenCV, SkiaSharp 같은 네이티브/미디어 라이브러리 연동
-- 장치, 채널, 서버, 사용자, 설정 같은 상태 기반 엔티티 관리
-- 메모리 상태와 데이터베이스 저장소 사이의 동기화
-- 애플리케이션 전체에서 일관되게 사용할 수 있는 공통 유틸리티와 수명 주기 관리
+## ONVIF 장치 연동
 
-OPNX.Lib는 이러한 기반 코드를 애플리케이션마다 반복해서 구현하지 않기 위해 만들어졌습니다.
+`OPNX.Lib.Onvif`는 현재 다음 기능을 지원합니다.
 
-OPNX.V와 OPNX.UI 같은 OPNX 기반 애플리케이션의 하부 구조로 사용되며, 동시에 영상 중심의 서버, 게이트웨이, 미디어 처리 파이프라인, 관제 시스템을 만들기 위한 독립적인 기반 SDK로 발전시키는 것을 목표로 합니다.
+- Device Service 초기화 및 장치가 제공하는 서비스 주소 확인
+- Media Profile 및 RTSP Stream URI 조회
+- PTZ 연속 이동, 정지 및 Preset 제어
+- Imaging Focus 및 Iris 제어
+- DeviceIO Relay 출력
+- PullPoint Event 구독
+- 애플리케이션 명령 흐름과 범위 변환을 검증하기 위한 모의 카메라
 
-## 제공하는 기능
+기본 사용 방법:
 
-OPNX.Lib는 다음 영역을 중심으로 구성됩니다.
+```csharp
+using OPNX.Lib.Onvif;
+using OPNX.Lib.Onvif.Models;
 
-- 공통 인프라  
-  수명 주기 관리, 직렬화, 압축, 리플렉션, 공통 모델과 유틸리티를 제공합니다.
+await using var client = new OnvifClient(new OnvifClientOptions
+{
+    DeviceServiceUri = new Uri("http://192.168.0.10/onvif/device_service"),
+    UserName = "admin",
+    Password = "password"
+});
 
-- 네트워크 및 프로토콜 처리  
-  TCP, Named Pipe, Shared Memory, 프레이밍, 패킷 처리, 연결 지향 통신 구성을 위한 기반 컴포넌트를 제공합니다.
+await client.InitializeAsync();
+var profile = (await client.Media!.GetProfilesAsync()).First();
+await client.Ptz!.ContinuousMoveAsync(profile.Token, 0.5f, 0, 0);
+await client.Ptz.StopAsync(profile.Token);
+```
 
-- 미디어 처리  
-  FFmpeg, OpenCV, SkiaSharp 기반의 인코딩, 디코딩, 변환, 필터링, muxing, 이미지/미디어 데이터 처리를 위한 헬퍼와 컴포넌트를 제공합니다.
+항상 `InitializeAsync`가 확인한 서비스 주소를 사용해야 합니다. 장치가 광고하지 않는 선택 서비스는 `null`로 제공됩니다. 자세한 내용은 [ONVIF 모듈 문서](src/OPNX.Lib.Onvif/README.md)를 참고하십시오.
 
-- 실시간 스트리밍  
-  RTSP 중심의 스트리밍 인프라와 실시간 미디어 전송을 위한 구성 요소를 제공합니다.
+ONVIF는 ONVIF, Inc.의 상표입니다. 이 프로젝트는 ONVIF와 제휴하거나 ONVIF의 보증을 받은 프로젝트가 아닙니다.
 
-- 데이터 및 엔티티 저장소  
-  애플리케이션이 상태 기반 엔티티를 메모리에 유지하고 데이터베이스와 동기화할 수 있도록 돕는 저장소 및 ORM 스타일 인프라를 제공합니다.
+## 데이터베이스 및 엔티티 저장소
 
-## 프로젝트 구성
+`OPNX.Lib.Data`는 다음 기능을 제공합니다.
 
-- `OPNX.Lib.Common`  
-  수명 주기 관리, 직렬화, 압축, 리플렉션, 공통 primitive와 유틸리티를 포함합니다.
+- PostgreSQL 및 MySQL 데이터베이스 서비스
+- 설정 가능한 명명 규칙과 Attribute 기반 테이블·컬럼 매핑
+- 메모리 기반 `EntityStore` 동기화
+- 동기·비동기 CRUD
+- 타입 기반 `Query<T>` 및 `QueryAsync<T>` 변환
+- Batch Insert, Update 및 Delete
+- 콜백 방식의 동기·비동기 Transaction
+- 비동기 작업의 Cancellation 지원
 
-- `OPNX.Lib.Network`  
-  TCP, Named Pipe, Shared Memory, 프레이밍, 패킷, 연결 지향 통신을 위한 전송 및 프로토콜 컴포넌트를 포함합니다.
+Transaction 사용 예제:
 
-- `OPNX.Lib.Media`  
-  FFmpeg, OpenCV, SkiaSharp 중심의 인코딩, 디코딩, 변환, 필터링, muxing, 미디어 데이터 처리를 위한 컴포넌트를 포함합니다.
+```csharp
+await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
+{
+    await service.InsertEntityAsync(user, cancellationToken);
+    await service.InsertEntityAsync(permission, cancellationToken);
+    await service.UpdateEntityAsync(setting, cancellationToken);
+});
+```
 
-- `OPNX.Lib.Streaming`  
-  RTSP 중심의 인프라와 실시간 미디어 전송을 위한 building block을 포함합니다.
-
-- `OPNX.Lib.Data`  
-  메모리 기반 엔티티 상태와 데이터베이스 저장소를 함께 다루기 위한 엔티티 저장소 및 ORM 스타일 인프라를 포함합니다.
-
-- `OPNX.Lib`  
-  주요 OPNX.Lib 모듈을 하나로 묶는 통합 SDK 패키지입니다.
+콜백이 정상적으로 완료되면 Transaction을 Commit합니다. Connection 열기, 명령 실행 또는 Commit 과정에서 오류가 발생하면 Rollback한 후 호출자에게 예외를 다시 전달합니다. 하나의 Transaction에 포함된 모든 명령은 동일한 Connection을 사용하므로 순차적으로 `await`해야 합니다. Transaction 내부에서 `Task.WhenAll` 등을 사용한 병렬 명령 실행은 지원하지 않습니다. Transaction 외부의 독립적인 작업은 각각 별도 Connection을 사용하므로 동시에 실행할 수 있습니다.
 
 ## 설계 방향
 
-OPNX.Lib는 단일 애플리케이션 전용 코드가 아니라, 더 큰 영상 시스템을 구성하기 위한 인프라 계층으로 설계되었습니다.
+OPNX.Lib는 장시간 실행되는 영상 서버, 클라이언트, 게이트웨이 및 미디어 파이프라인을 위한 인프라 계층입니다.
 
 - 애플리케이션별 제품 로직과 재사용 가능한 플랫폼 인프라를 분리합니다.
-- 장시간 실행되는 서버, 클라이언트, 게이트웨이, 미디어 파이프라인을 고려합니다.
-- 로깅은 특정 구현체에 직접 의존하지 않고 추상화에 기반합니다.
-- 사용자는 Serilog, NLog, Microsoft.Extensions.Logging provider 또는 다른 로깅 구현을 선택할 수 있습니다.
-- 런타임 서비스, 저장소, reader/writer, 연결 객체는 진단이 필요한 위치에서 선택적으로 `ILogger`를 받을 수 있습니다.
-- 정적 모델 또는 순수 데이터 구조는 명확한 운영상 이유가 없는 한 로거 소유를 피합니다.
-- FFmpeg 같은 네이티브 런타임과 OPNX 소유 코드는 라이선스와 배포 책임을 명확히 분리합니다.
+- 공개 서비스는 특정 로깅 프레임워크 대신 로깅 추상화에 의존합니다.
+- 사용자는 Serilog, NLog, Microsoft.Extensions.Logging Provider 또는 다른 로깅 구현을 선택할 수 있습니다.
+- FFmpeg와 같은 Native Runtime은 라이선스 및 배포 책임 측면에서 OPNX 소유 코드와 분리됩니다.
+- 필요한 모듈만 개별 참조할 수 있으며 `OPNX.Lib`는 통합 SDK 패키지를 제공합니다.
 
 ## 사용 사례
 
-- Video Management System, VMS
-- Network Video Recorder, NVR
+- Video Management System(VMS)
+- Network Video Recorder(NVR)
+- 네트워크 카메라 및 ONVIF 장치 게이트웨이
 - 실시간 영상 스트리밍 서버
-- 디바이스 게이트웨이
 - 미디어 처리 및 분석 파이프라인
-- 서버/장치 상태 동기화 시스템
-- 영상 중심 플랫폼 애플리케이션의 공통 인프라
+- 서버와 장치 상태 동기화
+- 영상 플랫폼 애플리케이션의 공통 인프라
 
 ## 현재 상태
 
-OPNX.Lib는 현재 활발히 개발 중입니다.
-
-공개 API는 안정화 중입니다. 실행 가능한 예제는 별도의 [OPNX Samples 저장소](https://github.com/OPNXLabs/opnx-samples)에서 제공하며, API 및 통합 문서는 프로젝트가 성숙함에 따라 계속 보강할 예정입니다.
-
-현재 저장소는 production-ready SDK라기보다는 평가, 통합 테스트, 연구, 비상업적 실험, 초기 피드백을 위한 preview-quality SDK로 보아야 합니다.
+OPNX.Lib는 현재 활발히 개발 중이며 공개 API를 안정화하고 있습니다. 현재 패키지는 production-ready 안정 버전이 아니라 평가, 통합 테스트, 연구, 비상업적 실험 및 초기 피드백을 위한 Preview SDK로 보아야 합니다.
 
 ## NuGet 패키지
 
-OPNX.Lib는 preview NuGet 패키지로 배포됩니다.
-
-설치:
+Preview 패키지 설치:
 
 ```powershell
 dotnet add package OPNX.Lib --prerelease
 ```
 
-이 패키지는 preview 평가와 통합 테스트를 위한 버전입니다. 안정 버전이 나오기 전까지 API 호환성, 패키지 구조, 문서는 변경될 수 있습니다.
+안정 버전 출시 전까지 API 호환성, 패키지 구조 및 문서가 변경될 수 있습니다.
 
 ## 빌드
 
@@ -116,75 +130,43 @@ dotnet add package OPNX.Lib --prerelease
 
 - .NET 10 SDK
 
-빌드:
-
 ```powershell
 dotnet build OPNX.Lib.slnx -c Debug
 ```
 
 ## 샘플 및 문서
 
-실행 가능한 샘플 애플리케이션은 [OPNXLabs/opnx-samples](https://github.com/OPNXLabs/opnx-samples)에서 제공합니다.
+실행 가능한 예제는 [OPNXLabs/opnx-samples](https://github.com/OPNXLabs/opnx-samples)에서 관리합니다. EntityStore, TCP 통신, RTSP 라이브 뷰어 및 재생 Timeline 연동 예제를 포함합니다.
 
-- `OPNX.Samples.EntityStore` — 엔티티 저장소와 데이터 인프라 사용
-- `OPNX.Samples.TcpChat` — TCP 네트워크와 패킷 흐름
-- `OPNX.Samples.RtspMultiLiveViewer` — RTSP 스트리밍과 미디어 통합
-- `OPNX.Samples.PlaybackTimeline` — OPNX.Lib 데이터 모델과 OPNX.UI 재생 컨트롤 통합
+모듈별 문서:
 
-샘플은 preview 단계의 예제이며 샘플 저장소에 명시된 패키지 버전을 따릅니다. 향후 다음 항목에 대한 문서를 보강할 예정입니다.
-
-- 네트워크 연결 및 패킷 흐름
-- 엔티티 저장소 및 데이터베이스 사용
-- 미디어 reader/writer 사용
-- 스트리밍 컴포넌트 사용
-- 로깅 통합
-- FFmpeg native library 구성
+- [ONVIF 클라이언트 서비스](src/OPNX.Lib.Onvif/README.md)
+- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
 
 ## 라이선스
 
-OPNX.Lib는 source-available 형태로 공개됩니다. 그러나 permissive open-source software로 라이선스되는 것은 아닙니다.
+OPNX.Lib는 source-available 형태로 공개하지만 permissive open-source software로 라이선스하지 않습니다. OPNX 소유 코드는 학습, 평가, 연구, 테스트 및 기타 비상업적 목적으로 사용할 수 있습니다.
 
-이 저장소의 OPNX 소유 코드는 학습, 평가, 연구, 테스트 및 기타 비상업적 목적에 한해 사용할 수 있습니다.
-
-상업적 사용, 재배포, OEM 통합, 상업 제품 또는 서비스에의 포함은 OPNX의 사전 서면 허가가 필요합니다.
-
-자세한 내용은 [License.txt](License.txt)를 확인하십시오. 한국어 참고 번역은 [License.ko.txt](License.ko.txt)에서 확인할 수 있습니다.
+상업적 사용, 재배포, OEM 통합 또는 상업용 제품과 서비스에 포함하려면 OPNX의 사전 서면 허가가 필요합니다. 자세한 내용은 [License.txt](License.txt)를 확인하십시오. 한글 참고 번역은 [License.ko.txt](License.ko.txt)에서 확인할 수 있습니다.
 
 ## 서드파티 컴포넌트
 
-이 저장소는 각 컴포넌트의 고유 라이선스가 적용되는 서드파티 소프트웨어를 사용합니다.
-
-중요 사항:
-
-- `FFmpeg.AutoGen`은 MIT License에 따라 사용됩니다.
-- 네이티브 `FFmpeg` 바이너리는 OPNX 라이선스의 적용 대상이 아닙니다.
-- OPNX는 사용자가 네이티브 FFmpeg 바이너리를 별도로 획득하고 구성할 것을 권장합니다.
-- 네이티브 FFmpeg 바이너리를 번들링하거나 재배포하는 당사자는 선택한 FFmpeg 빌드에 적용되는 라이선스 조건을 직접 준수해야 합니다.
-- OpenCV, SkiaSharp, SIPSorcery, Npgsql, MySqlConnector, ZstdSharp.Port 등은 각각의 라이선스 조건을 따릅니다.
+이 저장소는 각자의 라이선스가 적용되는 서드파티 컴포넌트를 사용합니다. Native FFmpeg Binary는 OPNX 라이선스의 적용 대상이 아니며, 배포자는 선택한 FFmpeg Build에 적용되는 라이선스를 준수할 책임이 있습니다.
 
 자세한 내용은 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)를 확인하십시오.
 
 ## 관련 프로젝트
 
-- [`OPNX Samples`](https://github.com/OPNXLabs/opnx-samples)
-  OPNX.Lib와 OPNX.UI를 위한 실행 가능한 예제 모음입니다.
-
-- `OPNX.UI`  
-  OPNX 클라이언트 애플리케이션을 위한 UI 솔루션 제품군입니다. 현재 구현체인 `OPNX.UI.WPF`는 Windows 클라이언트를 위한 재사용 가능한 WPF 컨트롤을 제공하며, 향후 플랫폼별 UI 구현체로 확장할 수 있습니다.
-
-- `OPNX.V`  
-  OPNX.Lib와 OPNX.UI 위에서 구축되는 영상 플랫폼 애플리케이션입니다.
+- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples) — OPNX.Lib 및 OPNX.UI 실행 예제
+- `OPNX.UI` — 영상 클라이언트 애플리케이션을 위한 재사용 가능한 UI 구성 요소
+- `OPNX.V` — OPNX.Lib와 OPNX.UI를 기반으로 하는 영상 플랫폼
 
 ## 상업 라이선스 및 OEM 문의
-
-OPNX.Lib는 대한민국에 사업자로 등록된 오픈엑스(OPNX)가 개발하고 배포합니다.
-
-상업적 사용, OEM 계약, 파트너십 문의는 아래 연락처로 문의하십시오.
 
 - [https://www.opnx.kr/](https://www.opnx.kr/)
 - `opnx@opnx.kr`
 
 ## 보안 및 기여
 
-- 보안 문제는 [SECURITY.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/SECURITY.ko.md)의 절차에 따라 비공개로 제보해 주세요.
-- 이슈 등록이나 변경 제안 전 [CONTRIBUTING.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/CONTRIBUTING.ko.md)를 확인해 주세요.
+- 보안 문제는 [SECURITY.ko.md](SECURITY.ko.md)의 안내에 따라 비공개로 제보하십시오.
+- Issue 등록이나 변경 제안 전 [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md)를 확인하십시오.

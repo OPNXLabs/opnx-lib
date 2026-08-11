@@ -189,7 +189,7 @@ namespace OPNX.Lib.Onvif
                         address,
                         candidate.Uri,
                         candidate.Method,
-                        [..client.Capabilities.Services.Values]);
+                        [.. client.Capabilities.Services.Values]);
                 }
                 catch (Exception) when (!cancellationToken.IsCancellationRequested)
                 {

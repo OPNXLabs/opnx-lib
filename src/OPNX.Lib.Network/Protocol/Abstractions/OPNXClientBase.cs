@@ -191,6 +191,42 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
         }
 
+        public bool SendOwnedData(PacketHeader header, IMemoryOwner<byte> owner, int payloadSize)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            Packet? packet = null;
+
+            try
+            {
+                if (IsDisposed || _outboundChannel is null || !IsConnected || payloadSize <= 0 || payloadSize > owner.Memory.Length)
+                    return false;
+
+                var outboundHeader = new PacketHeader(header.Flags, header.PacketType, header.PayloadType, (uint)payloadSize, header.Version, header.Reserved);
+                packet = new Packet(outboundHeader, owner, payloadSize);
+                owner = null!;
+
+                if (_outboundChannel.Writer.TryWrite(packet))
+                {
+                    MarkOutboundQueued(packet.Payload.Length);
+                    packet = null;
+                    return true;
+                }
+
+                MarkDroppedPacket();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                return false;
+            }
+            finally
+            {
+                packet?.Dispose();
+                owner?.Dispose();
+            }
+        }
+
         public void Connect(EndPoint endPoint)
         {
             if (IsDisposed)

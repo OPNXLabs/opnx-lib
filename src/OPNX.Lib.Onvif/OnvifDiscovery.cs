@@ -10,6 +10,8 @@ namespace OPNX.Lib.Onvif
     public sealed class OnvifDiscovery
     {
         private static readonly IPEndPoint DiscoveryEndpoint = new(IPAddress.Parse("239.255.255.250"), 3702);
+        private static readonly ConcurrentDictionary<IPAddress, Uri> SuccessfulEndpoints = new();
+        private static readonly SemaphoreSlim GlobalProbeConcurrency = new(2, 2);
         private readonly OnvifDiscoveryOptions _options;
 
         public OnvifDiscovery(OnvifDiscoveryOptions? options = null)
@@ -38,18 +40,41 @@ namespace OPNX.Lib.Onvif
         {
             ArgumentNullException.ThrowIfNull(address);
 
-            var candidates = new ConcurrentDictionary<string, DiscoveryCandidate>(StringComparer.OrdinalIgnoreCase);
+            if (SuccessfulEndpoints.TryGetValue(address, out var successfulEndpoint))
+            {
+                var cachedResult = await ProbeCandidatesAsync(address, [new(successfulEndpoint, OnvifDiscoveryMethod.EndpointProbe)], userName ?? string.Empty,
+                    password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+                if (cachedResult != null)
+                    return cachedResult;
+
+                SuccessfulEndpoints.TryRemove(address, out _);
+            }
+
+            var candidates = new List<DiscoveryCandidate>();
+            var candidateUris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddCandidate(Uri uri, OnvifDiscoveryMethod method)
+            {
+                if (candidateUris.Add(uri.AbsoluteUri))
+                    candidates.Add(new(uri, method));
+            }
+
             if (_options.UseWsDiscovery && address.AddressFamily == AddressFamily.InterNetwork)
             {
                 foreach (var uri in await DiscoverDeviceServiceUrisAsync(address, cancellationToken).ConfigureAwait(false))
-                    candidates.TryAdd(uri.AbsoluteUri, new(uri, OnvifDiscoveryMethod.WsDiscovery));
+                    AddCandidate(uri, OnvifDiscoveryMethod.WsDiscovery);
             }
 
             foreach (var uri in CreateEndpointCandidates(address))
-                candidates.TryAdd(uri.AbsoluteUri, new(uri, OnvifDiscoveryMethod.EndpointProbe));
+                AddCandidate(uri, OnvifDiscoveryMethod.EndpointProbe);
 
-            return await ProbeCandidatesAsync(address, candidates.Values, userName ?? string.Empty,
+            var result = await ProbeCandidatesAsync(address, candidates, userName ?? string.Empty,
                 password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+
+            if (result != null)
+                SuccessfulEndpoints[address] = result.DeviceServiceUri;
+
+            return result;
         }
 
         private async Task<IReadOnlyList<Uri>> DiscoverDeviceServiceUrisAsync(
@@ -81,7 +106,7 @@ namespace OPNX.Lib.Onvif
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            return results.ToList();
+            return [.. results];
         }
 
         private async Task<OnvifDiscoveryResult?> ProbeCandidatesAsync(
@@ -96,7 +121,6 @@ namespace OPNX.Lib.Onvif
             var resultSource = new TaskCompletionSource<OnvifDiscoveryResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             var tasks = candidates
-                .OrderBy(candidate => candidate.Method)
                 .Select(async candidate =>
                 {
                     try
@@ -141,32 +165,40 @@ namespace OPNX.Lib.Onvif
             string password,
             CancellationToken cancellationToken)
         {
-            using var handler = new HttpClientHandler();
-            if (_options.AllowUntrustedCertificates && candidate.Uri.Scheme == Uri.UriSchemeHttps)
-                handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-
-            using var httpClient = new HttpClient(handler);
-            var clientOptions = new OnvifClientOptions
-            {
-                DeviceServiceUri = candidate.Uri,
-                UserName = userName,
-                Password = password,
-                RequestTimeout = _options.RequestTimeout
-            };
-
+            await GlobalProbeConcurrency.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await using var client = new OnvifClient(clientOptions, httpClient);
-                await client.InitializeAsync(cancellationToken).ConfigureAwait(false);
-                return new OnvifDiscoveryResult(
-                    address,
-                    candidate.Uri,
-                    candidate.Method,
-                    client.Capabilities.Services.Values.ToList());
+                using var handler = new HttpClientHandler();
+                if (_options.AllowUntrustedCertificates && candidate.Uri.Scheme == Uri.UriSchemeHttps)
+                    handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+
+                using var httpClient = new HttpClient(handler);
+                var clientOptions = new OnvifClientOptions
+                {
+                    DeviceServiceUri = candidate.Uri,
+                    UserName = userName,
+                    Password = password,
+                    RequestTimeout = _options.RequestTimeout
+                };
+
+                try
+                {
+                    await using var client = new OnvifClient(clientOptions, httpClient);
+                    await client.InitializeAsync(cancellationToken).ConfigureAwait(false);
+                    return new OnvifDiscoveryResult(
+                        address,
+                        candidate.Uri,
+                        candidate.Method,
+                        [..client.Capabilities.Services.Values]);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    return null;
+                }
             }
-            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            finally
             {
-                return null;
+                GlobalProbeConcurrency.Release();
             }
         }
 

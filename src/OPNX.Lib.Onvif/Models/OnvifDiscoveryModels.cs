@@ -8,7 +8,7 @@ namespace OPNX.Lib.Onvif.Models
         public IReadOnlyList<string> ServicePaths { get; init; } = ["/onvif/device_service", "/onvif/Device_service"];
         public TimeSpan WsDiscoveryTimeout { get; init; } = TimeSpan.FromSeconds(2);
         public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(2);
-        public int MaximumConcurrency { get; init; } = 4;
+        public int MaximumConcurrency { get; init; } = 1;
         public bool UseWsDiscovery { get; init; } = true;
         public bool TryHttp { get; init; } = true;
         public bool TryHttps { get; init; } = true;

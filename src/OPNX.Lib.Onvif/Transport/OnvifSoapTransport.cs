@@ -1,5 +1,6 @@
 using OPNX.Lib.Onvif.Abstractions;
 using OPNX.Lib.Onvif.Models;
+using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,6 +41,9 @@ namespace OPNX.Lib.Onvif.Transport
 
             for (var attempt = 0; ; attempt++)
             {
+#if DEBUG
+                var startedAt = Stopwatch.GetTimestamp();
+#endif
                 try
                 {
                     return await SendCoreAsync(endpoint, action, body, timeout, cancellationToken).ConfigureAwait(false);
@@ -47,7 +51,17 @@ namespace OPNX.Lib.Onvif.Transport
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested &&
                     _options.DevicePolicy.ShouldRetry(operation, exception, attempt))
                 {
+#if DEBUG
+                    Debug.WriteLine($"[OnvifSoap] operation={operation}, attempt={attempt + 1}, elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:F2}, timeout={timeout.TotalMilliseconds:F0}, callerCanceled={cancellationToken.IsCancellationRequested}, retry=True, exception={exception.GetType().Name}, endpoint={endpoint}");
+#endif
                 }
+#if DEBUG
+                catch (Exception exception)
+                {
+                    Debug.WriteLine($"[OnvifSoap] operation={operation}, attempt={attempt + 1}, elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:F2}, timeout={timeout.TotalMilliseconds:F0}, callerCanceled={cancellationToken.IsCancellationRequested}, retry=False, exception={exception.GetType().Name}, endpoint={endpoint}");
+                    throw;
+                }
+#endif
             }
         }
 

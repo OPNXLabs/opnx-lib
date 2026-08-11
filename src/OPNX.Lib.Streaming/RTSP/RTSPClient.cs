@@ -89,7 +89,9 @@ namespace OPNX.Lib.Streaming.RTSP
         //private const int UPDATE_INTERVAL_MS = 1000; // 1초를 밀리초로 변환
         private DateTime _prevCalcTime = DateTime.MinValue;
         private uint _prevTimeStamp = 0;
-        private int _receivedFrameCount = 0;
+        private const int FpsTimestampSampleCount = 31;
+        private const int MinFpsTimestampSampleCount = 5;
+        private readonly Queue<uint> _fpsTimestampDeltas = new();
         private long _receivedBytes = 0; // 총 수신 데이터 양 (바이트 단위)
         private double _fps = 30.0f;
         private double _bitrate = 0.0; // 비트레이트 (bps)         
@@ -773,34 +775,42 @@ namespace OPNX.Lib.Streaming.RTSP
         {
             DateTime nowTime = DateTime.Now;
 
-            int framesCount = nalUnits.Count();
             long bytesCount = nalUnits.Sum(nalUnit => nalUnit.Length);
 
             // 첫 호출 시 초기화
             if (_prevCalcTime == DateTime.MinValue)
             {
-                _receivedFrameCount = framesCount;
                 _receivedBytes = bytesCount;
                 _prevCalcTime = nowTime;
-                _prevTimeStamp = timeStamp;  // 타임스탬프 초기화
+                _prevTimeStamp = timeStamp;
                 return;
             }
 
-            uint timeDiff = timeStamp - _prevTimeStamp;
-            if (timeDiff > 0)
-            {
-                double timeInterval = timeDiff / (double)_videoClockRate;  // 90,000Hz 기준으로 변환                
-                _fps = framesCount / timeInterval;// FPS 계산 (타임스탬프 간격에 따른 FPS)
-                if (double.IsNaN(_fps) || double.IsInfinity(_fps))
-                    _fps = 0;
-            }
-            _prevTimeStamp = timeStamp;
-
-
-            // 비트레이트 계산 (초당 비트 수)
-            _receivedFrameCount += framesCount;
             _receivedBytes += bytesCount;
 
+            uint timeDiff = timeStamp - _prevTimeStamp;
+            _prevTimeStamp = timeStamp;
+
+            if (timeDiff > 0)
+            {
+                _fpsTimestampDeltas.Enqueue(timeDiff);
+                while (_fpsTimestampDeltas.Count > FpsTimestampSampleCount)
+                    _fpsTimestampDeltas.Dequeue();
+
+                // The median ignores isolated RTP timestamp jumps and missing frames while
+                // still adapting when the camera's actual frame rate changes persistently.
+                uint[] sortedDeltas = [.. _fpsTimestampDeltas.Order()];
+                uint medianDelta = sortedDeltas[sortedDeltas.Length / 2];
+                double measuredFps = _videoClockRate / (double)medianDelta;
+
+                if (_fpsTimestampDeltas.Count >= MinFpsTimestampSampleCount &&
+                    double.IsFinite(measuredFps) && measuredFps is >= 1 and <= 240)
+                {
+                    _fps = measuredFps;
+                }
+            }
+
+            // 비트레이트 계산 (초당 비트 수)
             double elapsedSeconds = (nowTime - _prevCalcTime).TotalSeconds;
             if (elapsedSeconds > 0)
             {
@@ -810,7 +820,6 @@ namespace OPNX.Lib.Streaming.RTSP
             // 매 1초마다 초기화
             if (elapsedSeconds >= 1)
             {
-                _receivedFrameCount = 0;
                 _receivedBytes = 0;
                 _prevCalcTime = nowTime;
             }

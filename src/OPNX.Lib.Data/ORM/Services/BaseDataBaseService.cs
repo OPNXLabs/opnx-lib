@@ -668,7 +668,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private int InsertEntityCore<T>(T insertEntity) where T : IEntity
         {
-            if (insertEntity.InsertTime <= DateTime.MinValue)
+            if (insertEntity.IsAuditable && insertEntity.InsertTime <= DateTime.MinValue)
                 insertEntity.InsertTime = DateTime.Now;
 
             List<KeyValuePair<string, object>> paramList = [];
@@ -688,21 +688,22 @@ namespace OPNX.Lib.Data.ORM.Services
 
             ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
 
-            CascadeEntityAction(insertEntity, nameof(BaseDataBaseService.CascadeInsertEntity));
+            CascadeEntityAction(insertEntity, nameof(BaseDataBaseService.CascadeInsertEntity), CascadeType.Insert);
 
             return insertEntity.ID;
         }
 
         private bool DeleteEntityCore<T>(T deleteEntity) where T : IEntity
         {
-            CascadeEntityAction(deleteEntity, nameof(BaseDataBaseService.CascadeDeleteEntity));
+            T cascadeEntity = _entityStore.FindEntity<T>(x => x.ID == deleteEntity.ID) ?? deleteEntity;
+            CascadeEntityAction(cascadeEntity, nameof(BaseDataBaseService.CascadeDeleteEntity), CascadeType.Delete);
 
             List<KeyValuePair<string, object>> paramList = [];
             string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
 
             if (!string.IsNullOrEmpty(sqlQuery) && ExecuteNonQuery(sqlQuery, paramList) > 0)
             {
-                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(deleteEntity));
+                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(cascadeEntity));
                 return true;
             }
 
@@ -711,15 +712,16 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private bool UpdateEntityCore<T>(T updateEntity) where T : IEntity
         {
-            CascadeEntityAction(updateEntity, nameof(BaseDataBaseService.CascadeUpdateEntity));
-
             T? findEntity = _entityStore.FindEntity<T>(x => x.ID == updateEntity.ID);
             if (findEntity == null) return false;
 
-            EntityChanges fieldChanges = findEntity.GetChangedFields<T>(updateEntity);
-            if (fieldChanges.Count <= 0) return true;
+            if (updateEntity.IsAuditable && updateEntity.IsDeleted)
+                CascadeEntityAction(findEntity, nameof(BaseDataBaseService.CascadeSoftDeleteEntity), CascadeType.SoftDelete);
+            else
+                CascadeEntityAction(updateEntity, nameof(BaseDataBaseService.CascadeUpdateEntity), CascadeType.Update);
 
-            updateEntity.UpdateTime = DateTime.Now;
+            if (updateEntity.IsAuditable)
+                updateEntity.UpdateTime = DateTime.Now;
 
             List<KeyValuePair<string, object>> paramList = [];
             string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
@@ -735,7 +737,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private async Task<int> InsertEntityCoreAsync<T>(T insertEntity, CancellationToken cancellationToken) where T : IEntity
         {
-            if (insertEntity.InsertTime <= DateTime.MinValue)
+            if (insertEntity.IsAuditable && insertEntity.InsertTime <= DateTime.MinValue)
                 insertEntity.InsertTime = DateTime.Now;
 
             List<KeyValuePair<string, object>> paramList = [];
@@ -749,23 +751,23 @@ namespace OPNX.Lib.Data.ORM.Services
 
             insertEntity.ID = newID;
             ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
-            await CascadeEntityActionAsync(insertEntity, nameof(CascadeInsertEntityAsync), cancellationToken).ConfigureAwait(false);
+            await CascadeEntityActionAsync(insertEntity, nameof(CascadeInsertEntityAsync), CascadeType.Insert, cancellationToken).ConfigureAwait(false);
             return insertEntity.ID;
         }
 
         private async Task<bool> UpdateEntityCoreAsync<T>(T updateEntity, CancellationToken cancellationToken) where T : IEntity
         {
-            await CascadeEntityActionAsync(updateEntity, nameof(CascadeUpdateEntityAsync), cancellationToken).ConfigureAwait(false);
-
             T? findEntity = _entityStore.FindEntity<T>(x => x.ID == updateEntity.ID);
             if (findEntity == null)
                 return false;
 
-            EntityChanges fieldChanges = findEntity.GetChangedFields<T>(updateEntity);
-            if (fieldChanges.Count <= 0)
-                return true;
+            if (updateEntity.IsAuditable && updateEntity.IsDeleted)
+                await CascadeEntityActionAsync(findEntity, nameof(CascadeSoftDeleteEntityAsync), CascadeType.SoftDelete, cancellationToken).ConfigureAwait(false);
+            else
+                await CascadeEntityActionAsync(updateEntity, nameof(CascadeUpdateEntityAsync), CascadeType.Update, cancellationToken).ConfigureAwait(false);
 
-            updateEntity.UpdateTime = DateTime.Now;
+            if (updateEntity.IsAuditable)
+                updateEntity.UpdateTime = DateTime.Now;
             List<KeyValuePair<string, object>> paramList = [];
             string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
             if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
@@ -779,13 +781,14 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private async Task<bool> DeleteEntityCoreAsync<T>(T deleteEntity, CancellationToken cancellationToken) where T : IEntity
         {
-            await CascadeEntityActionAsync(deleteEntity, nameof(CascadeDeleteEntityAsync), cancellationToken).ConfigureAwait(false);
+            T cascadeEntity = _entityStore.FindEntity<T>(x => x.ID == deleteEntity.ID) ?? deleteEntity;
+            await CascadeEntityActionAsync(cascadeEntity, nameof(CascadeDeleteEntityAsync), CascadeType.Delete, cancellationToken).ConfigureAwait(false);
 
             List<KeyValuePair<string, object>> paramList = [];
             string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
             if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
             {
-                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(deleteEntity));
+                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(cascadeEntity));
                 return true;
             }
 
@@ -821,11 +824,14 @@ namespace OPNX.Lib.Data.ORM.Services
             return table;
         }
 
-        private void CascadeEntityAction<T>(T entity, string methodName) where T : IEntity
+        private void CascadeEntityAction<T>(T entity, string methodName, CascadeType cascadeType) where T : IEntity
         {
             var propertySchemas = entity.GetRelatedListProps();
             foreach (var propertySchema in propertySchemas)
             {
+                if (!propertySchema.ForeignKeyAttribs.Cascade.HasFlag(cascadeType))
+                    continue;
+
                 object? value = propertySchema.Property.GetValue(entity);
                 if (value == null) continue;
 
@@ -857,10 +863,13 @@ namespace OPNX.Lib.Data.ORM.Services
             }
         }
 
-        private async Task CascadeEntityActionAsync<T>(T entity, string methodName, CancellationToken cancellationToken) where T : IEntity
+        private async Task CascadeEntityActionAsync<T>(T entity, string methodName, CascadeType cascadeType, CancellationToken cancellationToken) where T : IEntity
         {
             foreach (var propertySchema in entity.GetRelatedListProps())
             {
+                if (!propertySchema.ForeignKeyAttribs.Cascade.HasFlag(cascadeType))
+                    continue;
+
                 object? value = propertySchema.Property.GetValue(entity);
                 if (value == null)
                     continue;
@@ -877,7 +886,9 @@ namespace OPNX.Lib.Data.ORM.Services
                     _cachedGenericMethods.TryAdd(cacheKey, methodInfo);
                 }
 
-                object? result = methodName == nameof(CascadeDeleteEntityAsync) ? methodInfo.Invoke(this, [value, cancellationToken]) : methodInfo.Invoke(this, [value, propertySchema.ForeignKeyAttribs.ForeignKeyField, entity.ID, cancellationToken]);
+                object? result = methodName == nameof(CascadeDeleteEntityAsync) || methodName == nameof(CascadeSoftDeleteEntityAsync)
+                    ? methodInfo.Invoke(this, [value, cancellationToken])
+                    : methodInfo.Invoke(this, [value, propertySchema.ForeignKeyAttribs.ForeignKeyField, entity.ID, cancellationToken]);
                 if (result is Task task)
                     await task.ConfigureAwait(false);
             }
@@ -910,6 +921,20 @@ namespace OPNX.Lib.Data.ORM.Services
             foreach (var item in deleteEntities)
             {
                 DeleteEntity<T>(item);
+            }
+        }
+
+        protected void CascadeSoftDeleteEntity<T>(ObservableCollection<T> deleteEntities) where T : Entity
+        {
+            foreach (T item in deleteEntities)
+            {
+                if (!item.IsAuditable || item.IsDeleted)
+                    continue;
+
+                T softDeleteEntity = item.Copy<T>()
+                    ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for cascading soft-delete.");
+                softDeleteEntity.IsDeleted = true;
+                UpdateEntity(softDeleteEntity);
             }
         }
 
@@ -950,6 +975,20 @@ namespace OPNX.Lib.Data.ORM.Services
         {
             foreach (T item in deleteEntities)
                 await DeleteEntityAsync(item, cancellationToken).ConfigureAwait(false);
+        }
+
+        protected async Task CascadeSoftDeleteEntityAsync<T>(ObservableCollection<T> deleteEntities, CancellationToken cancellationToken) where T : Entity
+        {
+            foreach (T item in deleteEntities)
+            {
+                if (!item.IsAuditable || item.IsDeleted)
+                    continue;
+
+                T softDeleteEntity = item.Copy<T>()
+                    ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for cascading soft-delete.");
+                softDeleteEntity.IsDeleted = true;
+                await UpdateEntityAsync(softDeleteEntity, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         protected async Task CascadeInsertEntityAsync<T>(ObservableCollection<T> insertEntities, string fkFieldName, int fkID, CancellationToken cancellationToken) where T : Entity

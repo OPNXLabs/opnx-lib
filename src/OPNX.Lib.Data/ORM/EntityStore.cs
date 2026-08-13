@@ -111,7 +111,7 @@ namespace OPNX.Lib.Data.ORM
 
                 findEntity.PropertyChanged -= Entity_PropertyChanged;
 
-                if (updateEntity.IsDeleted)
+                if (updateEntity.IsAuditable && updateEntity.IsDeleted)
                 {
                     DeleteEntity<T>(findEntity);
                 }

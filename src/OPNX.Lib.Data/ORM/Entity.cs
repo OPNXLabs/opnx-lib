@@ -26,6 +26,7 @@ namespace OPNX.Lib.Data.ORM
         private DateTime insertTime = DateTime.MinValue;
         private DateTime updateTime = DateTime.MinValue;
 
+
         private ObservableCollection<PropertyInfo>? properties = null;
 
         private List<ColumnSchema>? columnSchemas = null;
@@ -47,6 +48,9 @@ namespace OPNX.Lib.Data.ORM
 
         [JsonIgnore]
         public abstract bool IsLogTable { get; }
+
+        [JsonIgnore]
+        public virtual bool IsAuditable => false;
 
         [JsonIgnore]
         public bool IsClone
@@ -86,21 +90,21 @@ namespace OPNX.Lib.Data.ORM
             set => SetProperty(ref id, value);
         }
 
-        [EntityColumn(ColIndex = 100, SqlDataType = System.Data.SqlDbType.TinyInt, AllowNull = true, IsPrimaryKey = false)]
+        [JsonIgnore]
         public virtual bool IsDeleted
         {
             get => isDeleted;
             set => SetProperty(ref isDeleted, value);
         }
 
-        [EntityColumn(ColIndex = 101, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
+        [JsonIgnore]
         public virtual DateTime InsertTime
         {
             get => insertTime;
             set => SetProperty(ref insertTime, value);
         }
 
-        [EntityColumn(ColIndex = 102, SqlDataType = System.Data.SqlDbType.DateTime, AllowNull = true, IsPrimaryKey = false)]
+        [JsonIgnore]
         public virtual DateTime UpdateTime
         {
             get => updateTime;
@@ -189,7 +193,8 @@ namespace OPNX.Lib.Data.ORM
 
         public virtual void NotifyDeleted<T>() where T : IEntity
         {
-            IsDeleted = true;
+            if (IsAuditable)
+                IsDeleted = true;
         }
 
         public virtual void NotifyInserted<T>() where T : IEntity { }

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <IsPackable>false</IsPackable>
+    <Description>Cross-platform system resource monitoring for OPNX applications.</Description>
+  </PropertyGroup>
+</Project>

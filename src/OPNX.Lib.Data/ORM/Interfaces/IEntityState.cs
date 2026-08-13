@@ -2,6 +2,8 @@
 {
     public interface IEntityState
     {
+        bool IsAuditable { get; }
+
         bool IsDeleted { get; set; }
 
         bool IsLogTable { get; }
@@ -13,5 +15,6 @@
         DateTime InsertTime { get; set; }
 
         DateTime UpdateTime { get; set; }
+
     }
 }

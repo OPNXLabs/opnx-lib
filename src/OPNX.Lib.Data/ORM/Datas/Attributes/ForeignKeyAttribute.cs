@@ -59,6 +59,13 @@
             set { this.relatedType = value; }
         }
 
+        /// <summary>
+        /// Controls which persistence operations are propagated to the related collection.
+        /// Destructive operations must be explicitly enabled for owned relationships.
+        /// </summary>
+        public OPNX.Lib.Data.ORM.Enums.CascadeType Cascade { get; set; } =
+            OPNX.Lib.Data.ORM.Enums.CascadeType.Insert | OPNX.Lib.Data.ORM.Enums.CascadeType.Update;
+
 
     }
 }

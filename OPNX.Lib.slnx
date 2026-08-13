@@ -33,6 +33,9 @@
   <Project Path="src/OPNX.Lib.Streaming/OPNX.Lib.Streaming.csproj">
     <Platform Solution="*|x64" Project="x64" />
   </Project>
+  <Project Path="src/OPNX.Lib.SystemMonitoring/OPNX.Lib.SystemMonitoring.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
   <Project Path="src/OPNX.Lib/OPNX.Lib.csproj">
     <Platform Solution="Release|x64" Project="x64" />
   </Project>

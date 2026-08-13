@@ -30,3 +30,5 @@
 /src/.dotnet
 /src/OPNX.Lib.Onvif/bin
 /src/OPNX.Lib.Onvif/obj
+/src/OPNX.Lib.SystemMonitoring/bin
+/src/OPNX.Lib.SystemMonitoring/obj

@@ -16,7 +16,11 @@ namespace OPNX.Lib.Data.ORM.Services
         private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
         #region Public Methods                
-        public override string GetTableIdentifier(Type entityType) => $"\"{DatabaseNaming.GetTableName(entityType).Replace("\"", "\"\"")}\"";
+        public override string GetTableIdentifier(Type entityType)
+        {
+            string tableName = DatabaseNaming.GetTableName(entityType).ToLowerInvariant();
+            return $"\"{tableName.Replace("\"", "\"\"")}\"";
+        }
 
         public override int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList)
         {
@@ -357,6 +361,23 @@ namespace OPNX.Lib.Data.ORM.Services
 
                 if (value is Guid g && g == Guid.Empty)
                     return DBNull.Value;
+
+                if (value.GetType().IsEnum)
+                {
+                    return attr?.SqlDataType switch
+                    {
+                        // PostgreSQL에는 tinyint가 없으므로 smallint로 전달
+                        SqlDbType.TinyInt => Convert.ToInt16(value),
+                        SqlDbType.SmallInt => Convert.ToInt16(value),
+                        SqlDbType.Int => Convert.ToInt32(value),
+                        SqlDbType.BigInt => Convert.ToInt64(value),
+
+                        // 컬럼 정보가 없으면 enum 기반 타입으로 변환
+                        _ => Convert.ChangeType(
+                            value,
+                            Enum.GetUnderlyingType(value.GetType()))
+                    };
+                }
 
                 return value;
             }

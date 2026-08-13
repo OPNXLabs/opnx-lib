@@ -25,7 +25,7 @@ public sealed class EntityLoader(DataRowMapper? dataRowMapper = null)
 
         foreach (object item in entities)
         {
-            if (item is not IEntity { IsDeleted: false } entity)
+            if (item is not IEntity entity || entity.IsAuditable && entity.IsDeleted)
                 continue;
 
             try

@@ -18,6 +18,7 @@
     <ProjectReference Include="..\OPNX.Lib.Network\OPNX.Lib.Network.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\OPNX.Lib.Onvif\OPNX.Lib.Onvif.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\OPNX.Lib.Streaming\OPNX.Lib.Streaming.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\OPNX.Lib.SystemMonitoring\OPNX.Lib.SystemMonitoring.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

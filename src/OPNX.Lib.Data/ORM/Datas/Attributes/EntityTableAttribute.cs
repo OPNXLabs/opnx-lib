@@ -12,4 +12,5 @@ public sealed class EntityTableAttribute : Attribute
 
     public string Name { get; set; } = string.Empty;
     public bool UseNamingConvention { get; set; } = true;
+    public bool SupportsBulkInsert { get; set; }
 }

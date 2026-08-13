@@ -28,6 +28,7 @@ namespace OPNX.Lib.Data.ORM.Interfaces
         Task<int> InsertEntityAsync<T>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity;
         int BatchInsert<T>(IReadOnlyList<T> insertEntities) where T : IEntity;
         Task<int> BatchInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity;
+        Task<int> BulkInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity;
         bool DeleteEntity<T>(T deleteEntity) where T : IEntity;
         Task<bool> DeleteEntityAsync<T>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity;
         int BatchDelete<T>(IReadOnlyList<T> deleteEntities) where T : IEntity;

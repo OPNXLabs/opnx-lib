@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
 using OPNX.Lib.Common.Network;
 using OPNX.Lib.Data.ORM.Datas;
+using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.EventHandlers;
 using OPNX.Lib.Data.ORM.Interfaces;
@@ -494,6 +495,39 @@ namespace OPNX.Lib.Data.ORM.Services
                         throw new InvalidOperationException($"Failed to insert {typeof(T).Name} in batch.");
                     insertedCount++;
                 }
+                return insertedCount;
+            }, cancellationToken);
+        }
+
+        public virtual Task<int> BulkInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity
+        {
+            ArgumentNullException.ThrowIfNull(insertEntities);
+            if (insertEntities.Count == 0)
+                return Task.FromResult(0);
+
+            EntityTableAttribute? tableAttribute = typeof(T).GetCustomAttribute<EntityTableAttribute>();
+            if (tableAttribute?.SupportsBulkInsert != true)
+                throw new InvalidOperationException($"{typeof(T).Name} does not support bulk insert.");
+
+            return ExecuteInTransactionAsync(async token =>
+            {
+                const int maxRowsPerCommand = 500;
+                const int maxParametersPerCommand = 10000;
+                PropertyInfo[] properties = GetBulkInsertProperties<T>();
+                if (properties.Length == 0)
+                    throw new InvalidOperationException($"{typeof(T).Name} has no columns available for bulk insert.");
+
+                int rowsPerCommand = Math.Max(1, Math.Min(maxRowsPerCommand, maxParametersPerCommand / properties.Length));
+                int insertedCount = 0;
+                for (int offset = 0; offset < insertEntities.Count; offset += rowsPerCommand)
+                {
+                    int count = Math.Min(rowsPerCommand, insertEntities.Count - offset);
+                    insertedCount += await ExecuteBulkInsertChunkAsync(insertEntities, offset, count, properties, token).ConfigureAwait(false);
+                }
+
+                if (insertedCount != insertEntities.Count)
+                    throw new InvalidOperationException($"Bulk insert for {typeof(T).Name} inserted {insertedCount} of {insertEntities.Count} rows.");
+
                 return insertedCount;
             }, cancellationToken);
         }
@@ -1020,6 +1054,43 @@ namespace OPNX.Lib.Data.ORM.Services
             where T : IEntity
         {
             return string.Empty;
+        }
+
+        protected virtual Task<int> ExecuteBulkInsertChunkAsync<T>(IReadOnlyList<T> entities, int offset, int count, IReadOnlyList<PropertyInfo> properties, CancellationToken cancellationToken) where T : IEntity
+            => throw new NotSupportedException($"{GetType().Name} does not support bulk insert.");
+
+        protected static PropertyInfo[] GetBulkInsertProperties<T>() where T : IEntity =>
+            [.. typeof(T).GetProperties().Where(property =>
+                property.CanWrite &&
+                property.IsDefined(typeof(EntityColumnAttribute), inherit: true) &&
+                !property.GetCustomAttributes(typeof(EntityColumnAttribute), true).Cast<EntityColumnAttribute>().First().IsIdentity &&
+                !property.GetCustomAttributes(typeof(EntityColumnAttribute), true).Cast<EntityColumnAttribute>().First().IsReadOnly)];
+
+        protected static object NormalizeBulkInsertValue(PropertyInfo property, object? value)
+        {
+            EntityColumnAttribute? attribute = property.GetCustomAttributes(typeof(EntityColumnAttribute), true).Cast<EntityColumnAttribute>().FirstOrDefault();
+            if (attribute?.ForeignType != null && value is int foreignKey && foreignKey <= 0)
+                return DBNull.Value;
+            if (value == null || value is string { Length: 0 })
+                return DBNull.Value;
+            if (value is int integer && integer < 0)
+                return DBNull.Value;
+            if (value is DateTime dateTime && dateTime <= DateTime.MinValue)
+                return DBNull.Value;
+            if (value is Guid guid && guid == Guid.Empty)
+                return DBNull.Value;
+            if (value.GetType().IsEnum)
+            {
+                return attribute?.SqlDataType switch
+                {
+                    SqlDbType.TinyInt or SqlDbType.SmallInt => Convert.ToInt16(value),
+                    SqlDbType.Int => Convert.ToInt32(value),
+                    SqlDbType.BigInt => Convert.ToInt64(value),
+                    _ => Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()))
+                };
+            }
+
+            return value;
         }
 
         protected override void OnDispose()

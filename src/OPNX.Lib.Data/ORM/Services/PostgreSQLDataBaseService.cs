@@ -250,6 +250,32 @@ namespace OPNX.Lib.Data.ORM.Services
             return new NpgsqlConnection(connectionString);
         }
 
+        protected override async Task<int> ExecuteBulkInsertChunkAsync<T>(IReadOnlyList<T> entities, int offset, int count, IReadOnlyList<System.Reflection.PropertyInfo> properties, CancellationToken cancellationToken)
+        {
+            string tableName = GetTableIdentifier(typeof(T));
+            string columns = string.Join(",", properties.Select(property => $"\"{DatabaseNaming.GetColumnName(property).Replace("\"", "\"\"")}\""));
+            List<KeyValuePair<string, object>> parameters = new(count * properties.Count);
+            string[] rows = new string[count];
+
+            for (int row = 0; row < count; row++)
+            {
+                T entity = entities[offset + row];
+                ArgumentNullException.ThrowIfNull(entity);
+                string[] values = new string[properties.Count];
+                for (int column = 0; column < properties.Count; column++)
+                {
+                    var property = properties[column];
+                    string parameterName = $"@p{row}_{column}";
+                    values[column] = parameterName;
+                    parameters.Add(new(parameterName, NormalizeBulkInsertValue(property, property.GetValue(entity))));
+                }
+                rows[row] = $"({string.Join(",", values)})";
+            }
+
+            string sql = $"INSERT INTO {tableName}({columns}) VALUES {string.Join(",", rows)};";
+            return await ExecuteNonQueryAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
+        }
+
         protected override string GetSqlQueryCommand<T>(DatabaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
         {
             string tableName = GetTableIdentifier(typeof(T));

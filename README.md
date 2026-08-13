@@ -4,49 +4,80 @@
 
 > **License notice:** OPNX.Lib is source-available software, not open-source software. Commercial use and redistribution require prior written permission from OPNX. See [License.txt](License.txt).
 
-OPNX.Lib is a modular .NET infrastructure SDK for stateful video systems such as VMS, NVR, streaming servers, device gateways, media processing services, and monitoring applications.
+OPNX.Lib is a modular .NET infrastructure SDK for stateful video systems such as VMS, NVR, streaming servers, device gateways, media-processing services, and monitoring applications.
 
-It provides reusable foundations for network communication, media processing, real-time streaming, ONVIF device integration, and database-backed entity management. OPNX.Lib is the core library layer used by OPNX applications including OPNX.V and OPNX.UI.
+## Built For Real-Time Video Systems
+
+OPNX.Lib brings together capabilities that usually require several unrelated libraries and a large amount of product-specific integration code:
+
+- **A complete media pipeline** — FFmpeg-backed audio/video decoding and encoding, pixel and sample conversion, filtering, frame handling, and file muxing. Video decoding includes hardware-device paths such as CUDA, DXVA2, and D3D11VA when the runtime and hardware support them.
+- **One protocol model across transports** — the same connection, packet, request/response, serialization, timeout, cancellation, and lifecycle concepts are available over TCP, Named Pipe, and Shared Memory. Applications can choose network IPC, local IPC, or high-throughput memory transport without redesigning their message contract.
+- **Video-device integration beyond basic discovery** — ONVIF discovery and service initialization lead directly into media profiles, RTSP URIs, PTZ, presets, imaging, relay outputs, and PullPoint events.
+- **Streaming primitives, not only wrappers** — RTSP client/server infrastructure, RTP transport, media packet handling, and ownership-aware binary payloads can be composed into live, recording, and playback services.
+- **Stateful server infrastructure** — entity persistence, EntityStore synchronization, cascades, transactions, batch/bulk write paths, and system-resource monitoring are designed to coexist in long-running services.
 
 ## Main Capabilities
 
-- **Common infrastructure** — lifecycle management, serialization, compression, reflection, shared models, and utilities.
-- **Networking and protocols** — TCP, named pipes, shared memory, framing, packets, and connection-oriented communication.
-- **Media processing** — FFmpeg, OpenCV, and SkiaSharp-based encoding, decoding, conversion, filtering, muxing, and media data handling.
-- **Real-time streaming** — RTSP-oriented streaming infrastructure and reusable media transport components.
-- **ONVIF device integration** — device service initialization, media profiles, RTSP URI lookup, PTZ, presets, imaging controls, relays, and PullPoint events.
-- **Data and entity storage** — PostgreSQL/MySQL persistence, typed queries, entity storage, synchronous and asynchronous CRUD, batching, and transactions.
+- Common lifecycle, serialization, compression, reflection, and utility infrastructure
+- TCP, named pipes, shared memory, packet framing, and ownership-aware binary payload transport
+- FFmpeg, OpenCV, and SkiaSharp-based media processing
+- RTSP-oriented real-time streaming infrastructure
+- ONVIF discovery, media, PTZ, presets, imaging, relays, and PullPoint events
+- PostgreSQL/MySQL entity persistence, transactions, cascades, batch operations, and multi-row bulk insert
+- Windows/Linux system-resource monitoring
 
 ## Project Modules
 
 | Module | Purpose |
 | --- | --- |
-| `OPNX.Lib.Common` | Shared primitives, lifecycle management, serialization, compression, reflection, and utilities. |
-| `OPNX.Lib.Network` | TCP, named pipes, shared memory, framing, packets, and connection management. |
-| `OPNX.Lib.Media` | FFmpeg, OpenCV, and SkiaSharp-based media processing components. |
-| `OPNX.Lib.Streaming` | RTSP-oriented infrastructure and real-time media transport building blocks. |
-| `OPNX.Lib.Onvif` | ONVIF SOAP client services for network video devices. |
-| `OPNX.Lib.Data` | Entity store and ORM-style persistence for PostgreSQL and MySQL. |
-| `OPNX.Lib` | Aggregated SDK package containing the primary modules. |
+| `OPNX.Lib.Common` | Shared primitives, lifecycle management, serialization, reflection, and utilities |
+| `OPNX.Lib.Network` | TCP, named pipes, shared memory, framing, packets, and connection management |
+| `OPNX.Lib.Media` | Encoding, decoding, conversion, filtering, muxing, and media data handling |
+| `OPNX.Lib.Streaming` | RTSP and reusable real-time media transport components |
+| `OPNX.Lib.Onvif` | ONVIF discovery and SOAP client services for network video devices |
+| `OPNX.Lib.Data` | EntityStore and ORM-style persistence for PostgreSQL and MySQL |
+| `OPNX.Lib.SystemMonitoring` | System-resource collection, state models, and stores |
+| `OPNX.Lib` | Aggregated SDK package containing the primary modules |
+
+## Media Processing
+
+`OPNX.Lib.Media` exposes reusable FFmpeg-based building blocks rather than limiting media processing to one player or recorder implementation.
+
+| Area | Available building blocks |
+| --- | --- |
+| Video | Decode, encode, pixel-format/size conversion, filtering, frame pooling, and muxing |
+| Audio | Decode, encode, sample-format/rate/channel conversion, and frame handling |
+| Hardware paths | CUDA, DXVA2, and D3D11VA selection and fallback where supported |
+| Image processing | OpenCV and SkiaSharp interoperability for conversion and image workflows |
+| Runtime integration | Explicit FFmpeg native-library initialization and deterministic resource disposal |
+
+This makes the media layer useful for live viewers, transcoders, recorders, thumbnail generators, analytics preprocessing, and streaming gateways without embedding those product roles into the library itself.
+
+## Unified Network And IPC Protocol
+
+`OPNX.Lib.Network` separates the application protocol from the underlying transport.
+
+| Transport | Typical use |
+| --- | --- |
+| TCP | Communication between machines or independently deployed services |
+| Named Pipe | Local process-to-process communication with operating-system IPC semantics |
+| Shared Memory | High-volume local transfer where avoiding unnecessary copies and socket overhead matters |
+
+The transports share common packet framing and protocol behavior, including typed serialization, request/response correlation, asynchronous send and receive, cancellation, timeout handling, connection lifecycle, and bounded payload rules. A service can therefore keep its message model while selecting the transport that fits its deployment boundary.
 
 ## ONVIF Device Integration
 
-`OPNX.Lib.Onvif` currently supports:
+`OPNX.Lib.Onvif` currently provides:
 
-- Device service initialization and advertised service address resolution
+- WS-Discovery with cancellation, duplicate filtering, and bounded retry behavior
+- Device-service initialization and advertised service-address resolution
 - Media profiles and RTSP stream URI lookup
-- PTZ continuous movement, stop, and preset operations
-- Imaging focus and iris controls
-- DeviceIO relay output
-- PullPoint event subscriptions
-- A simulated camera for application flow and range-conversion testing
-
-Basic usage:
+- PTZ movement, stop, and preset operations
+- Focus and iris controls
+- Relay output and PullPoint event subscriptions
+- A simulated camera for integration testing
 
 ```csharp
-using OPNX.Lib.Onvif;
-using OPNX.Lib.Onvif.Models;
-
 await using var client = new OnvifClient(new OnvifClientOptions
 {
     DeviceServiceUri = new Uri("http://192.168.0.10/onvif/device_service"),
@@ -60,24 +91,13 @@ await client.Ptz!.ContinuousMoveAsync(profile.Token, 0.5f, 0, 0);
 await client.Ptz.StopAsync(profile.Token);
 ```
 
-Always use the service addresses resolved by `InitializeAsync`. Optional services are exposed as `null` when the device does not advertise them. See the [ONVIF module documentation](src/OPNX.Lib.Onvif/README.md) for more details.
+Use the service addresses resolved by `InitializeAsync`. Optional services are `null` when a device does not advertise them. See the [ONVIF module documentation](src/OPNX.Lib.Onvif/README.md).
 
 ONVIF is a trademark of ONVIF, Inc. This project is not affiliated with or endorsed by ONVIF.
 
 ## Database And Entity Storage
 
-`OPNX.Lib.Data` provides:
-
-- PostgreSQL and MySQL database services
-- Attribute-based table and column mapping with configurable naming conventions
-- In-memory `EntityStore` synchronization
-- Synchronous and asynchronous CRUD operations
-- Typed `Query<T>` and `QueryAsync<T>` materialization
-- Batch insert, update, and delete operations
-- Callback-based synchronous and asynchronous transactions
-- Cancellation support for asynchronous operations
-
-Transaction example:
+`OPNX.Lib.Data` provides attribute-based mapping, typed queries, synchronous and asynchronous CRUD, EntityStore synchronization, foreign-key and cascade policies, cancellation, and callback-based transactions.
 
 ```csharp
 await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
@@ -88,85 +108,72 @@ await databaseService.ExecuteInTransactionAsync(async (service, cancellationToke
 });
 ```
 
-The transaction commits when the callback completes successfully. If opening the connection, executing a command, or committing fails, it rolls back and rethrows the exception to the caller. All commands within a single transaction share the same connection and must be awaited sequentially. Parallel command execution within a transaction, including `Task.WhenAll`, is not supported. Independent operations outside a transaction use separate connections and may run concurrently.
+A transaction commits when its callback succeeds and rolls back on failure. Commands inside one transaction share one connection and must be awaited sequentially; parallel execution such as `Task.WhenAll` is not supported inside the transaction.
+
+### Batch And Bulk Insert
+
+Batch operations run ordinary entity operations sequentially in one transaction. They preserve generated-ID handling, EntityStore synchronization, and cascades.
+
+Bulk insert is an opt-in path for append-only metadata, telemetry, and high-volume records that do not require generated IDs, EntityStore synchronization, or cascades. PostgreSQL and MySQL use parameterized multi-row `INSERT` statements split into bounded chunks while the complete input remains one transaction.
+
+```csharp
+[EntityTable("analysis_metadata", SupportsBulkInsert = true)]
+public sealed class AnalysisMetadata : Entity
+{
+}
+
+await databaseService.BulkInsertAsync(metadataItems);
+```
+
+| Capability | Batch insert | Bulk insert |
+| --- | --- | --- |
+| SQL execution | One insert command per entity | Multi-row insert commands |
+| Transaction | One for the complete input | One for the complete input |
+| Generated IDs | Applied | Not returned or applied |
+| EntityStore | Synchronized | Not updated |
+| Cascades | Supported | Not supported |
+| Intended use | Stateful application entities | Append-only high-volume data |
+
+## System Monitoring
+
+`OPNX.Lib.SystemMonitoring` provides periodic CPU, memory, network, disk, and platform-specific GPU resource collection through platform providers and shared resource-state stores. Windows and Linux providers are available; individual metrics depend on platform support.
 
 ## Design Direction
 
-OPNX.Lib is an infrastructure layer for long-running video servers, clients, gateways, and media pipelines.
-
-- Application-specific product logic is separated from reusable platform infrastructure.
+- Product-specific logic stays outside the reusable infrastructure layer.
 - Public services depend on logging abstractions rather than a concrete logging framework.
-- Consumers may use Serilog, NLog, Microsoft.Extensions.Logging providers, or another logging implementation.
-- Native runtimes such as FFmpeg remain separate from OPNX-owned code in licensing and distribution responsibility.
-- Modules may be referenced individually, while `OPNX.Lib` provides the aggregated SDK package.
-
-## Use Cases
-
-- Video Management Systems (VMS)
-- Network Video Recorders (NVR)
-- Network camera and ONVIF device gateways
-- Real-time video streaming servers
-- Media processing and analysis pipelines
-- Server and device state synchronization
-- Shared infrastructure for video-platform applications
+- Native runtimes such as FFmpeg remain separate in licensing and distribution responsibility.
+- Modules can be referenced individually, while `OPNX.Lib` provides an aggregated package.
 
 ## Current Status
 
-OPNX.Lib is under active development and its public API is being stabilized. The current package should be treated as a preview SDK for evaluation, integration testing, research, non-commercial experimentation, and early feedback rather than as a production-ready stable SDK.
+OPNX.Lib is under active development. Its public API is still being stabilized and the current package should be treated as a preview SDK for evaluation, integration testing, research, and early feedback.
 
-## NuGet Package
-
-Install the preview package:
+## NuGet Package And Build
 
 ```powershell
 dotnet add package OPNX.Lib --prerelease
-```
-
-API compatibility, package structure, and documentation may change before a stable release.
-
-## Build
-
-Requirements:
-
-- .NET 10 SDK
-
-```powershell
 dotnet build OPNX.Lib.slnx -c Debug
 ```
 
+Requirements: .NET 10 SDK.
+
 ## Samples And Documentation
 
-Runnable examples are maintained in [OPNXLabs/opnx-samples](https://github.com/OPNXLabs/opnx-samples), including entity storage, TCP communication, RTSP live viewing, and playback timeline integration.
-
-Module-specific documentation:
-
-- [ONVIF client services](src/OPNX.Lib.Onvif/README.md)
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
+- [ONVIF client services](src/OPNX.Lib.Onvif/README.md)
 
-## License
+## License And Support
 
-OPNX.Lib is source-available, but it is not licensed as permissive open-source software. OPNX-owned code may be used for learning, evaluation, research, testing, and other non-commercial purposes.
+OPNX.Lib is source-available but is not permissively licensed open-source software. Commercial use, redistribution, OEM integration, or inclusion in commercial products requires prior written permission from OPNX. See [License.txt](License.txt), [License.ko.txt](License.ko.txt), and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-Commercial use, redistribution, OEM integration, or inclusion in commercial products or services requires prior written permission from OPNX. See [License.txt](License.txt) for full terms. A Korean reference translation is available at [License.ko.txt](License.ko.txt).
-
-## Third-Party Components
-
-This repository uses third-party components under their respective licenses. Native FFmpeg binaries are not covered by the OPNX license, and distributors are responsible for complying with the license terms of their selected FFmpeg build.
-
-See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for details.
+- Website: [https://www.opnx.kr/](https://www.opnx.kr/)
+- Contact: `opnx@opnx.kr`
+- Security: [SECURITY.md](SECURITY.md)
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Related Projects
 
-- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples) — runnable examples for OPNX.Lib and OPNX.UI.
-- `OPNX.UI` — reusable UI components for video client applications.
-- `OPNX.V` — a video platform built on OPNX.Lib and OPNX.UI.
-
-## Commercial And OEM Inquiries
-
-- [https://www.opnx.kr/](https://www.opnx.kr/)
-- `opnx@opnx.kr`
-
-## Security And Contributions
-
-- Report security issues privately as described in [SECURITY.md](SECURITY.md).
-- Review [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or proposing a change.
+- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples) — runnable examples
+- `OPNX.UI` — reusable UI components for video clients
+- `OPNX.V` — a video-platform application suite built on OPNX.Lib and OPNX.UI

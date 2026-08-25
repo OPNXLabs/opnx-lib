@@ -6,18 +6,18 @@ namespace OPNX.Lib.Data.ORM.Interfaces
 {
     public interface IEntityStore : IDisposable
     {
-        int InsertEntity<T>(T? insertEntity) where T : IEntity;
-        bool DeleteEntity<T>(T? deleteEntity) where T : IEntity;
-        bool UpdateEntity<T>(T? updateEntity) where T : IEntity;
+        bool InsertEntity<T, TKey>(T insertEntity) where T : IEntity<TKey> where TKey : notnull;
+        bool DeleteEntity<T, TKey>(T deleteEntity) where T : IEntity<TKey> where TKey : notnull;
+        bool UpdateEntity<T, TKey>(T updateEntity) where T : IEntity<TKey> where TKey : notnull;
 
-        ObservableCollection<T> GetEntities<T>() where T : IEntity;
+        ObservableCollection<T> GetEntities<T, TKey>() where T : IEntity<TKey> where TKey : notnull;
 
-        T? FindEntity<T>(Func<T, bool> predicate) where T : IEntity;
-        T? FindEntity<T>(int id) where T : IEntity;
-        T? FindEntity<T>(Type entityType, int id) where T : IEntity;
-        IEntity? FindEntity(Type entityType, int id);
+        T? FindEntity<T, TKey>(Func<T, bool> predicate) where T : IEntity<TKey> where TKey : notnull;
+        T? FindEntity<T, TKey>(TKey id) where T : IEntity<TKey> where TKey : notnull;
+        T? FindEntity<T, TKey>(Type entityType, TKey id) where T : IEntity<TKey> where TKey : notnull;
+        IDatabaseEntity? FindEntity<TKey>(Type entityType, TKey id) where TKey : notnull;
 
-        ObservableCollection<T> FindEntities<T>(Func<T, bool> predicate) where T : IEntity;
+        ObservableCollection<T> FindEntities<T, TKey>(Func<T, bool> predicate) where T : IEntity<TKey> where TKey : notnull;
 
         ConcurrentDictionary<Type, object> AllEntitis { get; }
 

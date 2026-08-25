@@ -1,5 +1,5 @@
-using OPNX.Lib.SystemMonitoring.Models;
 using Microsoft.Win32;
+using OPNX.Lib.SystemMonitoring.Models;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;

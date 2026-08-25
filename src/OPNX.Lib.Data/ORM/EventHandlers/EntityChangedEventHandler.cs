@@ -9,10 +9,17 @@ namespace OPNX.Lib.Data.ORM.EventHandlers
     public class EntityChangedEventArgs : EventArgs
     {
         public EntityChangedEventArgs(DataChangedTypes changedType, IEntity? oldEntity = null, IEntity? newEntity = null, string? propertyName = null)
+            : this(changedType, (IDatabaseEntity?)oldEntity, newEntity, propertyName)
+        {
+        }
+
+        public EntityChangedEventArgs(DataChangedTypes changedType, IDatabaseEntity? oldEntity, IDatabaseEntity? newEntity, string? propertyName = null)
         {
             ChangedType = changedType;
-            NewEntity = newEntity;
-            OldEntity = oldEntity;
+            DatabaseNewEntity = newEntity;
+            DatabaseOldEntity = oldEntity;
+            NewEntity = newEntity as IEntity;
+            OldEntity = oldEntity as IEntity;
             PropertyName = propertyName;
 
             if (changedType == DataChangedTypes.PropertyChanged &&
@@ -35,6 +42,8 @@ namespace OPNX.Lib.Data.ORM.EventHandlers
 
         public IEntity? NewEntity { get; private set; }
         public IEntity? OldEntity { get; private set; }
+        public IDatabaseEntity? DatabaseNewEntity { get; private set; }
+        public IDatabaseEntity? DatabaseOldEntity { get; private set; }
 
         public string? PropertyName { get; private set; }
         public object? Value { get; private set; }

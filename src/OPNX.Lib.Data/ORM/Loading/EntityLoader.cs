@@ -16,22 +16,21 @@ public sealed class EntityLoader(DataRowMapper? dataRowMapper = null)
     {
         ArgumentNullException.ThrowIfNull(entityType);
         ArgumentNullException.ThrowIfNull(entityStore);
-        if (!typeof(IEntity).IsAssignableFrom(entityType))
-            throw new ArgumentException($"{entityType.FullName} does not implement {nameof(IEntity)}.", nameof(entityType));
+        Type keyType = GetEntityKeyType(entityType);
 
         IReadOnlyList<object> entities = _dataRowMapper.Map(entityType, table, entityStore);
-        MethodInfo insertMethod = _insertMethods.GetOrAdd(entityType, static type => typeof(IEntityStore).GetMethod(nameof(IEntityStore.InsertEntity))!.MakeGenericMethod(type));
+        MethodInfo insertMethod = _insertMethods.GetOrAdd(entityType, type => typeof(IEntityStore).GetMethod(nameof(IEntityStore.InsertEntity))!.MakeGenericMethod(type, keyType));
         int loadedCount = 0;
 
         foreach (object item in entities)
         {
-            if (item is not IEntity entity || entity.IsAuditable && entity.IsDeleted)
+            if (item is not IDatabaseEntity || item is IAuditableEntity { IsAuditable: true } && item is ISoftDeletableEntity { IsDeleted: true })
                 continue;
 
             try
             {
-                insertMethod.Invoke(entityStore, [entity]);
-                loadedCount++;
+                if (insertMethod.Invoke(entityStore, [item]) is true)
+                    loadedCount++;
             }
             catch (TargetInvocationException ex) when (ex.InnerException != null)
             {
@@ -41,5 +40,16 @@ public sealed class EntityLoader(DataRowMapper? dataRowMapper = null)
         }
 
         return loadedCount;
+    }
+
+    private static Type GetEntityKeyType(Type entityType)
+    {
+        Type[] keyTypes = [.. entityType.GetInterfaces().Where(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEntity<>)).Select(type => type.GetGenericArguments()[0]).Distinct()];
+        return keyTypes.Length switch
+        {
+            1 => keyTypes[0],
+            0 => throw new ArgumentException($"{entityType.FullName} does not implement {typeof(IEntity<>).Name}.", nameof(entityType)),
+            _ => throw new ArgumentException($"{entityType.FullName} implements {typeof(IEntity<>).Name} with multiple key types.", nameof(entityType))
+        };
     }
 }

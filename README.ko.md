@@ -13,7 +13,7 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 - **완성도 높은 미디어 파이프라인** — FFmpeg 기반 오디오·비디오 디코딩과 인코딩, Pixel·Sample 변환, 필터링, Frame 처리 및 파일 Muxing을 제공합니다. Runtime과 Hardware가 지원하면 CUDA, DXVA2, D3D11VA 같은 Hardware Decode 경로도 사용할 수 있습니다.
 - **Transport가 달라도 하나의 Protocol 모델** — TCP, Named Pipe, Shared Memory에서 동일한 Connection, Packet, Request/Response, Serialization, Timeout, Cancellation 및 수명주기 개념을 사용합니다. 메시지 계약을 다시 설계하지 않고 Network IPC, Local IPC 또는 고속 Memory 전송을 선택할 수 있습니다.
 - **검색을 넘어 실제 제어까지 이어지는 영상 장치 연동** — ONVIF Discovery와 Service 초기화에서 Media Profile, RTSP URI, PTZ, Preset, Imaging, Relay 및 PullPoint Event까지 연결됩니다.
-- **단순 Wrapper가 아닌 Streaming 구성요소** — RTSP Client/Server, RTP Transport, Media Packet 처리와 소유권 기반 Binary Payload를 조합하여 Live, Recording 및 Playback 서비스를 구성할 수 있습니다.
+- **검증된 기반을 확장한 Streaming 구성요소** — SharpRTSP에서 파생된 RTSP/RTP 기반을 OPNX 환경에 맞게 수정·통합하고, Media Packet 처리와 WebRTC·DataChannel Adapter를 조합하여 Live, Recording 및 Playback 서비스를 구성할 수 있습니다.
 - **상태를 가진 서버를 위한 인프라** — Entity 저장, EntityStore 동기화, Cascade, Transaction, Batch/Bulk 쓰기와 시스템 자원 모니터링이 장기 실행 서비스 안에서 함께 동작하도록 설계되어 있습니다.
 
 ## 주요 기능
@@ -21,7 +21,7 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 - 수명주기, 직렬화, 압축, 리플렉션 및 공통 유틸리티
 - TCP, Named Pipe, Shared Memory, 패킷 프레이밍 및 소유권 기반 바이너리 페이로드 전송
 - FFmpeg, OpenCV, SkiaSharp 기반 미디어 처리
-- RTSP 중심 실시간 스트리밍 인프라
+- SharpRTSP 기반을 수정·확장한 RTSP/RTP와 Preview WebRTC·DataChannel 인프라
 - ONVIF 검색, Media, PTZ, Preset, Imaging, Relay 및 PullPoint Event
 - PostgreSQL/MySQL 엔티티 저장, 트랜잭션, Cascade, Batch 및 Multi-row Bulk Insert
 - Windows/Linux 시스템 자원 모니터링
@@ -33,7 +33,7 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 | `OPNX.Lib.Common` | 공통 자료형, 수명주기, 직렬화, 리플렉션 및 유틸리티 |
 | `OPNX.Lib.Network` | TCP, Named Pipe, Shared Memory, 패킷과 연결 관리 |
 | `OPNX.Lib.Media` | 인코딩, 디코딩, 변환, 필터링, Muxing 및 미디어 데이터 처리 |
-| `OPNX.Lib.Streaming` | RTSP 및 실시간 미디어 전송 구성요소 |
+| `OPNX.Lib.Streaming` | SharpRTSP 파생 RTSP/RTP와 WebRTC·DataChannel 전송 구성요소 |
 | `OPNX.Lib.Onvif` | ONVIF 검색과 네트워크 영상 장치 SOAP 클라이언트 |
 | `OPNX.Lib.Data` | PostgreSQL/MySQL용 EntityStore 및 경량 ORM |
 | `OPNX.Lib.SystemMonitoring` | 시스템 자원 수집, 상태 모델 및 저장소 |
@@ -64,6 +64,22 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 | Shared Memory | 불필요한 복사와 Socket 비용을 줄여야 하는 대용량 로컬 전송 |
 
 각 Transport는 공통 Packet Framing과 Protocol 동작을 공유합니다. Typed Serialization, Request/Response 연결, 비동기 송수신, Cancellation, Timeout, Connection 수명주기 및 Payload 제한을 같은 방식으로 다룰 수 있으므로 배포 경계가 바뀌어도 메시지 모델을 유지할 수 있습니다.
+
+## 실시간 Streaming
+
+`OPNX.Lib.Streaming`은 RTSP/RTP 기반 영상 전송과 WebRTC Adapter를 위한 구성요소를 제공합니다. 완성된 VMS 제품 동작을 강제하지 않고 Client, Server, Session, Transport와 Payload 처리 요소를 조합해 Live, Recording 및 Playback 경로를 구성하는 방식입니다.
+
+| 영역 | 제공 구성요소 |
+| --- | --- |
+| RTSP | Client·Server, 요청·응답 Message, Basic·Digest 인증과 Session 처리 |
+| RTP/RTCP | UDP·Interleaved Transport, Packet 처리, Timestamp 및 Control 흐름 |
+| Media Payload | H.264, H.265/HEVC, H.266/VVC, JPEG, AAC 및 G.711 계열 처리 |
+| SDP | Session Description Parsing과 Media 정보 연결 |
+| WebRTC | SIPSorcery 및 DataChannel 기반 Signal Server·Peer Connection Adapter |
+
+RTSP, RTP/RTCP, SDP 및 Client·Server 처리 코드의 일부는 [SharpRTSP](https://github.com/ngraziano/SharpRTSP)에서 파생되었습니다. SharpRTSP는 MIT License로 제공되며 OPNX는 이를 프로젝트 Namespace와 Runtime 구조에 통합하고, Nullable·Logging 추상화, Media Payload 처리와 안정성 관련 코드를 수정·확장했습니다. 원본에서 파생된 부분에는 SharpRTSP의 저작권과 MIT License가 계속 적용되며, 자세한 출처와 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)와 [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt)에서 확인할 수 있습니다.
+
+WebRTC와 DataChannel 구성요소는 후속 제품 통합을 위한 Preview Adapter입니다. 현재 README의 RTSP 지원 설명은 독립적인 모든 프로토콜 코드를 OPNX가 처음부터 작성했다는 의미가 아니며, OPNX.Lib의 source-available 정책이 SharpRTSP 원저작물의 MIT License를 대체하지 않습니다.
 
 ## ONVIF 장치 연동
 
@@ -97,18 +113,65 @@ ONVIF는 ONVIF, Inc.의 상표입니다. 이 프로젝트는 ONVIF와 제휴하�
 
 ## 데이터베이스 및 엔티티 저장소
 
-`OPNX.Lib.Data`는 Attribute 기반 매핑, Typed Query, 동기·비동기 CRUD, EntityStore 동기화, Foreign Key와 Cascade 정책, 취소 및 Callback 기반 Transaction을 제공합니다.
+`OPNX.Lib.Data`는 Attribute 기반 Mapping, Typed Query, 동기·비동기 CRUD, 부분 Update, EntityStore 동기화, Foreign Key와 Cascade 정책, 취소 및 Callback 기반 Transaction을 제공하는 경량 데이터 계층입니다. PostgreSQL과 MySQL은 동일한 엔티티·쿼리 계약을 사용하고 SQL Generator가 Database별 SQL과 Parameter를 생성합니다.
+
+### 범용 엔티티 계약
+
+데이터 계약은 역할에 따라 분리되어 있으므로 기존의 int 키 엔티티뿐 아니라 다른 프로젝트의 다양한 Schema에도 적용할 수 있습니다.
+
+| 계약 | 용도 |
+| --- | --- |
+| `IDatabaseEntity` | 모든 Database Mapping 모델의 최소 Marker 계약 |
+| `IKeylessEntity` | Primary Key가 필요 없는 조회 전용 모델 |
+| `IEntity<TKey>` | `int`, `long`, `Guid`, `string` 등 명시적인 키를 가진 엔티티 |
+| `IEntity` | int 키를 사용하는 기존 프로젝트를 위한 편의 계약 |
+| `IAuditableEntity` | 생성·수정 시각 같은 감사 정보 |
+| `ISoftDeletableEntity` | 논리 삭제 정책 |
+
+감사와 논리 삭제는 독립 계약이므로 모든 테이블에 강제되지 않습니다. Append-only 로그나 외부 Schema처럼 UpdateTime 또는 IsDeleted가 필요 없는 데이터도 별도 우회 없이 표현할 수 있습니다.
+
+### Typed Query와 SQL Generator
+
+`SelectQuery<T>`는 문자열 SQL을 애플리케이션에 흩뿌리지 않고 조건, 범위, 집합, 정렬 및 페이지를 타입으로 구성합니다.
+
+```csharp
+SelectQuery<UserLog> query = SelectQuery<UserLog>.Create()
+    .WhereBetween(log => log.EventTimeUtc, fromTimeUtc, toTimeUtc)
+    .WhereIn(log => log.Severity, severities)
+    .OrderByDescending(log => log.EventTimeUtc)
+    .OrderByDescending(log => log.ID)
+    .Page(1, 20);
+
+IReadOnlyList<UserLog> logs = await databaseService.SelectAsync(query);
+long totalCount = await databaseService.CountAsync(query);
+```
+
+동일한 Query 모델로 `Select`, `Count`, `First`, `FirstOrDefault`, `Any`, 다중 정렬과 안정적인 페이징을 수행할 수 있습니다. 값은 Parameter로 전달되며 PostgreSQL과 MySQL Generator가 식별자와 SQL 문법 차이를 처리합니다.
+
+### CRUD, 부분 Update 및 EntityStore
+
+전체 Update와 함께 지정한 Property만 변경하는 부분 Update를 지원합니다.
+
+```csharp
+await databaseService.UpdateEntityAsync<UserSettings, int>(
+    settings,
+    cancellationToken,
+    entity => entity.Theme,
+    entity => entity.Language);
+```
+
+Database 작업이 성공하면 설정된 `EntityStore`가 Insert, Update, Delete 결과와 변경 이벤트를 동기화합니다. EntityStore는 단순 Cache가 아니라 키 기반 검색, 상태 공유 및 서버·클라이언트 같은 장기 실행 구성요소의 후속 변경 흐름을 위한 메모리 상태 저장소로 사용할 수 있습니다.
 
 ```csharp
 await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
 {
-    await service.InsertEntityAsync(user, cancellationToken);
-    await service.InsertEntityAsync(permission, cancellationToken);
-    await service.UpdateEntityAsync(setting, cancellationToken);
+    await service.InsertEntityAsync<User, int>(user, cancellationToken);
+    await service.InsertEntityAsync<UserPermission, int>(permission, cancellationToken);
+    await service.UpdateEntityAsync<UserSettings, int>(setting, cancellationToken);
 });
 ```
 
-Callback이 성공하면 Commit하고 실패하면 Rollback합니다. 하나의 Transaction 내부 명령은 동일 Connection을 공유하므로 순차적으로 `await`해야 하며 `Task.WhenAll` 같은 병렬 실행은 지원하지 않습니다.
+Callback이 성공하면 Commit하고 실패하면 Rollback합니다. 하나의 Transaction 내부 명령은 동일 Connection을 공유하므로 순차적으로 `await`해야 하며 `Task.WhenAll` 같은 병렬 실행은 지원하지 않습니다. 일반 CRUD는 기존처럼 생성 ID, EntityStore, Cascade 및 변경 이벤트 흐름을 유지합니다.
 
 ### Batch와 Bulk Insert
 
@@ -134,9 +197,13 @@ await databaseService.BulkInsertAsync(metadataItems);
 | Cascade | 지원 | 미지원 |
 | 용도 | 상태를 가진 업무 엔티티 | Append-only 대용량 데이터 |
 
+### 의도적인 범위
+
+OPNX.Lib.Data는 EF Core 전체를 대체하기보다 상태 기반 서비스에 필요한 예측 가능한 데이터 작업을 작은 표면적으로 제공하는 것을 목표로 합니다. Attribute Mapping, Typed CRUD, Query Generator, Transaction, Cascade, EntityStore, 부분 Update, Batch 및 Bulk에 집중하며 LINQ 전체 번역, Lazy Loading, Migration, 복잡한 관계 Graph 추적은 범위에 포함하지 않습니다. 이런 기능이 중심인 애플리케이션에는 EF Core 같은 범용 ORM이 더 적합합니다.
+
 ## 시스템 모니터링
 
-`OPNX.Lib.SystemMonitoring`은 Platform Provider와 공통 상태 저장소를 통해 CPU, 메모리, 네트워크, 디스크 및 플랫폼별 GPU 자원을 주기적으로 수집합니다. Windows와 Linux Provider가 있으며 세부 Metric 지원 범위는 플랫폼에 따라 다릅니다.
+`OPNX.Lib.SystemMonitoring`은 Platform Provider를 통해 CPU, 메모리, Process, 네트워크 Interface, 디스크 Volume 및 플랫폼별 GPU 자원을 주기적으로 수집합니다. 수집 시점의 `SystemResourceSnapshot`과 운영 상태인 `SystemResourceState<TKey>`를 분리하고, `SystemResourceStore<TKey>`를 통해 여러 서버·장치의 최신 상태를 Key 기준으로 공유할 수 있습니다. Windows와 Linux Provider가 있으며 세부 Metric 지원 범위는 플랫폼에 따라 다릅니다.
 
 ## 설계 방향
 
@@ -177,3 +244,9 @@ OPNX.Lib는 source-available이지만 permissive 오픈 소스 라이선스가 �
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples) — 실행 가능한 예제
 - `OPNX.UI` — 영상 클라이언트용 재사용 UI 구성요소
 - `OPNX.V` — OPNX.Lib와 OPNX.UI 기반 영상 플랫폼 애플리케이션 제품군
+
+---
+
+> **“강하고 담대하라. 두려워하지 말며 놀라지 말라.”**
+>
+> — 여호수아 1:9

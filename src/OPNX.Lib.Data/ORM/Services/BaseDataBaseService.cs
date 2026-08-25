@@ -6,12 +6,15 @@ using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
 using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.EventHandlers;
+using OPNX.Lib.Data.ORM.Generators;
 using OPNX.Lib.Data.ORM.Interfaces;
 using OPNX.Lib.Data.ORM.Mapping;
+using OPNX.Lib.Data.ORM.Query;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace OPNX.Lib.Data.ORM.Services
@@ -19,12 +22,12 @@ namespace OPNX.Lib.Data.ORM.Services
     public abstract class BaseDataBaseService : DisposableObject, IDataBaseService
     {
         #region Fields
-        private int _commandTimeout = 10000;
+        private int _commandTimeout = 10;
         private string _connectionString = string.Empty;
 
         private static readonly ConcurrentDictionary<string, MethodInfo> _cachedGenericMethods = new();
 
-        private readonly IEntityStore _entityStore;
+        private readonly IEntityStore? _entityStore;
         private readonly ILogger _logger;
         private readonly DataRowMapper _dataRowMapper = new();
 
@@ -36,6 +39,7 @@ namespace OPNX.Lib.Data.ORM.Services
 
             public ConcurrentQueue<Action> PendingStoreActions { get; } = [];
             public ConcurrentQueue<EntityChangedEventArgs> PendingEntityEvents { get; } = [];
+            public ConcurrentStack<Action> PendingRollbackActions { get; } = [];
         }
 
         private readonly AsyncLocal<TxContext?> _tx = new();
@@ -51,6 +55,16 @@ namespace OPNX.Lib.Data.ORM.Services
         }
 
         public BaseDataBaseService(string connectionString, IEntityStore? entityStore, ILogger? logger = null)
+            : this(connectionString, entityStore, true, logger)
+        {
+        }
+
+        protected BaseDataBaseService(string connectionString, bool useEntityStore, ILogger? logger = null)
+            : this(connectionString, useEntityStore ? new EntityStore() : null, useEntityStore, logger)
+        {
+        }
+
+        private BaseDataBaseService(string connectionString, IEntityStore? entityStore, bool useEntityStore, ILogger? logger)
             : base()
         {
             _logger = logger ?? NullLogger.Instance;
@@ -58,16 +72,21 @@ namespace OPNX.Lib.Data.ORM.Services
             if (!string.IsNullOrEmpty(connectionString))
                 ConnectionString = connectionString;
 
-            _entityStore = entityStore ?? throw new ArgumentNullException(nameof(entityStore));
-            _entityStore.EntityChanged += EntityStore_EntityChanged;
+            _entityStore = useEntityStore ? entityStore ?? throw new ArgumentNullException(nameof(entityStore)) : null;
+            if (_entityStore != null)
+            {
+                _entityStore.EntityChanged += EntityStore_EntityChanged;
+            }
         }
         #endregion
 
         #region Properties
         public abstract DatabaseType DBType { get; }
+        public abstract IEntitySqlGenerator SqlGenerator { get; }
         public bool AutoTransactionForEntityOperations { get; set; } = true;
 
-        public IEntityStore EntityStore { get => _entityStore; }
+        public bool UsesEntityStore => _entityStore != null;
+        public IEntityStore EntityStore => _entityStore ?? throw new InvalidOperationException("This database service was created without an EntityStore.");
 
         public int CommandTimeout
         {
@@ -127,6 +146,54 @@ namespace OPNX.Lib.Data.ORM.Services
         public virtual void LoadDataBase() { }
         public virtual void LoadEntity(Type entityType) { }
         public virtual string GetTableIdentifier(Type entityType) => DatabaseNaming.GetTableName(entityType);
+
+        public IReadOnlyList<T> Select<T>(SelectQuery<T> query) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Select(query);
+            return Query<T>(command.CommandText, command.Parameters);
+        }
+
+        public Task<IReadOnlyList<T>> SelectAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Select(query);
+            return QueryAsync<T>(command.CommandText, command.Parameters, cancellationToken);
+        }
+
+        public long Count<T>(SelectQuery<T> query) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Count(query);
+            return Convert.ToInt64(ExecuteScalar(command.CommandText, command.Parameters) ?? 0);
+        }
+
+        public async Task<long> CountAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Count(query);
+            object? result = await ExecuteScalarAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false);
+            return Convert.ToInt64(result ?? 0);
+        }
+
+        public T First<T>(SelectQuery<T> query) where T : IDatabaseEntity => FirstOrDefault(query) ?? throw new InvalidOperationException($"The query returned no {typeof(T).Name} entity.");
+        public async Task<T> FirstAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity => await FirstOrDefaultAsync(query, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException($"The query returned no {typeof(T).Name} entity.");
+        public T? FirstOrDefault<T>(SelectQuery<T> query) where T : IDatabaseEntity { ArgumentNullException.ThrowIfNull(query); return Select(query.CopyWithLimit(1)).FirstOrDefault(); }
+        public async Task<T?> FirstOrDefaultAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity { ArgumentNullException.ThrowIfNull(query); IReadOnlyList<T> result = await SelectAsync(query.CopyWithLimit(1), cancellationToken).ConfigureAwait(false); return result.FirstOrDefault(); }
+        public bool Any<T>(SelectQuery<T> query) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Exists(query);
+            return Convert.ToBoolean(ExecuteScalar(command.CommandText, command.Parameters) ?? false);
+        }
+
+        public async Task<bool> AnyAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            CompiledDbCommand command = SqlGenerator.Exists(query);
+            object? result = await ExecuteScalarAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false);
+            return Convert.ToBoolean(result ?? false);
+        }
 
         public DbConnection? OpenDataBase() => OpenDataBase(_connectionString);
 
@@ -281,7 +348,7 @@ namespace OPNX.Lib.Data.ORM.Services
             }
 
             DbTransaction? tx = null;
-            TxContext ctx;
+            TxContext? ctx = null;
 
             try
             {
@@ -312,6 +379,8 @@ namespace OPNX.Lib.Data.ORM.Services
                     tx?.Rollback();
                 }
                 catch { }
+                if (ctx != null)
+                    RunPendingRollbackActions(ctx);
                 _logger.LogError(ex, "{Message}", ex.Message);
                 if (throwOnError)
                     throw;
@@ -403,6 +472,8 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
                 }
+                if (context != null)
+                    RunPendingRollbackActions(context);
                 throw;
             }
             catch (Exception ex)
@@ -411,6 +482,8 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
                 }
+                if (context != null)
+                    RunPendingRollbackActions(context);
                 _logger.LogError(ex, "{Message}", ex.Message);
                 if (throwOnError)
                     throw;
@@ -441,218 +514,222 @@ namespace OPNX.Lib.Data.ORM.Services
 
         public virtual Task<object?> ExecuteScalarAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default) => Task.FromResult<object?>(null);
 
-        public virtual int InsertEntity<T>(T insertEntity) where T : IEntity
+        public virtual TKey InsertEntity<T, TKey>(T insertEntity) where T : IEntity<TKey> where TKey : notnull
         {
+            ArgumentNullException.ThrowIfNull(insertEntity);
             if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransaction(() => InsertEntityCore(insertEntity));
-
-            return InsertEntityCore(insertEntity);
+                return ExecuteInTransaction(() => InsertKeyedEntityCore<T, TKey>(insertEntity));
+            return InsertKeyedEntityCore<T, TKey>(insertEntity);
         }
 
-        public virtual Task<int> InsertEntityAsync<T>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity
+        public virtual Task<TKey> InsertEntityAsync<T, TKey>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull
         {
+            ArgumentNullException.ThrowIfNull(insertEntity);
             if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransactionAsync(token => InsertEntityCoreAsync(insertEntity, token), cancellationToken);
-
-            return InsertEntityCoreAsync(insertEntity, cancellationToken);
+                return ExecuteInTransactionAsync(token => InsertKeyedEntityCoreAsync<T, TKey>(insertEntity, token), cancellationToken);
+            return InsertKeyedEntityCoreAsync<T, TKey>(insertEntity, cancellationToken);
         }
 
-        public virtual int BatchInsert<T>(IReadOnlyList<T> insertEntities) where T : IEntity
-        {
-            ArgumentNullException.ThrowIfNull(insertEntities);
-            if (insertEntities.Count == 0)
-                return 0;
+        public virtual bool UpdateEntity<T, TKey>(T updateEntity) where T : IEntity<TKey> where TKey : notnull => AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransaction(() => UpdateKeyedEntityCore<T, TKey>(updateEntity, null)) : UpdateKeyedEntityCore<T, TKey>(updateEntity, null);
 
+        public virtual bool UpdateEntity<T, TKey>(T updateEntity, params Expression<Func<T, object?>>[] properties) where T : IEntity<TKey> where TKey : notnull
+        {
+            PropertyInfo[] selectedProperties = GetSelectedDatabaseProperties(properties);
+            return AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransaction(() => UpdateKeyedEntityCore<T, TKey>(updateEntity, selectedProperties)) : UpdateKeyedEntityCore<T, TKey>(updateEntity, selectedProperties);
+        }
+
+        public virtual Task<bool> UpdateEntityAsync<T, TKey>(T updateEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull => AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransactionAsync(token => UpdateKeyedEntityCoreAsync<T, TKey>(updateEntity, null, token), cancellationToken) : UpdateKeyedEntityCoreAsync<T, TKey>(updateEntity, null, cancellationToken);
+
+        public virtual Task<bool> UpdateEntityAsync<T, TKey>(T updateEntity, CancellationToken cancellationToken = default, params Expression<Func<T, object?>>[] properties) where T : IEntity<TKey> where TKey : notnull
+        {
+            PropertyInfo[] selectedProperties = GetSelectedDatabaseProperties(properties);
+            return AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransactionAsync(token => UpdateKeyedEntityCoreAsync<T, TKey>(updateEntity, selectedProperties, token), cancellationToken) : UpdateKeyedEntityCoreAsync<T, TKey>(updateEntity, selectedProperties, cancellationToken);
+        }
+
+        public virtual bool DeleteEntity<T, TKey>(T deleteEntity) where T : IEntity<TKey> where TKey : notnull => AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransaction(() => DeleteKeyedEntityCore<T, TKey>(deleteEntity)) : DeleteKeyedEntityCore<T, TKey>(deleteEntity);
+
+        public virtual Task<bool> DeleteEntityAsync<T, TKey>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull => AutoTransactionForEntityOperations && CurrentTransaction == null ? ExecuteInTransactionAsync(token => DeleteKeyedEntityCoreAsync<T, TKey>(deleteEntity, token), cancellationToken) : DeleteKeyedEntityCoreAsync<T, TKey>(deleteEntity, cancellationToken);
+
+        public virtual int BatchDelete<T, TKey>(IReadOnlyList<T> entities) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransaction(() => { foreach (T entity in entities) if (!DeleteKeyedEntityCore<T, TKey>(entity)) throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch."); return entities.Count; });
+        }
+
+        public virtual Task<int> BatchDeleteAsync<T, TKey>(IReadOnlyList<T> entities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransactionAsync(async token => { foreach (T entity in entities) if (!await DeleteKeyedEntityCoreAsync<T, TKey>(entity, token).ConfigureAwait(false)) throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch."); return entities.Count; }, cancellationToken);
+        }
+
+        public bool CascadeInsert<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
+            PropertyInfo foreignKeyProperty = GetExpressionProperty(foreignKey);
             return ExecuteInTransaction(() =>
             {
-                int insertedCount = 0;
-                foreach (T insertEntity in insertEntities)
+                TParentKey parentKey = InsertKeyedEntityCore<TParent, TParentKey>(parent);
+                foreach (TChild child in children)
                 {
-                    ArgumentNullException.ThrowIfNull(insertEntity);
-                    if (InsertEntityCore(insertEntity) <= 0)
-                        throw new InvalidOperationException($"Failed to insert {typeof(T).Name} in batch.");
-
-                    insertedCount++;
+                    EnqueuePropertyRollback(child!, foreignKeyProperty);
+                    EntityKeyConverter.SetForeignKey(child!, foreignKeyProperty, parentKey);
+                    InsertKeyedEntityCore<TChild, TChildKey>(child);
                 }
-
-                return insertedCount;
+                return true;
             });
         }
 
-        public virtual Task<int> BatchInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity
+        public bool CascadeUpdate<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
         {
-            ArgumentNullException.ThrowIfNull(insertEntities);
-            if (insertEntities.Count == 0)
-                return Task.FromResult(0);
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
+            PropertyInfo foreignKeyProperty = GetExpressionProperty(foreignKey);
+            return ExecuteInTransaction(() =>
+            {
+                if (!UpdateKeyedEntityCore<TParent, TParentKey>(parent, null))
+                    throw new InvalidOperationException($"Failed to update cascade parent {typeof(TParent).Name}.");
+                foreach (TChild child in children)
+                {
+                    EnqueuePropertyRollback(child!, foreignKeyProperty);
+                    EntityKeyConverter.SetForeignKey(child!, foreignKeyProperty, parent.ID);
+                    if (!UpdateKeyedEntityCore<TChild, TChildKey>(child, null))
+                        throw new InvalidOperationException($"Failed to update cascade child {typeof(TChild).Name}.");
+                }
+                return true;
+            });
+        }
 
+        public bool CascadeDelete<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
+            return ExecuteInTransaction(() =>
+            {
+                foreach (TChild child in children)
+                {
+                    if (!DeleteKeyedEntityCore<TChild, TChildKey>(child))
+                        throw new InvalidOperationException($"Failed to delete cascade child {typeof(TChild).Name}.");
+                }
+                if (!DeleteKeyedEntityCore<TParent, TParentKey>(parent))
+                    throw new InvalidOperationException($"Failed to delete cascade parent {typeof(TParent).Name}.");
+                return true;
+            });
+        }
+
+        public Task<bool> CascadeInsertAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
+            PropertyInfo foreignKeyProperty = GetExpressionProperty(foreignKey);
             return ExecuteInTransactionAsync(async token =>
             {
-                int insertedCount = 0;
-                foreach (T insertEntity in insertEntities)
+                TParentKey parentKey = await InsertKeyedEntityCoreAsync<TParent, TParentKey>(parent, token).ConfigureAwait(false);
+                foreach (TChild child in children)
                 {
-                    ArgumentNullException.ThrowIfNull(insertEntity);
-                    if (await InsertEntityCoreAsync(insertEntity, token).ConfigureAwait(false) <= 0)
-                        throw new InvalidOperationException($"Failed to insert {typeof(T).Name} in batch.");
-                    insertedCount++;
+                    EnqueuePropertyRollback(child!, foreignKeyProperty);
+                    EntityKeyConverter.SetForeignKey(child!, foreignKeyProperty, parentKey);
+                    await InsertKeyedEntityCoreAsync<TChild, TChildKey>(child, token).ConfigureAwait(false);
                 }
-                return insertedCount;
+                return true;
             }, cancellationToken);
         }
 
-        public virtual Task<int> BulkInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity
+        public virtual int BatchUpdate<T, TKey>(IReadOnlyList<T> entities) where T : IEntity<TKey> where TKey : notnull
         {
-            ArgumentNullException.ThrowIfNull(insertEntities);
-            if (insertEntities.Count == 0)
-                return Task.FromResult(0);
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransaction(() => { foreach (T entity in entities) if (!UpdateKeyedEntityCore<T, TKey>(entity, null)) throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch."); return entities.Count; });
+        }
 
-            EntityTableAttribute? tableAttribute = typeof(T).GetCustomAttribute<EntityTableAttribute>();
-            if (tableAttribute?.SupportsBulkInsert != true)
-                throw new InvalidOperationException($"{typeof(T).Name} does not support bulk insert.");
+        public virtual Task<int> BatchUpdateAsync<T, TKey>(IReadOnlyList<T> entities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransactionAsync(async token => { foreach (T entity in entities) if (!await UpdateKeyedEntityCoreAsync<T, TKey>(entity, null, token).ConfigureAwait(false)) throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch."); return entities.Count; }, cancellationToken);
+        }
 
+        public virtual int BatchInsert<T, TKey>(IReadOnlyList<T> entities) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransaction(() => { foreach (T entity in entities) InsertKeyedEntityCore<T, TKey>(entity); return entities.Count; });
+        }
+
+        public virtual Task<int> BatchInsertAsync<T, TKey>(IReadOnlyList<T> entities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return ExecuteInTransactionAsync(async token => { foreach (T entity in entities) await InsertKeyedEntityCoreAsync<T, TKey>(entity, token).ConfigureAwait(false); return entities.Count; }, cancellationToken);
+        }
+
+        public virtual Task<int> BulkInsertAsync<T, TKey>(IReadOnlyList<T> entities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            if (entities.Count == 0) return Task.FromResult(0);
+            foreach (T entity in entities) ArgumentNullException.ThrowIfNull(entity);
+            _ = SqlGenerator.Insert<T, TKey>(entities[0]);
+            if (typeof(T).GetCustomAttribute<EntityTableAttribute>()?.SupportsBulkInsert != true) throw new InvalidOperationException($"{typeof(T).Name} does not support bulk insert.");
+            if (IsIdentityKey<T>()) throw new InvalidOperationException($"Bulk insert does not return generated keys; identity entity {typeof(T).Name} must use BatchInsert.");
+            if (entities.Any(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, default!))) throw new InvalidOperationException($"Bulk insert requires every {typeof(T).Name} entity to have a non-default key.");
             return ExecuteInTransactionAsync(async token =>
             {
-                const int maxRowsPerCommand = 500;
-                const int maxParametersPerCommand = 10000;
                 PropertyInfo[] properties = GetBulkInsertProperties<T>();
-                if (properties.Length == 0)
-                    throw new InvalidOperationException($"{typeof(T).Name} has no columns available for bulk insert.");
-
-                int rowsPerCommand = Math.Max(1, Math.Min(maxRowsPerCommand, maxParametersPerCommand / properties.Length));
-                int insertedCount = 0;
-                for (int offset = 0; offset < insertEntities.Count; offset += rowsPerCommand)
+                if (properties.Length == 0) throw new InvalidOperationException($"{typeof(T).Name} has no columns available for bulk insert.");
+                int rowsPerCommand = Math.Max(1, Math.Min(500, 10000 / properties.Length));
+                int inserted = 0;
+                for (int offset = 0; offset < entities.Count; offset += rowsPerCommand)
                 {
-                    int count = Math.Min(rowsPerCommand, insertEntities.Count - offset);
-                    insertedCount += await ExecuteBulkInsertChunkAsync(insertEntities, offset, count, properties, token).ConfigureAwait(false);
+                    int count = Math.Min(rowsPerCommand, entities.Count - offset);
+                    inserted += await ExecuteBulkInsertChunkAsync(entities, offset, count, properties, token).ConfigureAwait(false);
                 }
-
-                if (insertedCount != insertEntities.Count)
-                    throw new InvalidOperationException($"Bulk insert for {typeof(T).Name} inserted {insertedCount} of {insertEntities.Count} rows.");
-
-                return insertedCount;
+                if (inserted != entities.Count) throw new InvalidOperationException($"Bulk insert for {typeof(T).Name} inserted {inserted} of {entities.Count} rows.");
+                return inserted;
             }, cancellationToken);
         }
 
-        public virtual bool UpdateEntity<T>(T updateEntity) where T : IEntity
+        public Task<bool> CascadeUpdateAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
         {
-            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransaction(() => UpdateEntityCore(updateEntity));
-
-            return UpdateEntityCore(updateEntity);
-        }
-
-        public virtual Task<bool> UpdateEntityAsync<T>(T updateEntity, CancellationToken cancellationToken = default) where T : IEntity
-        {
-            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransactionAsync(token => UpdateEntityCoreAsync(updateEntity, token), cancellationToken);
-
-            return UpdateEntityCoreAsync(updateEntity, cancellationToken);
-        }
-
-        public virtual int BatchUpdate<T>(IReadOnlyList<T> updateEntities) where T : IEntity
-        {
-            ArgumentNullException.ThrowIfNull(updateEntities);
-            if (updateEntities.Count == 0)
-                return 0;
-
-            return ExecuteInTransaction(() =>
-            {
-                int updatedCount = 0;
-                foreach (T updateEntity in updateEntities)
-                {
-                    ArgumentNullException.ThrowIfNull(updateEntity);
-                    if (!UpdateEntityCore(updateEntity))
-                        throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch.");
-
-                    updatedCount++;
-                }
-
-                return updatedCount;
-            });
-        }
-
-        public virtual Task<int> BatchUpdateAsync<T>(IReadOnlyList<T> updateEntities, CancellationToken cancellationToken = default) where T : IEntity
-        {
-            ArgumentNullException.ThrowIfNull(updateEntities);
-            if (updateEntities.Count == 0)
-                return Task.FromResult(0);
-
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
+            PropertyInfo foreignKeyProperty = GetExpressionProperty(foreignKey);
             return ExecuteInTransactionAsync(async token =>
             {
-                int updatedCount = 0;
-                foreach (T updateEntity in updateEntities)
+                if (!await UpdateKeyedEntityCoreAsync<TParent, TParentKey>(parent, null, token).ConfigureAwait(false))
+                    throw new InvalidOperationException($"Failed to update cascade parent {typeof(TParent).Name}.");
+                foreach (TChild child in children)
                 {
-                    ArgumentNullException.ThrowIfNull(updateEntity);
-                    if (!await UpdateEntityCoreAsync(updateEntity, token).ConfigureAwait(false))
-                        throw new InvalidOperationException($"Failed to update {typeof(T).Name} in batch.");
-                    updatedCount++;
+                    EnqueuePropertyRollback(child!, foreignKeyProperty);
+                    EntityKeyConverter.SetForeignKey(child!, foreignKeyProperty, parent.ID);
+                    if (!await UpdateKeyedEntityCoreAsync<TChild, TChildKey>(child, null, token).ConfigureAwait(false))
+                        throw new InvalidOperationException($"Failed to update cascade child {typeof(TChild).Name}.");
                 }
-                return updatedCount;
+                return true;
             }, cancellationToken);
         }
 
-        public virtual bool DeleteEntity<T>(T deleteEntity) where T : IEntity
+        public Task<bool> CascadeDeleteAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull
         {
-            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransaction(() => DeleteEntityCore(deleteEntity));
-
-            return DeleteEntityCore(deleteEntity);
-        }
-
-        public virtual Task<bool> DeleteEntityAsync<T>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity
-        {
-            if (AutoTransactionForEntityOperations && CurrentTransaction == null)
-                return ExecuteInTransactionAsync(token => DeleteEntityCoreAsync(deleteEntity, token), cancellationToken);
-
-            return DeleteEntityCoreAsync(deleteEntity, cancellationToken);
-        }
-
-        public virtual int BatchDelete<T>(IReadOnlyList<T> deleteEntities) where T : IEntity
-        {
-            ArgumentNullException.ThrowIfNull(deleteEntities);
-            if (deleteEntities.Count == 0)
-                return 0;
-
-            return ExecuteInTransaction(() =>
-            {
-                int deletedCount = 0;
-                foreach (T deleteEntity in deleteEntities)
-                {
-                    ArgumentNullException.ThrowIfNull(deleteEntity);
-                    if (!DeleteEntityCore(deleteEntity))
-                        throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch.");
-
-                    deletedCount++;
-                }
-
-                return deletedCount;
-            });
-        }
-
-        public virtual Task<int> BatchDeleteAsync<T>(IReadOnlyList<T> deleteEntities, CancellationToken cancellationToken = default) where T : IEntity
-        {
-            ArgumentNullException.ThrowIfNull(deleteEntities);
-            if (deleteEntities.Count == 0)
-                return Task.FromResult(0);
-
+            ArgumentNullException.ThrowIfNull(parent);
+            ArgumentNullException.ThrowIfNull(children);
             return ExecuteInTransactionAsync(async token =>
             {
-                int deletedCount = 0;
-                foreach (T deleteEntity in deleteEntities)
+                foreach (TChild child in children)
                 {
-                    ArgumentNullException.ThrowIfNull(deleteEntity);
-                    if (!await DeleteEntityCoreAsync(deleteEntity, token).ConfigureAwait(false))
-                        throw new InvalidOperationException($"Failed to delete {typeof(T).Name} in batch.");
-                    deletedCount++;
+                    if (!await DeleteKeyedEntityCoreAsync<TChild, TChildKey>(child, token).ConfigureAwait(false))
+                        throw new InvalidOperationException($"Failed to delete cascade child {typeof(TChild).Name}.");
                 }
-                return deletedCount;
+                if (!await DeleteKeyedEntityCoreAsync<TParent, TParentKey>(parent, token).ConfigureAwait(false))
+                    throw new InvalidOperationException($"Failed to delete cascade parent {typeof(TParent).Name}.");
+                return true;
             }, cancellationToken);
         }
+
         #endregion
 
         #region Private / Protected Methods
 
         private void ApplyOrEnqueueStoreAction(Action action)
         {
+            if (_entityStore == null)
+                return;
+
             var ctx = _tx.Value;
             if (ctx != null)
             {
@@ -663,7 +740,16 @@ namespace OPNX.Lib.Data.ORM.Services
             action();
         }
 
-        private static void FlushPendingStoreActions(TxContext ctx)
+        private void ApplyOrEnqueueStoreMutation(Func<bool> mutation, string operation, Type entityType)
+        {
+            ApplyOrEnqueueStoreAction(() =>
+            {
+                if (!mutation())
+                    throw new InvalidOperationException($"EntityStore {operation} failed for {entityType.Name} after the database operation succeeded.");
+            });
+        }
+
+        private void FlushPendingStoreActions(TxContext ctx)
         {
             if (ctx == null) return;
 
@@ -673,9 +759,27 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     action();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogCritical(ex, "EntityStore synchronization failed after the database transaction was committed.");
                 }
+            }
+        }
+
+        private void EnqueueRollbackAction(Action action) => _tx.Value?.PendingRollbackActions.Push(action);
+
+        private void EnqueuePropertyRollback(object entity, PropertyInfo property)
+        {
+            object? originalValue = property.GetValue(entity);
+            EnqueueRollbackAction(() => property.SetValue(entity, originalValue));
+        }
+
+        private void RunPendingRollbackActions(TxContext ctx)
+        {
+            while (ctx.PendingRollbackActions.TryPop(out Action? action))
+            {
+                try { action(); }
+                catch (Exception ex) { _logger.LogError(ex, "Failed to restore in-memory entity state after transaction rollback."); }
             }
         }
 
@@ -700,144 +804,280 @@ namespace OPNX.Lib.Data.ORM.Services
             }
         }
 
-        private int InsertEntityCore<T>(T insertEntity) where T : IEntity
+        private void PublishOrEnqueueEntityEvent(EntityChangedEventArgs eventArgs)
         {
-            if (insertEntity.IsAuditable && insertEntity.InsertTime <= DateTime.MinValue)
-                insertEntity.InsertTime = DateTime.Now;
-
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Insert, insertEntity, ref paramList);
-
-            if (string.IsNullOrEmpty(sqlQuery))
-                return insertEntity.ID;
-
-            object? returnObj = ExecuteScalar(sqlQuery, paramList);
-
-            int newId = GetInsertedID(returnObj);
-
-            if (newId <= 0)
-                return insertEntity.ID;
-
-            insertEntity.ID = newId;
-
-            ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
-
-            CascadeEntityAction(insertEntity, nameof(BaseDataBaseService.CascadeInsertEntity), CascadeType.Insert);
-
-            return insertEntity.ID;
-        }
-
-        private bool DeleteEntityCore<T>(T deleteEntity) where T : IEntity
-        {
-            T cascadeEntity = _entityStore.FindEntity<T>(x => x.ID == deleteEntity.ID) ?? deleteEntity;
-            CascadeEntityAction(cascadeEntity, nameof(BaseDataBaseService.CascadeDeleteEntity), CascadeType.Delete);
-
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
-
-            if (!string.IsNullOrEmpty(sqlQuery) && ExecuteNonQuery(sqlQuery, paramList) > 0)
+            TxContext? context = _tx.Value;
+            if (context != null)
             {
-                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(cascadeEntity));
-                return true;
+                context.PendingEntityEvents.Enqueue(eventArgs);
+                return;
             }
-
-            return false;
+            EntityChanged?.Invoke(this, eventArgs);
         }
 
-        private bool UpdateEntityCore<T>(T updateEntity) where T : IEntity
+        private TKey InsertKeyedEntityCore<T, TKey>(T insertEntity) where T : IEntity<TKey> where TKey : notnull
         {
-            T? findEntity = _entityStore.FindEntity<T>(x => x.ID == updateEntity.ID);
-            if (findEntity == null) return false;
-
-            if (updateEntity.IsAuditable && updateEntity.IsDeleted)
-                CascadeEntityAction(findEntity, nameof(BaseDataBaseService.CascadeSoftDeleteEntity), CascadeType.SoftDelete);
-            else
-                CascadeEntityAction(updateEntity, nameof(BaseDataBaseService.CascadeUpdateEntity), CascadeType.Update);
-
-            if (updateEntity.IsAuditable)
-                updateEntity.UpdateTime = DateTime.Now;
-
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
-
-            if (!string.IsNullOrEmpty(sqlQuery) && ExecuteNonQuery(sqlQuery, paramList) > 0)
+            bool synchronizeStore = ShouldSynchronizeEntityStore(insertEntity);
+            TKey originalKey = insertEntity.ID;
+            EnqueueRollbackAction(() => insertEntity.ID = originalKey);
+            PrepareClientGeneratedKey<T, TKey>(insertEntity);
+            if (insertEntity is IAuditableEntity { IsAuditable: true } auditable && auditable.InsertTime <= DateTime.MinValue)
             {
-                ApplyOrEnqueueStoreAction(() => _entityStore.UpdateEntity<T>(updateEntity));
-                return true;
+                DateTime originalInsertTime = auditable.InsertTime;
+                EnqueueRollbackAction(() => auditable.InsertTime = originalInsertTime);
+                auditable.InsertTime = DateTime.Now;
             }
-
-            return false;
+            T storeEntity = default!;
+            if (synchronizeStore)
+            {
+                if (!IsIdentityKey<T>() && _entityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
+                    throw new InvalidOperationException($"{typeof(T).Name} with key {insertEntity.ID} is already loaded in EntityStore.");
+                storeEntity = CreateDatabaseSnapshot(insertEntity);
+            }
+            CompiledDbCommand command = SqlGenerator.Insert<T, TKey>(insertEntity);
+            object? result = ExecuteScalar(command.CommandText, command.Parameters);
+            if (IsIdentityKey<T>() && (result == null || result == DBNull.Value))
+                throw new InvalidOperationException($"The database did not return the generated key for {typeof(T).Name}.");
+            TKey newKey = EntityKeyConverter.ConvertTo<TKey>(result ?? insertEntity.ID);
+            insertEntity.ID = newKey;
+            if (synchronizeStore)
+            {
+                storeEntity.ID = newKey;
+                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(storeEntity), "insert", typeof(T));
+            }
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
+            if (insertEntity is IEntity legacyEntity)
+            {
+                CascadeEntityAction(legacyEntity, nameof(CascadeInsertEntity), CascadeType.Insert);
+            }
+            if (_entityStore == null)
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Insert, (IDatabaseEntity?)null, insertEntity));
+            return newKey;
         }
 
-        private async Task<int> InsertEntityCoreAsync<T>(T insertEntity, CancellationToken cancellationToken) where T : IEntity
+        private async Task<TKey> InsertKeyedEntityCoreAsync<T, TKey>(T insertEntity, CancellationToken cancellationToken) where T : IEntity<TKey> where TKey : notnull
         {
-            if (insertEntity.IsAuditable && insertEntity.InsertTime <= DateTime.MinValue)
-                insertEntity.InsertTime = DateTime.Now;
-
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Insert, insertEntity, ref paramList);
-            if (string.IsNullOrEmpty(sqlQuery))
-                return insertEntity.ID;
-
-            int newID = GetInsertedID(await ExecuteScalarAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false));
-            if (newID <= 0)
-                return insertEntity.ID;
-
-            insertEntity.ID = newID;
-            ApplyOrEnqueueStoreAction(() => _entityStore.InsertEntity<T>(insertEntity.Copy<T>()));
-            await CascadeEntityActionAsync(insertEntity, nameof(CascadeInsertEntityAsync), CascadeType.Insert, cancellationToken).ConfigureAwait(false);
-            return insertEntity.ID;
+            bool synchronizeStore = ShouldSynchronizeEntityStore(insertEntity);
+            TKey originalKey = insertEntity.ID;
+            EnqueueRollbackAction(() => insertEntity.ID = originalKey);
+            PrepareClientGeneratedKey<T, TKey>(insertEntity);
+            if (insertEntity is IAuditableEntity { IsAuditable: true } auditable && auditable.InsertTime <= DateTime.MinValue)
+            {
+                DateTime originalInsertTime = auditable.InsertTime;
+                EnqueueRollbackAction(() => auditable.InsertTime = originalInsertTime);
+                auditable.InsertTime = DateTime.Now;
+            }
+            T storeEntity = default!;
+            if (synchronizeStore)
+            {
+                if (!IsIdentityKey<T>() && _entityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
+                    throw new InvalidOperationException($"{typeof(T).Name} with key {insertEntity.ID} is already loaded in EntityStore.");
+                storeEntity = CreateDatabaseSnapshot(insertEntity);
+            }
+            CompiledDbCommand command = SqlGenerator.Insert<T, TKey>(insertEntity);
+            object? result = await ExecuteScalarAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false);
+            if (IsIdentityKey<T>() && (result == null || result == DBNull.Value))
+                throw new InvalidOperationException($"The database did not return the generated key for {typeof(T).Name}.");
+            TKey newKey = EntityKeyConverter.ConvertTo<TKey>(result ?? insertEntity.ID);
+            insertEntity.ID = newKey;
+            if (synchronizeStore)
+            {
+                storeEntity.ID = newKey;
+                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(storeEntity), "insert", typeof(T));
+            }
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
+            if (insertEntity is IEntity legacyEntity)
+            {
+                await CascadeEntityActionAsync(legacyEntity, nameof(CascadeInsertEntityAsync), CascadeType.Insert, cancellationToken).ConfigureAwait(false);
+            }
+            if (_entityStore == null)
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Insert, (IDatabaseEntity?)null, insertEntity));
+            return newKey;
         }
 
-        private async Task<bool> UpdateEntityCoreAsync<T>(T updateEntity, CancellationToken cancellationToken) where T : IEntity
+        private static void PrepareClientGeneratedKey<T, TKey>(T entity) where T : IEntity<TKey> where TKey : notnull
         {
-            T? findEntity = _entityStore.FindEntity<T>(x => x.ID == updateEntity.ID);
-            if (findEntity == null)
+            PropertyInfo idProperty = GetKeyProperty<T>();
+            EntityColumnAttribute? attribute = idProperty.GetCustomAttribute<EntityColumnAttribute>();
+            if (attribute?.IsIdentity != true && typeof(TKey) == typeof(Guid) && EqualityComparer<TKey>.Default.Equals(entity.ID, default!))
+                entity.ID = (TKey)(object)Guid.NewGuid();
+        }
+
+        private static bool IsIdentityKey<T>() => GetKeyProperty<T>().GetCustomAttribute<EntityColumnAttribute>()?.IsIdentity == true;
+
+        private static PropertyInfo GetKeyProperty<T>() => typeof(T).GetProperties().FirstOrDefault(property => property.GetCustomAttribute<EntityColumnAttribute>()?.IsPrimaryKey == true) ?? typeof(T).GetProperty("ID") ?? throw new InvalidOperationException($"{typeof(T).Name} does not define a primary key.");
+
+        private bool UpdateKeyedEntityCore<T, TKey>(T entity, IReadOnlyList<PropertyInfo>? properties) where T : IEntity<TKey> where TKey : notnull
+        {
+            bool synchronizeStore = ShouldSynchronizeEntityStore(entity);
+            if (entity is IEntity legacyEntity)
+            {
+                IEntity cascadeEntity = legacyEntity;
+                if (synchronizeStore && _entityStore!.FindEntity<T, TKey>(entity.ID) is IEntity storedLegacyEntity)
+                    cascadeEntity = storedLegacyEntity;
+                bool softDeletes = legacyEntity.IsAuditable && legacyEntity.IsDeleted && (properties == null || properties.Any(property => string.Equals(property.Name, nameof(IEntity.IsDeleted), StringComparison.OrdinalIgnoreCase)));
+                if (softDeletes)
+                    CascadeEntityAction(cascadeEntity, nameof(CascadeSoftDeleteEntity), CascadeType.SoftDelete);
+                else if (properties == null)
+                    CascadeEntityAction(legacyEntity, nameof(CascadeUpdateEntity), CascadeType.Update);
+            }
+            IAuditableEntity? auditEntity = null;
+            DateTime originalUpdateTime = default;
+            if (entity is IAuditableEntity { IsAuditable: true } auditable)
+            {
+                auditEntity = auditable;
+                originalUpdateTime = auditable.UpdateTime;
+                EnqueueRollbackAction(() => auditable.UpdateTime = originalUpdateTime);
+                auditable.UpdateTime = DateTime.Now;
+            }
+            T storeEntity = synchronizeStore ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : default!;
+            CompiledDbCommand command = properties == null ? SqlGenerator.Update<T, TKey>(entity) : SqlGenerator.Update<T, TKey>(entity, properties);
+            if (ExecuteNonQuery(command.CommandText, command.Parameters) <= 0)
+            {
+                if (auditEntity != null) auditEntity.UpdateTime = originalUpdateTime;
                 return false;
-
-            if (updateEntity.IsAuditable && updateEntity.IsDeleted)
-                await CascadeEntityActionAsync(findEntity, nameof(CascadeSoftDeleteEntityAsync), CascadeType.SoftDelete, cancellationToken).ConfigureAwait(false);
+            }
+            if (synchronizeStore)
+            {
+                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
+            }
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(entity), "update", typeof(T));
             else
-                await CascadeEntityActionAsync(updateEntity, nameof(CascadeUpdateEntityAsync), CascadeType.Update, cancellationToken).ConfigureAwait(false);
-
-            if (updateEntity.IsAuditable)
-                updateEntity.UpdateTime = DateTime.Now;
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Update, updateEntity, ref paramList);
-            if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
-            {
-                ApplyOrEnqueueStoreAction(() => _entityStore.UpdateEntity<T>(updateEntity));
-                return true;
-            }
-
-            return false;
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Update, (IDatabaseEntity?)null, entity));
+            return true;
         }
 
-        private async Task<bool> DeleteEntityCoreAsync<T>(T deleteEntity, CancellationToken cancellationToken) where T : IEntity
+        private async Task<bool> UpdateKeyedEntityCoreAsync<T, TKey>(T entity, IReadOnlyList<PropertyInfo>? properties, CancellationToken cancellationToken) where T : IEntity<TKey> where TKey : notnull
         {
-            T cascadeEntity = _entityStore.FindEntity<T>(x => x.ID == deleteEntity.ID) ?? deleteEntity;
-            await CascadeEntityActionAsync(cascadeEntity, nameof(CascadeDeleteEntityAsync), CascadeType.Delete, cancellationToken).ConfigureAwait(false);
-
-            List<KeyValuePair<string, object>> paramList = [];
-            string sqlQuery = GetSqlQueryCommand<T>(DatabaseQueryType.Delete, deleteEntity, ref paramList);
-            if (!string.IsNullOrEmpty(sqlQuery) && await ExecuteNonQueryAsync(sqlQuery, paramList, cancellationToken).ConfigureAwait(false) > 0)
+            bool synchronizeStore = ShouldSynchronizeEntityStore(entity);
+            if (entity is IEntity legacyEntity)
             {
-                ApplyOrEnqueueStoreAction(() => _entityStore.DeleteEntity<T>(cascadeEntity));
-                return true;
+                IEntity cascadeEntity = legacyEntity;
+                if (synchronizeStore && _entityStore!.FindEntity<T, TKey>(entity.ID) is IEntity storedLegacyEntity)
+                    cascadeEntity = storedLegacyEntity;
+                bool softDeletes = legacyEntity.IsAuditable && legacyEntity.IsDeleted && (properties == null || properties.Any(property => string.Equals(property.Name, nameof(IEntity.IsDeleted), StringComparison.OrdinalIgnoreCase)));
+                if (softDeletes)
+                    await CascadeEntityActionAsync(cascadeEntity, nameof(CascadeSoftDeleteEntityAsync), CascadeType.SoftDelete, cancellationToken).ConfigureAwait(false);
+                else if (properties == null)
+                    await CascadeEntityActionAsync(legacyEntity, nameof(CascadeUpdateEntityAsync), CascadeType.Update, cancellationToken).ConfigureAwait(false);
             }
-
-            return false;
+            IAuditableEntity? auditEntity = null;
+            DateTime originalUpdateTime = default;
+            if (entity is IAuditableEntity { IsAuditable: true } auditable)
+            {
+                auditEntity = auditable;
+                originalUpdateTime = auditable.UpdateTime;
+                EnqueueRollbackAction(() => auditable.UpdateTime = originalUpdateTime);
+                auditable.UpdateTime = DateTime.Now;
+            }
+            T storeEntity = synchronizeStore ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : default!;
+            CompiledDbCommand command = properties == null ? SqlGenerator.Update<T, TKey>(entity) : SqlGenerator.Update<T, TKey>(entity, properties);
+            if (await ExecuteNonQueryAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false) <= 0)
+            {
+                if (auditEntity != null) auditEntity.UpdateTime = originalUpdateTime;
+                return false;
+            }
+            if (synchronizeStore)
+            {
+                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
+            }
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(entity), "update", typeof(T));
+            else
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Update, (IDatabaseEntity?)null, entity));
+            return true;
         }
 
-        private static int GetInsertedID(object? value)
+        private bool DeleteKeyedEntityCore<T, TKey>(T entity) where T : IEntity<TKey> where TKey : notnull
         {
-            if (value is int intValue)
-                return intValue;
-            if (value is long longValue)
-                return checked((int)longValue);
-            if (value is decimal decimalValue)
-                return checked((int)decimalValue);
-            return value != null && int.TryParse(value.ToString(), out int parsed) ? parsed : 0;
+            bool synchronizeStore = ShouldSynchronizeEntityStore(entity);
+            object? storedEntity = synchronizeStore ? _entityStore!.FindEntity<T, TKey>(entity.ID) : null;
+            if (entity is IEntity legacyEntity)
+                CascadeEntityAction(storedEntity as IEntity ?? legacyEntity, nameof(CascadeDeleteEntity), CascadeType.Delete);
+            else if (synchronizeStore && storedEntity == null)
+                throw new InvalidOperationException($"{typeof(T).Name} with key {entity.ID} is not loaded in EntityStore.");
+            CompiledDbCommand command = SqlGenerator.Delete<T, TKey>(entity);
+            if (ExecuteNonQuery(command.CommandText, command.Parameters) <= 0)
+                return false;
+            if (synchronizeStore)
+                ApplyOrEnqueueStoreMutation(() => _entityStore!.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
+            else
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Delete, (IDatabaseEntity?)null, entity));
+            return true;
+        }
+
+        private async Task<bool> DeleteKeyedEntityCoreAsync<T, TKey>(T entity, CancellationToken cancellationToken) where T : IEntity<TKey> where TKey : notnull
+        {
+            bool synchronizeStore = ShouldSynchronizeEntityStore(entity);
+            object? storedEntity = synchronizeStore ? _entityStore!.FindEntity<T, TKey>(entity.ID) : null;
+            if (entity is IEntity legacyEntity)
+                await CascadeEntityActionAsync(storedEntity as IEntity ?? legacyEntity, nameof(CascadeDeleteEntityAsync), CascadeType.Delete, cancellationToken).ConfigureAwait(false);
+            else if (synchronizeStore && storedEntity == null)
+                throw new InvalidOperationException($"{typeof(T).Name} with key {entity.ID} is not loaded in EntityStore.");
+            CompiledDbCommand command = SqlGenerator.Delete<T, TKey>(entity);
+            if (await ExecuteNonQueryAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false) <= 0)
+                return false;
+            if (synchronizeStore)
+                ApplyOrEnqueueStoreMutation(() => _entityStore!.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
+            else if (_entityStore != null)
+                ApplyOrEnqueueStoreMutation(() => _entityStore.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
+            else
+                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Delete, (IDatabaseEntity?)null, entity));
+            return true;
+        }
+
+        private bool ShouldSynchronizeEntityStore<T>(T entity) where T : IDatabaseEntity => _entityStore != null && entity is not IEntity { IsLogTable: true };
+
+        private static PropertyInfo[] GetSelectedDatabaseProperties<T>(IReadOnlyList<Expression<Func<T, object?>>> properties) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(properties);
+            if (properties.Count == 0)
+                throw new ArgumentException("At least one update property must be selected.", nameof(properties));
+            return [.. properties.Select(expression => expression.Body is UnaryExpression unary ? unary.Operand : expression.Body).Select(body => body is MemberExpression { Member: PropertyInfo property } ? property : throw new ArgumentException("Each expression must select a mapped property.", nameof(properties)))];
+        }
+
+        private static PropertyInfo GetExpressionProperty<T>(Expression<Func<T, object?>> expression)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
+            Expression body = expression.Body is UnaryExpression unary ? unary.Operand : expression.Body;
+            if (body is not MemberExpression { Member: PropertyInfo property } || property.DeclaringType?.IsAssignableFrom(typeof(T)) != true)
+                throw new ArgumentException("The expression must select a direct property of the child entity.", nameof(expression));
+            if (!property.CanWrite || property.GetIndexParameters().Length != 0 || !property.IsDefined(typeof(EntityColumnAttribute), true))
+                throw new ArgumentException($"{typeof(T).Name}.{property.Name} must be a writable mapped column.", nameof(expression));
+            return property;
+        }
+
+        private T CreateGenericStoreUpdateEntity<T, TKey>(T updateEntity, IReadOnlyList<PropertyInfo>? properties) where T : IEntity<TKey> where TKey : notnull
+        {
+            if (_entityStore == null || properties == null)
+                return CreateDatabaseSnapshot(updateEntity);
+            T current = _entityStore.FindEntity<T, TKey>(updateEntity.ID) ?? throw new InvalidOperationException($"{typeof(T).Name} with key {updateEntity.ID} is not loaded in EntityStore.");
+            T merged = CreateDatabaseSnapshot(current);
+            foreach (PropertyInfo property in properties)
+                property.SetValue(merged, property.GetValue(updateEntity));
+            if (updateEntity is IAuditableEntity sourceAudit && merged is IAuditableEntity targetAudit)
+                targetAudit.UpdateTime = sourceAudit.UpdateTime;
+            return merged;
+        }
+
+        private static T CreateDatabaseSnapshot<T>(T source)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            if (source is IEntity legacyEntity)
+                return (T)(object)(legacyEntity.Copy() ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for EntityStore synchronization."));
+            if (typeof(T).IsValueType || typeof(T).IsAbstract || typeof(T).IsInterface)
+                throw new InvalidOperationException($"{typeof(T).Name} must be a concrete reference type for EntityStore snapshots.");
+            object snapshot;
+            try { snapshot = Activator.CreateInstance(typeof(T)) ?? throw new InvalidOperationException($"Failed to create an EntityStore snapshot for {typeof(T).Name}."); }
+            catch (MissingMethodException ex) { throw new InvalidOperationException($"{typeof(T).Name} requires a public parameterless constructor when EntityStore is enabled.", ex); }
+            foreach (PropertyInfo property in typeof(T).GetProperties().Where(property => property.CanRead && property.CanWrite && property.IsDefined(typeof(EntityColumnAttribute), true)))
+                property.SetValue(snapshot, property.GetValue(source));
+            return (T)snapshot;
         }
 
         protected abstract DbConnection CreateConnection(string connectionString);
@@ -928,7 +1168,7 @@ namespace OPNX.Lib.Data.ORM.Services
             }
         }
 
-        protected void CascadeUpdateEntity<T>(ObservableCollection<T> updateEntities, string fkFieldName, int fkID) where T : Entity
+        protected void CascadeUpdateEntity<T>(ObservableCollection<T> updateEntities, string fkFieldName, object fkID) where T : Entity
         {
             foreach (var item in updateEntities)
             {
@@ -938,14 +1178,14 @@ namespace OPNX.Lib.Data.ORM.Services
                     if (property != null && property.CanWrite) // 속성이 쓰기 가능한지 확인
                     {
                         // 새로운 값을 설정
-                        property.SetValue(item, fkID);
+                        EntityKeyConverter.SetForeignKey(item, property, fkID);
                     }
 
-                    InsertEntity<T>(item);
+                    InsertEntity<T, int>(item);
                 }
                 else
                 {
-                    UpdateEntity<T>(item);
+                    UpdateEntity<T, int>(item);
                 }
             }
         }
@@ -954,7 +1194,7 @@ namespace OPNX.Lib.Data.ORM.Services
         {
             foreach (var item in deleteEntities)
             {
-                DeleteEntity<T>(item);
+                DeleteEntity<T, int>(item);
             }
         }
 
@@ -968,11 +1208,11 @@ namespace OPNX.Lib.Data.ORM.Services
                 T softDeleteEntity = item.Copy<T>()
                     ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for cascading soft-delete.");
                 softDeleteEntity.IsDeleted = true;
-                UpdateEntity(softDeleteEntity);
+                UpdateEntity<T, int>(softDeleteEntity);
             }
         }
 
-        protected void CascadeInsertEntity<T>(ObservableCollection<T> insertEntities, string fkFieldName, int fkID) where T : Entity
+        protected void CascadeInsertEntity<T>(ObservableCollection<T> insertEntities, string fkFieldName, object fkID) where T : Entity
         {
             foreach (var item in insertEntities)
             {
@@ -980,14 +1220,14 @@ namespace OPNX.Lib.Data.ORM.Services
                 if (property != null && property.CanWrite) // 속성이 쓰기 가능한지 확인
                 {
                     // 새로운 값을 설정
-                    property.SetValue(item, fkID);
+                    EntityKeyConverter.SetForeignKey(item, property, fkID);
                 }
 
-                InsertEntity<T>(item);
+                InsertEntity<T, int>(item);
             }
         }
 
-        protected async Task CascadeUpdateEntityAsync<T>(ObservableCollection<T> updateEntities, string fkFieldName, int fkID, CancellationToken cancellationToken) where T : Entity
+        protected async Task CascadeUpdateEntityAsync<T>(ObservableCollection<T> updateEntities, string fkFieldName, object fkID, CancellationToken cancellationToken) where T : Entity
         {
             foreach (T item in updateEntities)
             {
@@ -995,12 +1235,12 @@ namespace OPNX.Lib.Data.ORM.Services
                 {
                     PropertyInfo? property = item.GetType().GetProperty(fkFieldName);
                     if (property != null && property.CanWrite)
-                        property.SetValue(item, fkID);
-                    await InsertEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                        EntityKeyConverter.SetForeignKey(item, property, fkID);
+                    await InsertEntityAsync<T, int>(item, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await UpdateEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                    await UpdateEntityAsync<T, int>(item, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -1008,7 +1248,7 @@ namespace OPNX.Lib.Data.ORM.Services
         protected async Task CascadeDeleteEntityAsync<T>(ObservableCollection<T> deleteEntities, CancellationToken cancellationToken) where T : Entity
         {
             foreach (T item in deleteEntities)
-                await DeleteEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                await DeleteEntityAsync<T, int>(item, cancellationToken).ConfigureAwait(false);
         }
 
         protected async Task CascadeSoftDeleteEntityAsync<T>(ObservableCollection<T> deleteEntities, CancellationToken cancellationToken) where T : Entity
@@ -1021,18 +1261,18 @@ namespace OPNX.Lib.Data.ORM.Services
                 T softDeleteEntity = item.Copy<T>()
                     ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for cascading soft-delete.");
                 softDeleteEntity.IsDeleted = true;
-                await UpdateEntityAsync(softDeleteEntity, cancellationToken).ConfigureAwait(false);
+                await UpdateEntityAsync<T, int>(softDeleteEntity, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        protected async Task CascadeInsertEntityAsync<T>(ObservableCollection<T> insertEntities, string fkFieldName, int fkID, CancellationToken cancellationToken) where T : Entity
+        protected async Task CascadeInsertEntityAsync<T>(ObservableCollection<T> insertEntities, string fkFieldName, object fkID, CancellationToken cancellationToken) where T : Entity
         {
             foreach (T item in insertEntities)
             {
                 PropertyInfo? property = item.GetType().GetProperty(fkFieldName);
                 if (property != null && property.CanWrite)
-                    property.SetValue(item, fkID);
-                await InsertEntityAsync(item, cancellationToken).ConfigureAwait(false);
+                    EntityKeyConverter.SetForeignKey(item, property, fkID);
+                await InsertEntityAsync<T, int>(item, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -1050,16 +1290,10 @@ namespace OPNX.Lib.Data.ORM.Services
             EntityChanged?.Invoke(this, e);
         }
 
-        protected virtual string GetSqlQueryCommand<T>(DatabaseQueryType queryType, T entity, ref List<KeyValuePair<string, object>> paramList)
-            where T : IEntity
-        {
-            return string.Empty;
-        }
-
-        protected virtual Task<int> ExecuteBulkInsertChunkAsync<T>(IReadOnlyList<T> entities, int offset, int count, IReadOnlyList<PropertyInfo> properties, CancellationToken cancellationToken) where T : IEntity
+        protected virtual Task<int> ExecuteBulkInsertChunkAsync<T>(IReadOnlyList<T> entities, int offset, int count, IReadOnlyList<PropertyInfo> properties, CancellationToken cancellationToken) where T : IDatabaseEntity
             => throw new NotSupportedException($"{GetType().Name} does not support bulk insert.");
 
-        protected static PropertyInfo[] GetBulkInsertProperties<T>() where T : IEntity =>
+        protected static PropertyInfo[] GetBulkInsertProperties<T>() where T : IDatabaseEntity =>
             [.. typeof(T).GetProperties().Where(property =>
                 property.CanWrite &&
                 property.IsDefined(typeof(EntityColumnAttribute), inherit: true) &&
@@ -1096,7 +1330,9 @@ namespace OPNX.Lib.Data.ORM.Services
         protected override void OnDispose()
         {
             if (_entityStore != null)
+            {
                 this._entityStore.EntityChanged -= EntityStore_EntityChanged;
+            }
         }
 
         protected static bool IsNullableType(Type type)

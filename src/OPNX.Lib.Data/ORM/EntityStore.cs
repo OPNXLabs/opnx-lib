@@ -20,8 +20,6 @@ namespace OPNX.Lib.Data.ORM
         private readonly ConcurrentDictionary<Type, object> _allEntitis = new();
         private readonly ILogger<EntityStore> _logger = logger ?? NullLogger<EntityStore>.Instance;
 
-        private static readonly ConcurrentDictionary<Type, MethodInfo> _cachedFindEntityMethods = new();
-
         protected static readonly ConcurrentDictionary<(Type typeT, Type typeU), MethodInfo> _cachedRefreshMethods = new();
         protected static readonly ConcurrentDictionary<(string methodName, Type type), MethodInfo> _cachedGenericHandlers = new();
         #endregion
@@ -35,7 +33,7 @@ namespace OPNX.Lib.Data.ORM
 
         #region Events
         public event EntityChangedEventHandler? EntityChanged;
-        protected void OnEntityChanged(DataChangedTypes changedType, IEntity? oldEntity, IEntity? newEntity)
+        protected void OnEntityChanged(DataChangedTypes changedType, IDatabaseEntity? oldEntity, IDatabaseEntity? newEntity)
         {
             EntityChanged?.Invoke(this, new EntityChangedEventArgs(changedType, oldEntity, newEntity));
         }
@@ -61,215 +59,128 @@ namespace OPNX.Lib.Data.ORM
             }
         }
 
-        public virtual int InsertEntity<T>(T? insertEntity) where T : IEntity
+        public virtual bool InsertEntity<T, TKey>(T insertEntity) where T : IEntity<TKey> where TKey : notnull
         {
-            if (insertEntity is null)
-                throw new ArgumentNullException(nameof(insertEntity));
-
-            try
+            ArgumentNullException.ThrowIfNull(insertEntity);
+            if (insertEntity is IEntity { IsLogTable: true } logEntity)
             {
-                if (insertEntity.IsLogTable)
-                    return insertEntity.ID;
-
-                var items = GetEntities<T>();
-                if (items == null)
-                    return insertEntity.ID;
-
-                if (insertEntity.ID <= 0 || items.Any(x => x.ID == insertEntity.ID))
-                    return insertEntity.ID;
-
-                insertEntity.Initialize(this);
-                items.Add(insertEntity);
-
-                insertEntity.NotifyInserted<T>();
-                insertEntity.PropertyChanged += Entity_PropertyChanged;
-
-                RefreshRelationProperties(insertEntity);
-                OnEntityChanged(DataChangedTypes.Insert, null, insertEntity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to insert the entity. EntityType={EntityType}.", typeof(T).Name);
-            }
-
-            return insertEntity.ID;
-        }
-
-        public virtual bool UpdateEntity<T>(T? updateEntity) where T : IEntity
-        {
-            if (updateEntity is null)
-                throw new ArgumentNullException(nameof(updateEntity));
-
-            try
-            {
-                if (updateEntity.IsLogTable)
-                    return false;
-
-                T? findEntity = FindEntity<T>(updateEntity.ID);
-                if (findEntity == null)
-                    return false;
-
-                findEntity.PropertyChanged -= Entity_PropertyChanged;
-
-                if (updateEntity.IsAuditable && updateEntity.IsDeleted)
-                {
-                    DeleteEntity<T>(findEntity);
-                }
-                else
-                {
-                    T updatedEntity = findEntity.NotifyUpdated<T>(updateEntity);
-                    RefreshRelationProperties(findEntity);
-                    OnEntityChanged(DataChangedTypes.Update, findEntity, updatedEntity);
-
-                    findEntity.PropertyChanged += Entity_PropertyChanged;
-                }
-
+                OnEntityChanged(DataChangedTypes.Insert, null, logEntity);
                 return true;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to update the entity. EntityType={EntityType}.", typeof(T).Name);
-            }
-
-            return false;
-        }
-
-        public virtual bool DeleteEntity<T>(T? deleteEntity) where T : IEntity
-        {
-            if (deleteEntity is null)
-                throw new ArgumentNullException(nameof(deleteEntity));
-
-            try
-            {
-                var items = GetEntities<T>();
-                if (items == null)
-                    return false;
-
-                var findEntity = items.FirstOrDefault(x => x.ID == deleteEntity.ID);
-                if (findEntity == null)
-                    return false;
-
-                items.Remove(findEntity);
-
-                findEntity.PropertyChanged -= Entity_PropertyChanged;
-                findEntity.NotifyDeleted<T>();
-
-                RefreshRelationProperties(findEntity);
-                OnEntityChanged(DataChangedTypes.Delete, null, findEntity);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete the entity. EntityType={EntityType}.", typeof(T).Name);
-
+            ObservableCollection<T> entities = GetEntities<T, TKey>();
+            if (entities.Any(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, insertEntity.ID)))
                 return false;
+            if (insertEntity is IEntity legacyEntity)
+            {
+                if (legacyEntity.ID <= 0)
+                    return false;
+                legacyEntity.Initialize(this);
+                entities.Add(insertEntity);
+                legacyEntity.NotifyInserted<IEntity>();
+                legacyEntity.PropertyChanged += Entity_PropertyChanged;
+                RefreshRelationProperties(legacyEntity, typeof(T));
+                OnEntityChanged(DataChangedTypes.Insert, null, legacyEntity);
+                return true;
             }
+            T snapshot = CreateDatabaseSnapshot(insertEntity);
+            entities.Add(snapshot);
+            OnEntityChanged(DataChangedTypes.Insert, null, snapshot);
+            return true;
         }
 
-        public ObservableCollection<T> GetEntities<T>() where T : IEntity
+        public virtual bool UpdateEntity<T, TKey>(T updateEntity) where T : IEntity<TKey> where TKey : notnull
         {
-            return (ObservableCollection<T>)_allEntitis.GetOrAdd(typeof(T), _ => new ObservableCollection<T>());
+            ArgumentNullException.ThrowIfNull(updateEntity);
+            if (updateEntity is IEntity { IsLogTable: true } logEntity)
+            {
+                OnEntityChanged(DataChangedTypes.Update, null, logEntity);
+                return true;
+            }
+            ObservableCollection<T> entities = GetEntities<T, TKey>();
+            T? current = entities.FirstOrDefault(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, updateEntity.ID));
+            if (current == null)
+                return false;
+            if (current is IEntity currentLegacy && updateEntity is IEntity updateLegacy)
+            {
+                currentLegacy.PropertyChanged -= Entity_PropertyChanged;
+                if (updateLegacy.IsAuditable && updateLegacy.IsDeleted)
+                    return DeleteEntity<T, TKey>(current);
+                IEntity updatedEntity = currentLegacy.NotifyUpdated<IEntity>(updateLegacy);
+                RefreshRelationProperties(currentLegacy, typeof(T));
+                OnEntityChanged(DataChangedTypes.Update, currentLegacy, updatedEntity);
+                currentLegacy.PropertyChanged += Entity_PropertyChanged;
+                return true;
+            }
+            int index = entities.IndexOf(current);
+            T snapshot = CreateDatabaseSnapshot(updateEntity);
+            entities[index] = snapshot;
+            OnEntityChanged(DataChangedTypes.Update, current, snapshot);
+            return true;
         }
 
-        public IEntity? FindEntity(Type entityType, int id)
+        public virtual bool DeleteEntity<T, TKey>(T deleteEntity) where T : IEntity<TKey> where TKey : notnull
         {
-            try
+            ArgumentNullException.ThrowIfNull(deleteEntity);
+            if (deleteEntity is IEntity { IsLogTable: true } logEntity)
             {
-                if (!_cachedFindEntityMethods.TryGetValue(entityType, out MethodInfo? genericMethod))
-                {
-                    MethodInfo? method = GetType().GetMethod(
-                        nameof(FindEntity),
-                        BindingFlags.Public | BindingFlags.Instance,
-                        null,
-                        [typeof(int)],
-                        null
-                    );
-
-                    if (method == null)
-                        return null;
-
-                    genericMethod = method.MakeGenericMethod(entityType);
-                    _cachedFindEntityMethods.TryAdd(entityType, genericMethod);
-                }
-
-                object? result = genericMethod.Invoke(this, [id]);
-                return result != null ? result as IEntity : null;
+                OnEntityChanged(DataChangedTypes.Delete, null, logEntity);
+                return true;
             }
-            catch (Exception ex)
+            ObservableCollection<T> entities = GetEntities<T, TKey>();
+            T? current = entities.FirstOrDefault(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, deleteEntity.ID));
+            if (current == null)
+                return false;
+            if (current is IEntity currentLegacy)
             {
-                _logger.LogError(ex, "{Message}", ex.Message);
+                if (!entities.Remove(current))
+                    return false;
+                currentLegacy.PropertyChanged -= Entity_PropertyChanged;
+                currentLegacy.NotifyDeleted<IEntity>();
+                RefreshRelationProperties(currentLegacy, typeof(T));
+                OnEntityChanged(DataChangedTypes.Delete, null, currentLegacy);
+                return true;
             }
-
-            return null;
+            if (!entities.Remove(current))
+                return false;
+            OnEntityChanged(DataChangedTypes.Delete, current, null);
+            return true;
         }
 
-        public T? FindEntity<T>(Type entityType, int id) where T : IEntity
+        public ObservableCollection<T> GetEntities<T, TKey>() where T : IEntity<TKey> where TKey : notnull => (ObservableCollection<T>)_allEntitis.GetOrAdd(typeof(T), _ => new ObservableCollection<T>());
+
+        public T? FindEntity<T, TKey>(TKey id) where T : IEntity<TKey> where TKey : notnull => GetEntities<T, TKey>().FirstOrDefault(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, id));
+
+        public IDatabaseEntity? FindEntity<TKey>(Type entityType, TKey id) where TKey : notnull
         {
-            try
-            {
-                if (!_cachedFindEntityMethods.TryGetValue(entityType, out MethodInfo? genericMethod))
-                {
-                    MethodInfo? methodInfo = GetType().GetMethod(
-                        nameof(this.FindEntity),
-                        BindingFlags.Public | BindingFlags.Instance,
-                        null,
-                        [typeof(int)],
-                        null
-                    );
-
-                    if (methodInfo == null)
-                        return default;
-
-                    genericMethod = methodInfo.MakeGenericMethod(entityType);
-                    _cachedFindEntityMethods.TryAdd(entityType, genericMethod);
-                }
-
-                object? obj = genericMethod.Invoke(this, [id]);
-                return obj != null ? (T)obj : default;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Message}", ex.Message);
-            }
-
-            return default;
+            if (!_allEntitis.TryGetValue(entityType, out object? collection) || collection is not System.Collections.IEnumerable entities)
+                return null;
+            return entities.Cast<object>().OfType<IEntity<TKey>>().FirstOrDefault(entity => EqualityComparer<TKey>.Default.Equals(entity.ID, id));
         }
 
-        public T? FindEntity<T>(int id) where T : IEntity
+        public T? FindEntity<T, TKey>(Type entityType, TKey id) where T : IEntity<TKey> where TKey : notnull => FindEntity<TKey>(entityType, id) is T entity ? entity : default;
+
+        private static T CreateDatabaseSnapshot<T>(T source)
         {
-            return FindEntity<T>(x => x.ID == id);
+            if (typeof(T).IsValueType || typeof(T).IsAbstract || typeof(T).IsInterface)
+                throw new InvalidOperationException($"{typeof(T).Name} must be a concrete reference type for EntityStore snapshots.");
+            object snapshot;
+            try { snapshot = Activator.CreateInstance(typeof(T)) ?? throw new InvalidOperationException($"Failed to create an EntityStore snapshot for {typeof(T).Name}."); }
+            catch (MissingMethodException ex) { throw new InvalidOperationException($"{typeof(T).Name} requires a public parameterless constructor when EntityStore is enabled.", ex); }
+            foreach (PropertyInfo property in typeof(T).GetProperties().Where(property => property.CanRead && property.CanWrite && property.IsDefined(typeof(EntityColumnAttribute), true)))
+                property.SetValue(snapshot, property.GetValue(source));
+            return (T)snapshot;
         }
 
-        public T? FindEntity<T>(Func<T, bool> predicate)
-            where T : IEntity
+        public T? FindEntity<T, TKey>(Func<T, bool> predicate) where T : IEntity<TKey> where TKey : notnull
         {
-            try
-            {
-
-                return GetEntities<T>().FirstOrDefault(predicate);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Message}", ex.Message);
-                return default;
-            }
+            try { return GetEntities<T, TKey>().FirstOrDefault(predicate); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to find entity. EntityType={EntityType}.", typeof(T).Name); return default; }
         }
 
-        public ObservableCollection<T> FindEntities<T>(Func<T, bool> predicate)
-            where T : IEntity
+        public ObservableCollection<T> FindEntities<T, TKey>(Func<T, bool> predicate) where T : IEntity<TKey> where TKey : notnull
         {
-            try
-            {
-                var entities = GetEntities<T>();
-                if (entities != null)
-                    return new ObservableCollection<T>(entities.Where(predicate));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to find entities. EntityType={EntityType}.", typeof(T).Name);
-            }
-            return [];
+            try { return new ObservableCollection<T>(GetEntities<T, TKey>().Where(predicate)); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to find entities. EntityType={EntityType}.", typeof(T).Name); return []; }
         }
         #endregion        
 
@@ -326,13 +237,16 @@ namespace OPNX.Lib.Data.ORM
         }
 
         protected void RefreshRelationProperties<T>(T entity) where T : IEntity
+            => RefreshRelationProperties(entity, typeof(T));
+
+        private void RefreshRelationProperties(IEntity entity, Type entityType)
         {
-            var propertiesWithForeignType = GetPropertiesWithForeignType<T>();
+            var propertiesWithForeignType = GetPropertiesWithForeignType(entityType);
 
             foreach (var property in propertiesWithForeignType)
             {
                 Type? typeT = property.Attribute.ForeignType;
-                Type typeU = typeof(T);
+                Type typeU = entityType;
 
                 var methodKey = (typeT, typeU);
 
@@ -362,8 +276,11 @@ namespace OPNX.Lib.Data.ORM
         }
 
         protected static IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
+            => GetPropertiesWithForeignType(typeof(T));
+
+        private static IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType(Type entityType)
         {
-            return typeof(T).GetProperties()
+            return entityType.GetProperties()
                 .Select(p => (Property: p, Attribute: p.GetCustomAttribute<EntityColumnAttribute>(inherit: true)))
                 .Where(x => x.Attribute?.ForeignType != null)          // Attribute != null 이고 ForeignType != null
                 .Select(x => (x.Property, x.Attribute!))               // 여기서 Attribute는 null 아님을 확정
@@ -396,7 +313,7 @@ namespace OPNX.Lib.Data.ORM
         protected void RefreshRelationProperty<T, U>(int id)
             where T : Entity where U : Entity
         {
-            var findEntity = FindEntity<T>(id);
+            var findEntity = FindEntity<T, int>(id);
             if (findEntity != null)
             {
                 var relatedListProps = findEntity.GetRelatedListProps();

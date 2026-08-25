@@ -2,10 +2,8 @@
 
 namespace OPNX.Lib.Data.ORM.Interfaces
 {
-    public interface IEntityIdentity : INotifyPropertyChanged
+    public interface IEntityIdentity : IEntity<int>, INotifyPropertyChanged
     {
-        int ID { get; set; }
-
         string? DisplayText { get; }
     }
 }

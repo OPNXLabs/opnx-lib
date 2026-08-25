@@ -13,7 +13,7 @@ OPNX.Lib brings together capabilities that usually require several unrelated lib
 - **A complete media pipeline** — FFmpeg-backed audio/video decoding and encoding, pixel and sample conversion, filtering, frame handling, and file muxing. Video decoding includes hardware-device paths such as CUDA, DXVA2, and D3D11VA when the runtime and hardware support them.
 - **One protocol model across transports** — the same connection, packet, request/response, serialization, timeout, cancellation, and lifecycle concepts are available over TCP, Named Pipe, and Shared Memory. Applications can choose network IPC, local IPC, or high-throughput memory transport without redesigning their message contract.
 - **Video-device integration beyond basic discovery** — ONVIF discovery and service initialization lead directly into media profiles, RTSP URIs, PTZ, presets, imaging, relay outputs, and PullPoint events.
-- **Streaming primitives, not only wrappers** — RTSP client/server infrastructure, RTP transport, media packet handling, and ownership-aware binary payloads can be composed into live, recording, and playback services.
+- **Streaming primitives extended from a proven base** — RTSP/RTP code derived from SharpRTSP is adapted for the OPNX runtime and combined with media-payload handling plus WebRTC/DataChannel adapters for live, recording, and playback services.
 - **Stateful server infrastructure** — entity persistence, EntityStore synchronization, cascades, transactions, batch/bulk write paths, and system-resource monitoring are designed to coexist in long-running services.
 
 ## Main Capabilities
@@ -21,7 +21,7 @@ OPNX.Lib brings together capabilities that usually require several unrelated lib
 - Common lifecycle, serialization, compression, reflection, and utility infrastructure
 - TCP, named pipes, shared memory, packet framing, and ownership-aware binary payload transport
 - FFmpeg, OpenCV, and SkiaSharp-based media processing
-- RTSP-oriented real-time streaming infrastructure
+- Adapted SharpRTSP-derived RTSP/RTP plus preview WebRTC and DataChannel infrastructure
 - ONVIF discovery, media, PTZ, presets, imaging, relays, and PullPoint events
 - PostgreSQL/MySQL entity persistence, transactions, cascades, batch operations, and multi-row bulk insert
 - Windows/Linux system-resource monitoring
@@ -33,7 +33,7 @@ OPNX.Lib brings together capabilities that usually require several unrelated lib
 | `OPNX.Lib.Common` | Shared primitives, lifecycle management, serialization, reflection, and utilities |
 | `OPNX.Lib.Network` | TCP, named pipes, shared memory, framing, packets, and connection management |
 | `OPNX.Lib.Media` | Encoding, decoding, conversion, filtering, muxing, and media data handling |
-| `OPNX.Lib.Streaming` | RTSP and reusable real-time media transport components |
+| `OPNX.Lib.Streaming` | SharpRTSP-derived RTSP/RTP plus WebRTC and DataChannel transport components |
 | `OPNX.Lib.Onvif` | ONVIF discovery and SOAP client services for network video devices |
 | `OPNX.Lib.Data` | EntityStore and ORM-style persistence for PostgreSQL and MySQL |
 | `OPNX.Lib.SystemMonitoring` | System-resource collection, state models, and stores |
@@ -64,6 +64,22 @@ This makes the media layer useful for live viewers, transcoders, recorders, thum
 | Shared Memory | High-volume local transfer where avoiding unnecessary copies and socket overhead matters |
 
 The transports share common packet framing and protocol behavior, including typed serialization, request/response correlation, asynchronous send and receive, cancellation, timeout handling, connection lifecycle, and bounded payload rules. A service can therefore keep its message model while selecting the transport that fits its deployment boundary.
+
+## Real-Time Streaming
+
+`OPNX.Lib.Streaming` provides components for RTSP/RTP video transport and WebRTC adapters. It does not impose one complete VMS product workflow; applications compose clients, servers, sessions, transports, and payload processors into live, recording, and playback paths.
+
+| Area | Available components |
+| --- | --- |
+| RTSP | Client/server infrastructure, request/response messages, Basic/Digest authentication, and sessions |
+| RTP/RTCP | UDP and interleaved transports, packet processing, timestamps, and control flow |
+| Media payloads | H.264, H.265/HEVC, H.266/VVC, JPEG, AAC, and G.711-family processing |
+| SDP | Session-description parsing and media-information handling |
+| WebRTC | SIPSorcery and DataChannel-based signal-server and peer-connection adapters |
+
+Portions of the RTSP, RTP/RTCP, SDP, and client/server handling code are derived from [SharpRTSP](https://github.com/ngraziano/SharpRTSP). SharpRTSP is distributed under the MIT License. OPNX has integrated the code into its namespaces and runtime structure and modified or extended areas including nullable annotations, logging abstractions, media-payload handling, and stability behavior. SharpRTSP copyright and MIT terms continue to apply to the upstream-derived portions; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt).
+
+The WebRTC and DataChannel components are preview adapters for later product integration. RTSP support in this README does not imply that all protocol code was authored independently by OPNX, and the OPNX.Lib source-available terms do not replace the MIT terms that apply to SharpRTSP-derived code.
 
 ## ONVIF Device Integration
 
@@ -97,18 +113,65 @@ ONVIF is a trademark of ONVIF, Inc. This project is not affiliated with or endor
 
 ## Database And Entity Storage
 
-`OPNX.Lib.Data` provides attribute-based mapping, typed queries, synchronous and asynchronous CRUD, EntityStore synchronization, foreign-key and cascade policies, cancellation, and callback-based transactions.
+`OPNX.Lib.Data` is a lightweight data layer with attribute-based mapping, typed queries, synchronous and asynchronous CRUD, partial updates, EntityStore synchronization, foreign-key and cascade policies, cancellation, and callback-based transactions. PostgreSQL and MySQL share the same entity and query contracts, while database-specific SQL generators produce parameterized commands.
+
+### Generic Entity Contracts
+
+The contracts are separated by role so the data layer can support more than the original int-key entity model.
+
+| Contract | Purpose |
+| --- | --- |
+| `IDatabaseEntity` | Minimum marker contract for all database-mapped models |
+| `IKeylessEntity` | Query-only models that do not require a primary key |
+| `IEntity<TKey>` | Entities with explicit `int`, `long`, `Guid`, `string`, or other key types |
+| `IEntity` | Convenience contract for existing int-key applications |
+| `IAuditableEntity` | Creation and modification audit data |
+| `ISoftDeletableEntity` | Soft-delete policy |
+
+Auditing and soft deletion are optional contracts rather than requirements on every table. Append-only logs and external schemas can therefore omit UpdateTime or IsDeleted without special bypasses.
+
+### Typed Queries And SQL Generators
+
+`SelectQuery<T>` builds conditions, ranges, sets, ordering, and pages without scattering handwritten SQL through application code.
+
+```csharp
+SelectQuery<UserLog> query = SelectQuery<UserLog>.Create()
+    .WhereBetween(log => log.EventTimeUtc, fromTimeUtc, toTimeUtc)
+    .WhereIn(log => log.Severity, severities)
+    .OrderByDescending(log => log.EventTimeUtc)
+    .OrderByDescending(log => log.ID)
+    .Page(1, 20);
+
+IReadOnlyList<UserLog> logs = await databaseService.SelectAsync(query);
+long totalCount = await databaseService.CountAsync(query);
+```
+
+The same query model supports `Select`, `Count`, `First`, `FirstOrDefault`, `Any`, multiple ordering clauses, and stable pagination. Values remain parameters, while the PostgreSQL and MySQL generators handle identifier and SQL-dialect differences.
+
+### CRUD, Partial Updates, And EntityStore
+
+In addition to complete entity updates, callers can update only selected properties.
+
+```csharp
+await databaseService.UpdateEntityAsync<UserSettings, int>(
+    settings,
+    cancellationToken,
+    entity => entity.Theme,
+    entity => entity.Language);
+```
+
+After a successful database operation, the configured `EntityStore` synchronizes insert, update, and delete results and publishes change events. EntityStore is more than a cache: it provides key-based lookup, shared state, and downstream change flow for long-running components such as servers and clients.
 
 ```csharp
 await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
 {
-    await service.InsertEntityAsync(user, cancellationToken);
-    await service.InsertEntityAsync(permission, cancellationToken);
-    await service.UpdateEntityAsync(setting, cancellationToken);
+    await service.InsertEntityAsync<User, int>(user, cancellationToken);
+    await service.InsertEntityAsync<UserPermission, int>(permission, cancellationToken);
+    await service.UpdateEntityAsync<UserSettings, int>(setting, cancellationToken);
 });
 ```
 
-A transaction commits when its callback succeeds and rolls back on failure. Commands inside one transaction share one connection and must be awaited sequentially; parallel execution such as `Task.WhenAll` is not supported inside the transaction.
+A transaction commits when its callback succeeds and rolls back on failure. Commands inside one transaction share one connection and must be awaited sequentially; parallel execution such as `Task.WhenAll` is not supported inside the transaction. Ordinary CRUD retains generated-ID handling, EntityStore synchronization, cascades, and change events.
 
 ### Batch And Bulk Insert
 
@@ -134,9 +197,13 @@ await databaseService.BulkInsertAsync(metadataItems);
 | Cascades | Supported | Not supported |
 | Intended use | Stateful application entities | Append-only high-volume data |
 
+### Deliberate Scope
+
+OPNX.Lib.Data is not intended to reproduce the complete surface area of EF Core. It focuses on predictable operations for stateful services: attribute mapping, typed CRUD, query generation, transactions, cascades, EntityStore, partial updates, batch operations, and bulk insert. Full LINQ translation, lazy loading, migrations, and complex relationship-graph tracking are intentionally outside its scope; applications centered on those features are better served by a general-purpose ORM such as EF Core.
+
 ## System Monitoring
 
-`OPNX.Lib.SystemMonitoring` provides periodic CPU, memory, network, disk, and platform-specific GPU resource collection through platform providers and shared resource-state stores. Windows and Linux providers are available; individual metrics depend on platform support.
+`OPNX.Lib.SystemMonitoring` periodically collects CPU, memory, process, network-interface, disk-volume, and platform-specific GPU data. It separates point-in-time `SystemResourceSnapshot` data from operational `SystemResourceState<TKey>`, while `SystemResourceStore<TKey>` shares the latest state for multiple servers or devices by key. Windows and Linux providers are available; individual metrics depend on platform support.
 
 ## Design Direction
 
@@ -177,3 +244,9 @@ OPNX.Lib is source-available but is not permissively licensed open-source softwa
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples) — runnable examples
 - `OPNX.UI` — reusable UI components for video clients
 - `OPNX.V` — a video-platform application suite built on OPNX.Lib and OPNX.UI
+
+---
+
+> **“Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.”**
+>
+> — Joshua 1:9, King James Version (KJV)

@@ -1,11 +1,25 @@
 ﻿using OPNX.Lib.Data.ORM.EventHandlers;
+using OPNX.Lib.Data.ORM.Generators;
+using OPNX.Lib.Data.ORM.Query;
 using System.Data;
+using System.Linq.Expressions;
 
 namespace OPNX.Lib.Data.ORM.Interfaces
 {
     public interface IDataBaseService : IDisposable
     {
+        IEntitySqlGenerator SqlGenerator { get; }
         string GetTableIdentifier(Type entityType);
+        IReadOnlyList<T> Select<T>(SelectQuery<T> query) where T : IDatabaseEntity;
+        Task<IReadOnlyList<T>> SelectAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity;
+        long Count<T>(SelectQuery<T> query) where T : IDatabaseEntity;
+        Task<long> CountAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity;
+        T First<T>(SelectQuery<T> query) where T : IDatabaseEntity;
+        Task<T> FirstAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity;
+        T? FirstOrDefault<T>(SelectQuery<T> query) where T : IDatabaseEntity;
+        Task<T?> FirstOrDefaultAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity;
+        bool Any<T>(SelectQuery<T> query) where T : IDatabaseEntity;
+        Task<bool> AnyAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity;
         int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList);
         Task<int> ExecuteNonQueryAsync(string sqlQuery, List<KeyValuePair<string, object>> paramList, CancellationToken cancellationToken = default);
         DataTable? ExecuteReader(string sqlQuery, List<KeyValuePair<string, object>> paramList);
@@ -24,19 +38,27 @@ namespace OPNX.Lib.Data.ORM.Interfaces
         /// <summary>Executes database operations sequentially in a single transaction and returns a result. Commits on success and rolls back and rethrows on failure. Do not run commands in parallel within the callback.</summary>
         Task<TResult> ExecuteInTransactionAsync<TResult>(Func<IDataBaseService, CancellationToken, Task<TResult>> work, CancellationToken cancellationToken = default);
 
-        int InsertEntity<T>(T insertEntity) where T : IEntity;
-        Task<int> InsertEntityAsync<T>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity;
-        int BatchInsert<T>(IReadOnlyList<T> insertEntities) where T : IEntity;
-        Task<int> BatchInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity;
-        Task<int> BulkInsertAsync<T>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity;
-        bool DeleteEntity<T>(T deleteEntity) where T : IEntity;
-        Task<bool> DeleteEntityAsync<T>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity;
-        int BatchDelete<T>(IReadOnlyList<T> deleteEntities) where T : IEntity;
-        Task<int> BatchDeleteAsync<T>(IReadOnlyList<T> deleteEntities, CancellationToken cancellationToken = default) where T : IEntity;
-        bool UpdateEntity<T>(T updateEntity) where T : IEntity;
-        Task<bool> UpdateEntityAsync<T>(T updateEntity, CancellationToken cancellationToken = default) where T : IEntity;
-        int BatchUpdate<T>(IReadOnlyList<T> updateEntities) where T : IEntity;
-        Task<int> BatchUpdateAsync<T>(IReadOnlyList<T> updateEntities, CancellationToken cancellationToken = default) where T : IEntity;
+        TKey InsertEntity<T, TKey>(T insertEntity) where T : IEntity<TKey> where TKey : notnull;
+        Task<TKey> InsertEntityAsync<T, TKey>(T insertEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        int BatchInsert<T, TKey>(IReadOnlyList<T> insertEntities) where T : IEntity<TKey> where TKey : notnull;
+        Task<int> BatchInsertAsync<T, TKey>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        Task<int> BulkInsertAsync<T, TKey>(IReadOnlyList<T> insertEntities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        bool DeleteEntity<T, TKey>(T deleteEntity) where T : IEntity<TKey> where TKey : notnull;
+        Task<bool> DeleteEntityAsync<T, TKey>(T deleteEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        int BatchDelete<T, TKey>(IReadOnlyList<T> deleteEntities) where T : IEntity<TKey> where TKey : notnull;
+        Task<int> BatchDeleteAsync<T, TKey>(IReadOnlyList<T> deleteEntities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        bool CascadeInsert<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        bool CascadeUpdate<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        bool CascadeDelete<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        Task<bool> CascadeInsertAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        Task<bool> CascadeUpdateAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, Expression<Func<TChild, object?>> foreignKey, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        Task<bool> CascadeDeleteAsync<TParent, TParentKey, TChild, TChildKey>(TParent parent, IReadOnlyList<TChild> children, CancellationToken cancellationToken = default) where TParent : IEntity<TParentKey> where TParentKey : notnull where TChild : IEntity<TChildKey> where TChildKey : notnull;
+        bool UpdateEntity<T, TKey>(T updateEntity) where T : IEntity<TKey> where TKey : notnull;
+        bool UpdateEntity<T, TKey>(T updateEntity, params Expression<Func<T, object?>>[] properties) where T : IEntity<TKey> where TKey : notnull;
+        Task<bool> UpdateEntityAsync<T, TKey>(T updateEntity, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
+        Task<bool> UpdateEntityAsync<T, TKey>(T updateEntity, CancellationToken cancellationToken = default, params Expression<Func<T, object?>>[] properties) where T : IEntity<TKey> where TKey : notnull;
+        int BatchUpdate<T, TKey>(IReadOnlyList<T> updateEntities) where T : IEntity<TKey> where TKey : notnull;
+        Task<int> BatchUpdateAsync<T, TKey>(IReadOnlyList<T> updateEntities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
 
         event EntityChangedEventHandler? EntityChanged;
 

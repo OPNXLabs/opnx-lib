@@ -28,6 +28,7 @@
 /src/OPNX.Lib.Streaming/bin
 /src/.vs
 /src/.dotnet
+/.dotnet/
 /src/OPNX.Lib.Onvif/bin
 /src/OPNX.Lib.Onvif/obj
 /src/OPNX.Lib.SystemMonitoring/bin

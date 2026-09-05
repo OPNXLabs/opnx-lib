@@ -162,6 +162,24 @@ await databaseService.UpdateEntityAsync<UserSettings, int>(
 
 After a successful database operation, the configured `EntityStore` synchronizes insert, update, and delete results and publishes change events. EntityStore is more than a cache: it provides key-based lookup, shared state, and downstream change flow for long-running components such as servers and clients.
 
+EntityStore maintains one authoritative instance per entity type and key. Use that instance for reads and UI binding. Submit inserts with a new entity that is not attached to an EntityStore, and submit updates with a new entity or an editing copy created by `Clone()`. To persist an aggregate, populate the required child collections and submit the parent once; do not add the children to EntityStore first. The database service cascade assigns foreign keys and persists each row in order.
+
+`EntityChanged` does not expose the tracked entity or a clone of its object graph. It publishes an immutable row change containing the entity type, key, operation, original and current values, and changed property names. Consumers that need the current entity look it up by type and key. Remote consumers can apply only `CurrentValues` to their existing authoritative instance, preserving object identity and bindings while reducing clone, graph-serialization, and transport costs.
+
+When an update changes a foreign key, EntityStore compares the FK values before and after applying the update and invalidates only the inverse collection caches for the changed old and new relationships. Moving a user between groups therefore reloads both groups' member collections, while an ordinary property update leaves relationship caches untouched. This is an in-memory navigation-consistency operation; it does not invoke a cascade or mutate additional database rows.
+
+```csharp
+databaseService.EntityChanged += (_, change) =>
+{
+    if (change.Is<Device>() && change.IsChanged(nameof(Device.ConnectionState)))
+    {
+        Device? current = change.FindCurrent<Device, int>(databaseService.EntityStore);
+    }
+};
+```
+
+If EntityStore synchronization fails after the database operation succeeds, the database result cannot be rolled back and `EntityStoreSynchronizationFailed` is raised. A queued Store failure after commit is also recorded as a critical log, and no automatic recovery is performed. A long-running service may subscribe to schedule a complete EntityStore reload or service recovery. A reconnecting client should use a complete reload to recover any real-time changes it missed while disconnected.
+
 ```csharp
 await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
 {

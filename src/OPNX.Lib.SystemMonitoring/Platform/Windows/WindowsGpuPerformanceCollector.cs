@@ -95,7 +95,7 @@ internal sealed partial class WindowsGpuPerformanceCollector
         return counters;
     }
 
-    private static IEnumerable<string> ExpandWildcardPath(string wildcardPath)
+    private static string[] ExpandWildcardPath(string wildcardPath)
     {
         uint size = 0;
         uint status = PdhExpandWildCardPath(null, wildcardPath, null, ref size, 0);

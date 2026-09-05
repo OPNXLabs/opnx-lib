@@ -61,6 +61,7 @@ namespace OPNX.Lib.Data.ORM.Interfaces
         Task<int> BatchUpdateAsync<T, TKey>(IReadOnlyList<T> updateEntities, CancellationToken cancellationToken = default) where T : IEntity<TKey> where TKey : notnull;
 
         event EntityChangedEventHandler? EntityChanged;
+        event EventHandler<EntityStoreSynchronizationFailedEventArgs>? EntityStoreSynchronizationFailed;
 
         IEntityStore EntityStore { get; }
     }

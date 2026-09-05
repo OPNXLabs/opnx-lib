@@ -64,7 +64,7 @@ namespace OPNX.Lib.Onvif.Services
                 new XElement(message));
         }
 
-        private static IReadOnlyDictionary<string, string> ParseSimpleItems(XElement? parent)
+        private static Dictionary<string, string> ParseSimpleItems(XElement? parent)
         {
             if (parent == null)
                 return new Dictionary<string, string>();

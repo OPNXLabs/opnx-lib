@@ -10,6 +10,7 @@ using OPNX.Lib.Data.ORM.Generators;
 using OPNX.Lib.Data.ORM.Interfaces;
 using OPNX.Lib.Data.ORM.Mapping;
 using OPNX.Lib.Data.ORM.Query;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Data;
@@ -26,6 +27,7 @@ namespace OPNX.Lib.Data.ORM.Services
         private string _connectionString = string.Empty;
 
         private static readonly ConcurrentDictionary<string, MethodInfo> _cachedGenericMethods = new();
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _cachedDirtyCheckProperties = new();
 
         private readonly IEntityStore? _entityStore;
         private readonly ILogger _logger;
@@ -73,10 +75,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 ConnectionString = connectionString;
 
             _entityStore = useEntityStore ? entityStore ?? throw new ArgumentNullException(nameof(entityStore)) : null;
-            if (_entityStore != null)
-            {
-                _entityStore.EntityChanged += EntityStore_EntityChanged;
-            }
+            _entityStore?.EntityChanged += EntityStore_EntityChanged;
         }
         #endregion
 
@@ -87,6 +86,8 @@ namespace OPNX.Lib.Data.ORM.Services
 
         public bool UsesEntityStore => _entityStore != null;
         public IEntityStore EntityStore => _entityStore ?? throw new InvalidOperationException("This database service was created without an EntityStore.");
+
+        public event EventHandler<EntityStoreSynchronizationFailedEventArgs>? EntityStoreSynchronizationFailed;
 
         public int CommandTimeout
         {
@@ -136,6 +137,9 @@ namespace OPNX.Lib.Data.ORM.Services
                 _connectionString = strArray == null ? string.Empty : string.Join(";", strArray);
             }
         }
+
+        private IEntityStore RequiredEntityStore => _entityStore
+            ?? throw new InvalidOperationException("EntityStore synchronization requires a configured EntityStore.");
         #endregion
 
         #region Events
@@ -178,8 +182,19 @@ namespace OPNX.Lib.Data.ORM.Services
 
         public T First<T>(SelectQuery<T> query) where T : IDatabaseEntity => FirstOrDefault(query) ?? throw new InvalidOperationException($"The query returned no {typeof(T).Name} entity.");
         public async Task<T> FirstAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity => await FirstOrDefaultAsync(query, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException($"The query returned no {typeof(T).Name} entity.");
-        public T? FirstOrDefault<T>(SelectQuery<T> query) where T : IDatabaseEntity { ArgumentNullException.ThrowIfNull(query); return Select(query.CopyWithLimit(1)).FirstOrDefault(); }
-        public async Task<T?> FirstOrDefaultAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity { ArgumentNullException.ThrowIfNull(query); IReadOnlyList<T> result = await SelectAsync(query.CopyWithLimit(1), cancellationToken).ConfigureAwait(false); return result.FirstOrDefault(); }
+        public T? FirstOrDefault<T>(SelectQuery<T> query) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            IReadOnlyList<T> result = Select(query.CopyWithLimit(1));
+            return result.Count > 0 ? result[0] : default;
+        }
+
+        public async Task<T?> FirstOrDefaultAsync<T>(SelectQuery<T> query, CancellationToken cancellationToken = default) where T : IDatabaseEntity
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            IReadOnlyList<T> result = await SelectAsync(query.CopyWithLimit(1), cancellationToken).ConfigureAwait(false);
+            return result.Count > 0 ? result[0] : default;
+        }
         public bool Any<T>(SelectQuery<T> query) where T : IDatabaseEntity
         {
             ArgumentNullException.ThrowIfNull(query);
@@ -744,9 +759,40 @@ namespace OPNX.Lib.Data.ORM.Services
         {
             ApplyOrEnqueueStoreAction(() =>
             {
-                if (!mutation())
-                    throw new InvalidOperationException($"EntityStore {operation} failed for {entityType.Name} after the database operation succeeded.");
+                try
+                {
+                    if (!mutation())
+                        throw new InvalidOperationException($"EntityStore {operation} failed for {entityType.Name} after the database operation succeeded.");
+                }
+                catch (Exception ex)
+                {
+                    OnEntityStoreSynchronizationFailed(operation, entityType, ex);
+                    throw;
+                }
             });
+        }
+
+        private void OnEntityStoreSynchronizationFailed(string operation, Type entityType, Exception exception)
+        {
+            EventHandler<EntityStoreSynchronizationFailedEventArgs>? handlers = EntityStoreSynchronizationFailed;
+            if (handlers == null)
+                return;
+
+            var eventArgs = new EntityStoreSynchronizationFailedEventArgs(operation, entityType, exception);
+            foreach (Delegate subscriber in handlers.GetInvocationList())
+            {
+                try
+                {
+                    var handler = (EventHandler<EntityStoreSynchronizationFailedEventArgs>)subscriber;
+                    handler(this, eventArgs);
+                }
+                catch (Exception subscriberException)
+                {
+                    _logger.LogError(subscriberException,
+                        "EntityStore synchronization failure subscriber threw an exception. Operation={Operation}, EntityType={EntityType}.",
+                        operation, entityType.Name);
+                }
+            }
         }
 
         private void FlushPendingStoreActions(TxContext ctx)
@@ -827,12 +873,10 @@ namespace OPNX.Lib.Data.ORM.Services
                 EnqueueRollbackAction(() => auditable.InsertTime = originalInsertTime);
                 auditable.InsertTime = DateTime.Now;
             }
-            T storeEntity = default!;
             if (synchronizeStore)
             {
-                if (!IsIdentityKey<T>() && _entityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
+                if (!IsIdentityKey<T>() && RequiredEntityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
                     throw new InvalidOperationException($"{typeof(T).Name} with key {insertEntity.ID} is already loaded in EntityStore.");
-                storeEntity = CreateDatabaseSnapshot(insertEntity);
             }
             CompiledDbCommand command = SqlGenerator.Insert<T, TKey>(insertEntity);
             object? result = ExecuteScalar(command.CommandText, command.Parameters);
@@ -842,8 +886,7 @@ namespace OPNX.Lib.Data.ORM.Services
             insertEntity.ID = newKey;
             if (synchronizeStore)
             {
-                storeEntity.ID = newKey;
-                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(storeEntity), "insert", typeof(T));
+                ApplyOrEnqueueStoreMutation(() => RequiredEntityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
             }
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
@@ -852,7 +895,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 CascadeEntityAction(legacyEntity, nameof(CascadeInsertEntity), CascadeType.Insert);
             }
             if (_entityStore == null)
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Insert, (IDatabaseEntity?)null, insertEntity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateInsert(insertEntity));
             return newKey;
         }
 
@@ -868,12 +911,10 @@ namespace OPNX.Lib.Data.ORM.Services
                 EnqueueRollbackAction(() => auditable.InsertTime = originalInsertTime);
                 auditable.InsertTime = DateTime.Now;
             }
-            T storeEntity = default!;
             if (synchronizeStore)
             {
-                if (!IsIdentityKey<T>() && _entityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
+                if (!IsIdentityKey<T>() && RequiredEntityStore.FindEntity<T, TKey>(insertEntity.ID) != null)
                     throw new InvalidOperationException($"{typeof(T).Name} with key {insertEntity.ID} is already loaded in EntityStore.");
-                storeEntity = CreateDatabaseSnapshot(insertEntity);
             }
             CompiledDbCommand command = SqlGenerator.Insert<T, TKey>(insertEntity);
             object? result = await ExecuteScalarAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false);
@@ -883,8 +924,7 @@ namespace OPNX.Lib.Data.ORM.Services
             insertEntity.ID = newKey;
             if (synchronizeStore)
             {
-                storeEntity.ID = newKey;
-                ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(storeEntity), "insert", typeof(T));
+                ApplyOrEnqueueStoreMutation(() => RequiredEntityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
             }
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.InsertEntity<T, TKey>(insertEntity), "insert", typeof(T));
@@ -893,7 +933,7 @@ namespace OPNX.Lib.Data.ORM.Services
                 await CascadeEntityActionAsync(legacyEntity, nameof(CascadeInsertEntityAsync), CascadeType.Insert, cancellationToken).ConfigureAwait(false);
             }
             if (_entityStore == null)
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Insert, (IDatabaseEntity?)null, insertEntity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateInsert(insertEntity));
             return newKey;
         }
 
@@ -909,6 +949,47 @@ namespace OPNX.Lib.Data.ORM.Services
 
         private static PropertyInfo GetKeyProperty<T>() => typeof(T).GetProperties().FirstOrDefault(property => property.GetCustomAttribute<EntityColumnAttribute>()?.IsPrimaryKey == true) ?? typeof(T).GetProperty("ID") ?? throw new InvalidOperationException($"{typeof(T).Name} does not define a primary key.");
 
+        private static bool HasMappedColumnChanges<T>(T current, T incoming, IReadOnlyList<PropertyInfo>? selectedProperties)
+        {
+            PropertyInfo[] properties = selectedProperties == null
+                ? _cachedDirtyCheckProperties.GetOrAdd(typeof(T), static entityType =>
+                    [.. entityType.GetProperties()
+                        .Where(property => property.CanRead && property.GetIndexParameters().Length == 0)
+                        .Select(property => (Property: property, Attribute: property.GetCustomAttribute<EntityColumnAttribute>(inherit: true)))
+                        .Where(item => item.Attribute != null &&
+                                       !item.Attribute.IsIdentity &&
+                                       !item.Attribute.IsPrimaryKey &&
+                                       !item.Attribute.IsReadOnly &&
+                                       !IsAuditTimestamp(item.Property.Name))
+                        .Select(item => item.Property)])
+                : [.. selectedProperties.Where(property => property.CanRead && !IsAuditTimestamp(property.Name))];
+
+            foreach (PropertyInfo property in properties)
+            {
+                object? currentValue = property.GetValue(current);
+                object? incomingValue = property.GetValue(incoming);
+                if (!AreMappedValuesEqual(currentValue, incomingValue))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsAuditTimestamp(string propertyName) =>
+            string.Equals(propertyName, nameof(IAuditableEntity.InsertTime), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, nameof(IAuditableEntity.UpdateTime), StringComparison.OrdinalIgnoreCase);
+
+        private static bool AreMappedValuesEqual(object? left, object? right)
+        {
+            if (ReferenceEquals(left, right))
+                return true;
+            if (left == null || right == null)
+                return false;
+            if (left is Array && right is Array)
+                return StructuralComparisons.StructuralEqualityComparer.Equals(left, right);
+            return left.Equals(right);
+        }
+
         private bool UpdateKeyedEntityCore<T, TKey>(T entity, IReadOnlyList<PropertyInfo>? properties) where T : IEntity<TKey> where TKey : notnull
         {
             bool synchronizeStore = ShouldSynchronizeEntityStore(entity);
@@ -923,6 +1004,12 @@ namespace OPNX.Lib.Data.ORM.Services
                 else if (properties == null)
                     CascadeEntityAction(legacyEntity, nameof(CascadeUpdateEntity), CascadeType.Update);
             }
+            if (synchronizeStore &&
+                _entityStore!.FindEntity<T, TKey>(entity.ID) is T currentEntity &&
+                !HasMappedColumnChanges(currentEntity, entity, properties))
+            {
+                return true;
+            }
             IAuditableEntity? auditEntity = null;
             DateTime originalUpdateTime = default;
             if (entity is IAuditableEntity { IsAuditable: true } auditable)
@@ -932,21 +1019,21 @@ namespace OPNX.Lib.Data.ORM.Services
                 EnqueueRollbackAction(() => auditable.UpdateTime = originalUpdateTime);
                 auditable.UpdateTime = DateTime.Now;
             }
-            T storeEntity = synchronizeStore ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : default!;
+            T storeEntity = synchronizeStore && properties != null ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : entity;
             CompiledDbCommand command = properties == null ? SqlGenerator.Update<T, TKey>(entity) : SqlGenerator.Update<T, TKey>(entity, properties);
             if (ExecuteNonQuery(command.CommandText, command.Parameters) <= 0)
             {
-                if (auditEntity != null) auditEntity.UpdateTime = originalUpdateTime;
+                auditEntity?.UpdateTime = originalUpdateTime;
                 return false;
             }
             if (synchronizeStore)
             {
-                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
+                ApplyOrEnqueueStoreMutation(() => RequiredEntityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
             }
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(entity), "update", typeof(T));
             else
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Update, (IDatabaseEntity?)null, entity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateUpdate(entity));
             return true;
         }
 
@@ -964,6 +1051,12 @@ namespace OPNX.Lib.Data.ORM.Services
                 else if (properties == null)
                     await CascadeEntityActionAsync(legacyEntity, nameof(CascadeUpdateEntityAsync), CascadeType.Update, cancellationToken).ConfigureAwait(false);
             }
+            if (synchronizeStore &&
+                _entityStore!.FindEntity<T, TKey>(entity.ID) is T currentEntity &&
+                !HasMappedColumnChanges(currentEntity, entity, properties))
+            {
+                return true;
+            }
             IAuditableEntity? auditEntity = null;
             DateTime originalUpdateTime = default;
             if (entity is IAuditableEntity { IsAuditable: true } auditable)
@@ -973,21 +1066,21 @@ namespace OPNX.Lib.Data.ORM.Services
                 EnqueueRollbackAction(() => auditable.UpdateTime = originalUpdateTime);
                 auditable.UpdateTime = DateTime.Now;
             }
-            T storeEntity = synchronizeStore ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : default!;
+            T storeEntity = synchronizeStore && properties != null ? CreateGenericStoreUpdateEntity<T, TKey>(entity, properties) : entity;
             CompiledDbCommand command = properties == null ? SqlGenerator.Update<T, TKey>(entity) : SqlGenerator.Update<T, TKey>(entity, properties);
             if (await ExecuteNonQueryAsync(command.CommandText, command.Parameters, cancellationToken).ConfigureAwait(false) <= 0)
             {
-                if (auditEntity != null) auditEntity.UpdateTime = originalUpdateTime;
+                auditEntity?.UpdateTime = originalUpdateTime;
                 return false;
             }
             if (synchronizeStore)
             {
-                ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
+                ApplyOrEnqueueStoreMutation(() => RequiredEntityStore.UpdateEntity<T, TKey>(storeEntity), "update", typeof(T));
             }
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.UpdateEntity<T, TKey>(entity), "update", typeof(T));
             else
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Update, (IDatabaseEntity?)null, entity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateUpdate(entity));
             return true;
         }
 
@@ -1007,7 +1100,7 @@ namespace OPNX.Lib.Data.ORM.Services
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
             else
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Delete, (IDatabaseEntity?)null, entity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateDelete(entity));
             return true;
         }
 
@@ -1027,11 +1120,12 @@ namespace OPNX.Lib.Data.ORM.Services
             else if (_entityStore != null)
                 ApplyOrEnqueueStoreMutation(() => _entityStore.DeleteEntity<T, TKey>(entity), "delete", typeof(T));
             else
-                PublishOrEnqueueEntityEvent(new EntityChangedEventArgs(DataChangedTypes.Delete, (IDatabaseEntity?)null, entity));
+                PublishOrEnqueueEntityEvent(EntityChangeTracker.CreateDelete(entity));
             return true;
         }
 
-        private bool ShouldSynchronizeEntityStore<T>(T entity) where T : IDatabaseEntity => _entityStore != null && entity is not IEntity { IsLogTable: true };
+        private bool ShouldSynchronizeEntityStore<T>(T entity) where T : IDatabaseEntity =>
+            _entityStore != null && entity is not IEntity { IsLogTable: true };
 
         private static PropertyInfo[] GetSelectedDatabaseProperties<T>(IReadOnlyList<Expression<Func<T, object?>>> properties) where T : IDatabaseEntity
         {
@@ -1068,16 +1162,22 @@ namespace OPNX.Lib.Data.ORM.Services
         private static T CreateDatabaseSnapshot<T>(T source)
         {
             ArgumentNullException.ThrowIfNull(source);
-            if (source is IEntity legacyEntity)
-                return (T)(object)(legacyEntity.Copy() ?? throw new InvalidOperationException($"Failed to copy {typeof(T).Name} for EntityStore synchronization."));
             if (typeof(T).IsValueType || typeof(T).IsAbstract || typeof(T).IsInterface)
                 throw new InvalidOperationException($"{typeof(T).Name} must be a concrete reference type for EntityStore snapshots.");
-            object snapshot;
-            try { snapshot = Activator.CreateInstance(typeof(T)) ?? throw new InvalidOperationException($"Failed to create an EntityStore snapshot for {typeof(T).Name}."); }
-            catch (MissingMethodException ex) { throw new InvalidOperationException($"{typeof(T).Name} requires a public parameterless constructor when EntityStore is enabled.", ex); }
+            T? snapshot;
+            try
+            {
+                snapshot = Activator.CreateInstance<T>()
+                    ?? throw new InvalidOperationException($"Failed to create an EntityStore snapshot for {typeof(T).Name}.");
+            }
+            catch (MissingMethodException ex)
+            {
+                throw new InvalidOperationException($"{typeof(T).Name} requires a public parameterless constructor when EntityStore is enabled.", ex);
+            }
+
             foreach (PropertyInfo property in typeof(T).GetProperties().Where(property => property.CanRead && property.CanWrite && property.IsDefined(typeof(EntityColumnAttribute), true)))
                 property.SetValue(snapshot, property.GetValue(source));
-            return (T)snapshot;
+            return snapshot;
         }
 
         protected abstract DbConnection CreateConnection(string connectionString);

@@ -162,6 +162,24 @@ await databaseService.UpdateEntityAsync<UserSettings, int>(
 
 Database 작업이 성공하면 설정된 `EntityStore`가 Insert, Update, Delete 결과와 변경 이벤트를 동기화합니다. EntityStore는 단순 Cache가 아니라 키 기반 검색, 상태 공유 및 서버·클라이언트 같은 장기 실행 구성요소의 후속 변경 흐름을 위한 메모리 상태 저장소로 사용할 수 있습니다.
 
+EntityStore는 Entity Type과 Key별로 하나의 원본 Instance를 유지합니다. 조회와 UI Binding에는 이 원본을 사용하고, 신규 저장은 `EntityStore`가 연결되지 않은 새 Entity로, 수정은 새 Entity 또는 `Clone()`으로 만든 편집본으로 요청합니다. Aggregate 저장은 필요한 Child Collection을 완성한 Parent를 한 번 전달하며, Child를 미리 EntityStore에 추가하지 않습니다. Database Service의 Cascade가 FK를 설정하고 각 Row를 순서대로 저장합니다.
+
+`EntityChanged`는 추적 중인 원본 Entity나 Entity Graph의 Clone을 노출하지 않습니다. 대신 Entity Type, Key, 변경 종류, 변경 전후 값과 변경된 Property 이름으로 구성된 불변 Row Change를 제공합니다. 소비자는 현재 Entity가 필요할 때 Type과 Key로 EntityStore에서 조회하고, 원격 변경은 기존 원본 Instance에 `CurrentValues`만 적용할 수 있습니다. 이 방식은 객체 Identity와 Binding을 유지하면서 Clone, Graph 직렬화 및 통신 비용을 줄입니다.
+
+Update에서 Foreign Key가 바뀌면 EntityStore는 적용 전후의 FK를 비교해 실제로 변경된 이전·신규 관계의 역방향 Collection Cache만 무효화합니다. 예를 들어 사용자의 Group ID가 변경되면 양쪽 Group의 Members Collection이 다시 조회되며, 일반 Property Update에서는 관계 Cache를 건드리지 않습니다. 이 처리는 Cascade나 Database Row를 추가로 변경하지 않고 메모리 탐색 속성의 일관성만 유지합니다.
+
+```csharp
+databaseService.EntityChanged += (_, change) =>
+{
+    if (change.Is<Device>() && change.IsChanged(nameof(Device.ConnectionState)))
+    {
+        Device? current = change.FindCurrent<Device, int>(databaseService.EntityStore);
+    }
+};
+```
+
+Database 작업 성공 이후 EntityStore 반영이 실패하면 Database 결과는 되돌릴 수 없으므로 `EntityStoreSynchronizationFailed`가 발생합니다. Commit 후 대기 중이던 Store 반영 실패는 Critical Log로도 기록하며 자동 복구는 수행하지 않습니다. 장기 실행 서비스는 필요에 따라 이 이벤트를 구독해 전체 EntityStore 재조회 또는 서비스 복구를 예약할 수 있습니다. 재접속한 Client는 전체 조회로 누락된 실시간 변경을 복구하는 것을 기본 정책으로 권장합니다.
+
 ```csharp
 await databaseService.ExecuteInTransactionAsync(async (service, cancellationToken) =>
 {

@@ -100,7 +100,7 @@ public sealed class SystemResourceCollector : ISystemResourceCollector, IDisposa
         };
     }
 
-    private static IReadOnlyList<DiskVolumeSnapshot> GetDiskSnapshots()
+    private static List<DiskVolumeSnapshot> GetDiskSnapshots()
     {
         List<DiskVolumeSnapshot> snapshots = [];
         foreach (DriveInfo drive in DriveInfo.GetDrives())
@@ -131,7 +131,7 @@ public sealed class SystemResourceCollector : ISystemResourceCollector, IDisposa
         return snapshots;
     }
 
-    private IReadOnlyList<NetworkInterfaceSnapshot> GetNetworkSnapshots(long sampleTimestamp)
+    private List<NetworkInterfaceSnapshot> GetNetworkSnapshots(long sampleTimestamp)
     {
         List<NetworkInterfaceSnapshot> snapshots = [];
         HashSet<string> currentIds = new(StringComparer.Ordinal);

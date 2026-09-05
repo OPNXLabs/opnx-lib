@@ -19,9 +19,22 @@ namespace OPNX.Lib.Data.ORM
         #region Fields
         private readonly ConcurrentDictionary<Type, object> _allEntitis = new();
         private readonly ILogger<EntityStore> _logger = logger ?? NullLogger<EntityStore>.Instance;
+        private int _externalChangeDepth;
+        protected bool IsApplyingExternalChange
+        {
+            get => Volatile.Read(ref _externalChangeDepth) > 0;
+            set
+            {
+                if (value)
+                    Interlocked.Increment(ref _externalChangeDepth);
+                else
+                    ExitExternalChange();
+            }
+        }
 
         protected static readonly ConcurrentDictionary<(Type typeT, Type typeU), MethodInfo> _cachedRefreshMethods = new();
         protected static readonly ConcurrentDictionary<(string methodName, Type type), MethodInfo> _cachedGenericHandlers = new();
+        private static readonly ConcurrentDictionary<Type, IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)>> _cachedForeignKeyProperties = new();
         #endregion
 
         #region Properties
@@ -33,9 +46,9 @@ namespace OPNX.Lib.Data.ORM
 
         #region Events
         public event EntityChangedEventHandler? EntityChanged;
-        protected void OnEntityChanged(DataChangedTypes changedType, IDatabaseEntity? oldEntity, IDatabaseEntity? newEntity)
+        protected void OnEntityChanged(EntityChangedEventArgs eventArgs)
         {
-            EntityChanged?.Invoke(this, new EntityChangedEventArgs(changedType, oldEntity, newEntity));
+            EntityChanged?.Invoke(this, eventArgs);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -64,7 +77,7 @@ namespace OPNX.Lib.Data.ORM
             ArgumentNullException.ThrowIfNull(insertEntity);
             if (insertEntity is IEntity { IsLogTable: true } logEntity)
             {
-                OnEntityChanged(DataChangedTypes.Insert, null, logEntity);
+                OnEntityChanged(EntityChangeTracker.CreateInsert(logEntity));
                 return true;
             }
             ObservableCollection<T> entities = GetEntities<T, TKey>();
@@ -79,12 +92,11 @@ namespace OPNX.Lib.Data.ORM
                 legacyEntity.NotifyInserted<IEntity>();
                 legacyEntity.PropertyChanged += Entity_PropertyChanged;
                 RefreshRelationProperties(legacyEntity, typeof(T));
-                OnEntityChanged(DataChangedTypes.Insert, null, legacyEntity);
+                OnEntityChanged(EntityChangeTracker.CreateInsert(legacyEntity));
                 return true;
             }
-            T snapshot = CreateDatabaseSnapshot(insertEntity);
-            entities.Add(snapshot);
-            OnEntityChanged(DataChangedTypes.Insert, null, snapshot);
+            entities.Add(insertEntity);
+            OnEntityChanged(EntityChangeTracker.CreateInsert(insertEntity));
             return true;
         }
 
@@ -93,7 +105,7 @@ namespace OPNX.Lib.Data.ORM
             ArgumentNullException.ThrowIfNull(updateEntity);
             if (updateEntity is IEntity { IsLogTable: true } logEntity)
             {
-                OnEntityChanged(DataChangedTypes.Update, null, logEntity);
+                OnEntityChanged(EntityChangeTracker.CreateUpdate(logEntity, logEntity));
                 return true;
             }
             ObservableCollection<T> entities = GetEntities<T, TKey>();
@@ -105,16 +117,17 @@ namespace OPNX.Lib.Data.ORM
                 currentLegacy.PropertyChanged -= Entity_PropertyChanged;
                 if (updateLegacy.IsAuditable && updateLegacy.IsDeleted)
                     return DeleteEntity<T, TKey>(current);
-                IEntity updatedEntity = currentLegacy.NotifyUpdated<IEntity>(updateLegacy);
-                RefreshRelationProperties(currentLegacy, typeof(T));
-                OnEntityChanged(DataChangedTypes.Update, currentLegacy, updatedEntity);
+                EntityChangedEventArgs change = EntityChangeTracker.CreateUpdate(currentLegacy, updateLegacy);
+                IReadOnlyDictionary<PropertyInfo, int?> originalRelations = CaptureRelationReferences(currentLegacy, typeof(T));
+                currentLegacy.NotifyUpdated<IEntity>(updateLegacy);
+                RefreshChangedRelationProperties(currentLegacy, typeof(T), originalRelations);
+                OnEntityChanged(change);
                 currentLegacy.PropertyChanged += Entity_PropertyChanged;
                 return true;
             }
-            int index = entities.IndexOf(current);
-            T snapshot = CreateDatabaseSnapshot(updateEntity);
-            entities[index] = snapshot;
-            OnEntityChanged(DataChangedTypes.Update, current, snapshot);
+            EntityChangedEventArgs genericChange = EntityChangeTracker.CreateUpdate(current, updateEntity);
+            CopyDatabaseColumns(updateEntity, current);
+            OnEntityChanged(genericChange);
             return true;
         }
 
@@ -123,7 +136,7 @@ namespace OPNX.Lib.Data.ORM
             ArgumentNullException.ThrowIfNull(deleteEntity);
             if (deleteEntity is IEntity { IsLogTable: true } logEntity)
             {
-                OnEntityChanged(DataChangedTypes.Delete, null, logEntity);
+                OnEntityChanged(EntityChangeTracker.CreateDelete(logEntity));
                 return true;
             }
             ObservableCollection<T> entities = GetEntities<T, TKey>();
@@ -132,17 +145,19 @@ namespace OPNX.Lib.Data.ORM
                 return false;
             if (current is IEntity currentLegacy)
             {
+                EntityChangedEventArgs change = EntityChangeTracker.CreateDelete(currentLegacy);
                 if (!entities.Remove(current))
                     return false;
                 currentLegacy.PropertyChanged -= Entity_PropertyChanged;
                 currentLegacy.NotifyDeleted<IEntity>();
                 RefreshRelationProperties(currentLegacy, typeof(T));
-                OnEntityChanged(DataChangedTypes.Delete, null, currentLegacy);
+                OnEntityChanged(change);
                 return true;
             }
+            EntityChangedEventArgs genericChange = EntityChangeTracker.CreateDelete(current);
             if (!entities.Remove(current))
                 return false;
-            OnEntityChanged(DataChangedTypes.Delete, current, null);
+            OnEntityChanged(genericChange);
             return true;
         }
 
@@ -159,16 +174,16 @@ namespace OPNX.Lib.Data.ORM
 
         public T? FindEntity<T, TKey>(Type entityType, TKey id) where T : IEntity<TKey> where TKey : notnull => FindEntity<TKey>(entityType, id) is T entity ? entity : default;
 
-        private static T CreateDatabaseSnapshot<T>(T source)
+        private static void CopyDatabaseColumns<T>(T source, T target)
         {
-            if (typeof(T).IsValueType || typeof(T).IsAbstract || typeof(T).IsInterface)
-                throw new InvalidOperationException($"{typeof(T).Name} must be a concrete reference type for EntityStore snapshots.");
-            object snapshot;
-            try { snapshot = Activator.CreateInstance(typeof(T)) ?? throw new InvalidOperationException($"Failed to create an EntityStore snapshot for {typeof(T).Name}."); }
-            catch (MissingMethodException ex) { throw new InvalidOperationException($"{typeof(T).Name} requires a public parameterless constructor when EntityStore is enabled.", ex); }
             foreach (PropertyInfo property in typeof(T).GetProperties().Where(property => property.CanRead && property.CanWrite && property.IsDefined(typeof(EntityColumnAttribute), true)))
-                property.SetValue(snapshot, property.GetValue(source));
-            return (T)snapshot;
+                property.SetValue(target, property.GetValue(source));
+        }
+
+        protected IDisposable BeginExternalChange()
+        {
+            Interlocked.Increment(ref _externalChangeDepth);
+            return new ExternalChangeScope(this);
         }
 
         public T? FindEntity<T, TKey>(Func<T, bool> predicate) where T : IEntity<TKey> where TKey : notnull
@@ -185,11 +200,36 @@ namespace OPNX.Lib.Data.ORM
         #endregion        
 
         #region Private / Protected Methods
+        private sealed class ExternalChangeScope(EntityStore owner) : IDisposable
+        {
+            private EntityStore? _owner = owner;
+
+            public void Dispose()
+            {
+                EntityStore? current = Interlocked.Exchange(ref _owner, null);
+                if (current != null)
+                    current.ExitExternalChange();
+            }
+        }
+
+        private void ExitExternalChange()
+        {
+            int current;
+            do
+            {
+                current = Volatile.Read(ref _externalChangeDepth);
+                if (current <= 0)
+                    return;
+            }
+            while (Interlocked.CompareExchange(ref _externalChangeDepth, current - 1, current) != current);
+        }
+
         private void Entity_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (sender is IEntity entity)
+            if (!IsApplyingExternalChange && sender is IEntity entity)
             {
-                EntityChanged?.Invoke(this, new EntityChangedEventArgs(DataChangedTypes.PropertyChanged, null, entity, e.PropertyName));
+                if (!string.IsNullOrWhiteSpace(e.PropertyName))
+                    EntityChanged?.Invoke(this, EntityChangeTracker.CreatePropertyChanged(entity, e.PropertyName));
             }
         }
 
@@ -239,52 +279,85 @@ namespace OPNX.Lib.Data.ORM
         protected void RefreshRelationProperties<T>(T entity) where T : IEntity
             => RefreshRelationProperties(entity, typeof(T));
 
-        private void RefreshRelationProperties(IEntity entity, Type entityType)
+        protected IReadOnlyDictionary<PropertyInfo, int?> CaptureRelationReferences<T>(T entity) where T : IEntity
+            => CaptureRelationReferences(entity, typeof(T));
+
+        protected void RefreshChangedRelationProperties<T>(
+            T entity,
+            IReadOnlyDictionary<PropertyInfo, int?> originalRelations) where T : IEntity
+            => RefreshChangedRelationProperties(entity, typeof(T), originalRelations);
+
+        private static IReadOnlyDictionary<PropertyInfo, int?> CaptureRelationReferences(IEntity entity, Type entityType)
         {
-            var propertiesWithForeignType = GetPropertiesWithForeignType(entityType);
+            var references = new Dictionary<PropertyInfo, int?>();
+            foreach (var property in GetPropertiesWithForeignType(entityType))
+                references[property.Property] = GetRelationID(property.Property, entity);
 
-            foreach (var property in propertiesWithForeignType)
+            return references;
+        }
+
+        private void RefreshChangedRelationProperties(
+            IEntity entity,
+            Type entityType,
+            IReadOnlyDictionary<PropertyInfo, int?> originalRelations)
+        {
+            foreach (var property in GetPropertiesWithForeignType(entityType))
             {
-                Type? typeT = property.Attribute.ForeignType;
-                Type typeU = entityType;
+                originalRelations.TryGetValue(property.Property, out int? originalID);
+                int? currentID = GetRelationID(property.Property, entity);
+                if (originalID == currentID)
+                    continue;
 
-                var methodKey = (typeT, typeU);
-
-                if (!_cachedRefreshMethods.TryGetValue(methodKey!, out var genericMethodInfo))
-                {
-                    var methodInfo = typeof(EntityStore).GetMethod(
-                        nameof(EntityStore.RefreshRelationProperty),
-                        BindingFlags.NonPublic | BindingFlags.Instance);
-
-                    if (methodInfo != null)
-                    {
-                        genericMethodInfo = methodInfo.MakeGenericMethod(typeT!, typeU);
-                        _cachedRefreshMethods.TryAdd(methodKey!, genericMethodInfo);
-                    }
-                }
-
-                if (genericMethodInfo != null)
-                {
-                    var obj = property.Property.GetValue(entity);
-
-                    if (obj is int value)
-                    {
-                        genericMethodInfo.Invoke(this, [value]);
-                    }
-                }
+                if (originalID.HasValue)
+                    RefreshRelationProperty(property.Attribute.ForeignType!, entityType, originalID.Value);
+                if (currentID.HasValue)
+                    RefreshRelationProperty(property.Attribute.ForeignType!, entityType, currentID.Value);
             }
         }
+
+        private void RefreshRelationProperties(IEntity entity, Type entityType)
+        {
+            foreach (var property in GetPropertiesWithForeignType(entityType))
+            {
+                int? relationID = GetRelationID(property.Property, entity);
+                if (relationID.HasValue)
+                    RefreshRelationProperty(property.Attribute.ForeignType!, entityType, relationID.Value);
+            }
+        }
+
+        private void RefreshRelationProperty(Type foreignType, Type entityType, int id)
+        {
+            var methodKey = (foreignType, entityType);
+            if (!_cachedRefreshMethods.TryGetValue(methodKey, out MethodInfo? genericMethodInfo))
+            {
+                MethodInfo? methodInfo = typeof(EntityStore).GetMethod(
+                    nameof(EntityStore.RefreshRelationProperty),
+                    BindingFlags.NonPublic | BindingFlags.Instance,
+                    [typeof(int)]);
+                if (methodInfo == null)
+                    return;
+
+                genericMethodInfo = methodInfo.MakeGenericMethod(foreignType, entityType);
+                _cachedRefreshMethods.TryAdd(methodKey, genericMethodInfo);
+            }
+
+            genericMethodInfo.Invoke(this, [id]);
+        }
+
+        private static int? GetRelationID(PropertyInfo property, IEntity entity)
+            => property.GetValue(entity) is int id ? id : null;
 
         protected static IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType<T>()
             => GetPropertiesWithForeignType(typeof(T));
 
         private static IReadOnlyList<(PropertyInfo Property, EntityColumnAttribute Attribute)> GetPropertiesWithForeignType(Type entityType)
         {
-            return entityType.GetProperties()
-                .Select(p => (Property: p, Attribute: p.GetCustomAttribute<EntityColumnAttribute>(inherit: true)))
-                .Where(x => x.Attribute?.ForeignType != null)          // Attribute != null 이고 ForeignType != null
-                .Select(x => (x.Property, x.Attribute!))               // 여기서 Attribute는 null 아님을 확정
-                .ToList();
+            return _cachedForeignKeyProperties.GetOrAdd(entityType, static type =>
+                type.GetProperties()
+                    .Select(p => (Property: p, Attribute: p.GetCustomAttribute<EntityColumnAttribute>(inherit: true)))
+                    .Where(x => x.Attribute?.ForeignType != null)
+                    .Select(x => (x.Property, x.Attribute!))
+                    .ToArray());
             //return typeof(T).GetProperties()
             //    .Select(p => (
             //        p,

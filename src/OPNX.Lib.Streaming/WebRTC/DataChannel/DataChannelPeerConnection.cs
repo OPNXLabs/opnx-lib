@@ -11,7 +11,7 @@ namespace OPNX.Lib.Streaming.WebRTC.DataChannel
         private const int H264PayloadType = 100;
         private const int PcmuPayloadType = 0;
 
-        private readonly IRtcPeerConnection peerConnection;
+        private readonly RtcPeerConnection peerConnection;
         private readonly IRtcTrack videoTrack;
         private readonly IRtcTrack audioTrack;
         private readonly uint videoSsrc = CreateSsrc();

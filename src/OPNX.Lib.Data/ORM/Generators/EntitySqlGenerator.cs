@@ -161,7 +161,7 @@ public abstract class EntitySqlGenerator : IEntitySqlGenerator
         return $"{column} {GetOperator(condition.Operator)} {parameterName}";
     }
 
-    private string BuildOrder(IReadOnlyList<QueryOrder> orders) => orders.Count == 0 ? string.Empty : $" ORDER BY {string.Join(",", orders.Select(order => $"{QuoteIdentifier(DatabaseNaming.GetColumnName(order.Property))} {(order.Direction == QuerySortDirection.Descending ? "DESC" : "ASC")}"))}";
+    private string BuildOrder(List<QueryOrder> orders) => orders.Count == 0 ? string.Empty : $" ORDER BY {string.Join(",", orders.Select(order => $"{QuoteIdentifier(DatabaseNaming.GetColumnName(order.Property))} {(order.Direction == QuerySortDirection.Descending ? "DESC" : "ASC")}"))}";
     private static IEnumerable<PropertyInfo> GetMappedProperties(Type entityType) => entityType.GetProperties().Where(property => property.CanRead && property.IsDefined(typeof(EntityColumnAttribute), true)).OrderBy(property => GetColumnAttribute(property).ColIndex);
     private static bool IsUpdateProperty(PropertyInfo property) => !GetColumnAttribute(property).IsPrimaryKey && !GetColumnAttribute(property).IsIdentity && !GetColumnAttribute(property).IsReadOnly && !string.Equals(property.Name, nameof(IAuditableEntity.InsertTime), StringComparison.OrdinalIgnoreCase);
     private static PropertyInfo ValidateUpdateProperty(Type entityType, PropertyInfo property)

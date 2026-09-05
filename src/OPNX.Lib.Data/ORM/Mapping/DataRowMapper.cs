@@ -3,6 +3,7 @@ using OPNX.Lib.Data.ORM.Enums;
 using OPNX.Lib.Data.ORM.Interfaces;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 
@@ -14,6 +15,7 @@ public sealed class DataRowMapper
 
     public T? Map<T>(DataRow row, IEntityStore? entityStore = null) => (T?)Map(typeof(T), row, entityStore);
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The instance mapping API is retained for dependency injection and source compatibility.")]
     public object? Map(Type targetType, DataRow row, IEntityStore? entityStore = null)
     {
         ArgumentNullException.ThrowIfNull(targetType);

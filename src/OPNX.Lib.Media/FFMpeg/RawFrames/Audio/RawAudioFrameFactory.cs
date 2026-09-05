@@ -9,7 +9,7 @@
         #endregion
 
         #region Private / Protected Methods
-        private ReadOnlyMemory<byte> CombineSegments(IEnumerable<ReadOnlyMemory<byte>> segments)
+        private static ReadOnlyMemory<byte> CombineSegments(IEnumerable<ReadOnlyMemory<byte>> segments)
         {
             int totalLength = segments.Sum(s => s.Length);
             byte[] buffer = new byte[totalLength];
@@ -34,6 +34,7 @@
 
 
         #region Public Methods
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The instance factory API is retained for source compatibility.")]
         public RawAudioFrame CreateAudioFrame(string codec, int sampleRate, int channels, int bitsPerSample, long timeStamp, IEnumerable<ReadOnlyMemory<byte>> data)
         {
             if (string.IsNullOrWhiteSpace(codec))

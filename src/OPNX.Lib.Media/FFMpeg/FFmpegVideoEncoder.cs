@@ -42,6 +42,12 @@ namespace OPNX.Lib.Media.FFMpeg
         }
         public FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat,
             int width, int height, int fps, int gop, long bitRate, ILogger? logger = null)
+            : this(hwDeviceType, codecID, pixelFormat, width, height, fps, gop, bitRate, logger, false)
+        {
+        }
+
+        internal FFmpegVideoEncoder(AVHWDeviceType hwDeviceType, AVCodecID codecID, AVPixelFormat pixelFormat,
+            int width, int height, int fps, int gop, long bitRate, ILogger? logger, bool globalHeader)
             : base()
         {
             _logger = logger ?? NullLogger.Instance;
@@ -68,6 +74,9 @@ namespace OPNX.Lib.Media.FFMpeg
                     };
 
                     _codecContext = ffmpeg.avcodec_alloc_context3(_codec);
+                    if (globalHeader)
+                        _codecContext->flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+
                     _codecContext->pix_fmt = pixelFormat;
                     _codecContext->bit_rate = bitRateKbps;
                     _codecContext->width = width;
@@ -330,8 +339,13 @@ namespace OPNX.Lib.Media.FFMpeg
         #region Public Methods          
         public unsafe void TryEncode(AVFrame* srcFrame)
         {
-            if (IsDisposed)
-                return;
+            EncodeFrame(srcFrame);
+        }
+
+        internal unsafe bool EncodeFrame(AVFrame* srcFrame)
+        {
+            if (IsDisposed || srcFrame == null || _codecContext == null || _packet == null)
+                return false;
 
             AVFrame* encodeFrame = srcFrame;
 
@@ -354,7 +368,7 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     _converter.Dispose();
                     _converter = null;
-                    return;
+                    return false;
                 }
 
                 encodeFrame = _convertedFrame; // 변환된 프레임 사용
@@ -363,7 +377,7 @@ namespace OPNX.Lib.Media.FFMpeg
             try
             {
                 if (ffmpeg.avcodec_send_frame(_codecContext, encodeFrame) < 0)
-                    return;
+                    return false;
 
                 while (true)
                 {
@@ -379,16 +393,16 @@ namespace OPNX.Lib.Media.FFMpeg
                         break;
 
                     ffmpeg.av_packet_unref(_packet);
-                    return;
+                    return false;
                 }
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "{Message}", ex.Message);
+                return false;
             }
         }
         #endregion
     }
 }
-
-

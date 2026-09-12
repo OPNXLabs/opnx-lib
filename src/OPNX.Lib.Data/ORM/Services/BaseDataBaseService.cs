@@ -341,16 +341,17 @@ namespace OPNX.Lib.Data.ORM.Services
         private TResult ExecuteInTransactionCore<TResult>(Func<TResult> work, bool throwOnError)
         {
             ArgumentNullException.ThrowIfNull(work);
-            if (_tx.Value != null)
+            var currentContext = _tx.Value;
+            if (currentContext != null)
             {
-                _tx.Value.Depth++;
+                currentContext.Depth++;
                 try
                 {
                     return work();
                 }
                 finally
                 {
-                    _tx.Value.Depth--;
+                    currentContext.Depth--;
                 }
             }
 
@@ -364,42 +365,46 @@ namespace OPNX.Lib.Data.ORM.Services
 
             DbTransaction? tx = null;
             TxContext? ctx = null;
+            TResult result;
 
             try
             {
-                tx = conn.BeginTransaction();
-
-                ctx = new TxContext
-                {
-                    Connection = conn,
-                    Transaction = tx,
-                    Depth = 1
-                };
-
-                _tx.Value = ctx;
-
-                var result = work();
-
-                tx.Commit();
-
-                FlushPendingStoreActions(ctx);
-                FlushPendingEntityEvents(ctx);
-
-                return result;
-            }
-            catch (Exception ex)
-            {
+                // Only database work and commit failures may roll back.
                 try
                 {
-                    tx?.Rollback();
+                    tx = conn.BeginTransaction();
+
+                    ctx = new TxContext
+                    {
+                        Connection = conn,
+                        Transaction = tx,
+                        Depth = 1
+                    };
+
+                    _tx.Value = ctx;
+
+                    result = work();
+
+                    tx.Commit();
+
                 }
-                catch { }
-                if (ctx != null)
-                    RunPendingRollbackActions(ctx);
-                _logger.LogError(ex, "{Message}", ex.Message);
-                if (throwOnError)
-                    throw;
-                return default!;
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        tx?.Rollback();
+                    }
+                    catch { }
+                    if (ctx != null)
+                        RunPendingRollbackActions(ctx);
+                    _logger.LogError(ex, "{Message}", ex.Message);
+                    if (throwOnError)
+                        throw;
+                    return default!;
+                }
+
+                // Synchronize memory while collecting its change notifications.
+                FlushPendingStoreActions(ctx!);
             }
             finally
             {
@@ -413,6 +418,10 @@ namespace OPNX.Lib.Data.ORM.Services
 
                 CloseDataBase(conn);
             }
+
+            // Publish after cleanup so subscribers cannot inherit this transaction.
+            FlushPendingEntityEvents(ctx!);
+            return result;
         }
 
         public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default)
@@ -446,16 +455,17 @@ namespace OPNX.Lib.Data.ORM.Services
         private async Task<TResult> ExecuteInTransactionAsyncCore<TResult>(Func<CancellationToken, Task<TResult>> work, bool throwOnError, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(work);
-            if (_tx.Value != null)
+            var currentContext = _tx.Value;
+            if (currentContext != null)
             {
-                _tx.Value.Depth++;
+                currentContext.Depth++;
                 try
                 {
                     return await work(cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
-                    _tx.Value.Depth--;
+                    currentContext.Depth--;
                 }
             }
 
@@ -469,48 +479,67 @@ namespace OPNX.Lib.Data.ORM.Services
 
             DbTransaction? transaction = null;
             TxContext? context = null;
+            TResult result;
             try
             {
-                transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-                context = new TxContext { Connection = connection, Transaction = transaction, Depth = 1 };
-                _tx.Value = context;
+                // Only database work and commit failures may roll back.
+                try
+                {
+                    transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                    context = new TxContext { Connection = connection, Transaction = transaction, Depth = 1 };
+                    _tx.Value = context;
 
-                TResult result = await work(cancellationToken).ConfigureAwait(false);
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                FlushPendingStoreActions(context);
-                FlushPendingEntityEvents(context);
-                return result;
-            }
-            catch (OperationCanceledException)
-            {
-                if (transaction != null)
-                {
-                    try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                    result = await work(cancellationToken).ConfigureAwait(false);
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 }
-                if (context != null)
-                    RunPendingRollbackActions(context);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                if (transaction != null)
+                catch (OperationCanceledException)
                 {
-                    try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
-                }
-                if (context != null)
-                    RunPendingRollbackActions(context);
-                _logger.LogError(ex, "{Message}", ex.Message);
-                if (throwOnError)
+                    if (transaction != null)
+                    {
+                        try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (context != null)
+                        RunPendingRollbackActions(context);
                     throw;
-                return default!;
+                }
+                catch (Exception ex)
+                {
+                    if (transaction != null)
+                    {
+                        try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (context != null)
+                        RunPendingRollbackActions(context);
+                    _logger.LogError(ex, "{Message}", ex.Message);
+                    if (throwOnError)
+                        throw;
+                    return default!;
+                }
+
+                // Synchronize memory while collecting its change notifications.
+                FlushPendingStoreActions(context!);
             }
             finally
             {
                 _tx.Value = null;
-                if (transaction != null)
-                    await transaction.DisposeAsync().ConfigureAwait(false);
-                await CloseDataBaseAsync(connection).ConfigureAwait(false);
+                try
+                {
+                    if (transaction != null)
+                        await transaction.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to dispose the database transaction.");
+                }
+                finally
+                {
+                    await CloseDataBaseAsync(connection).ConfigureAwait(false);
+                }
             }
+
+            // Publish after cleanup so subscribers cannot inherit this transaction.
+            FlushPendingEntityEvents(context!);
+            return result;
         }
 
         public virtual int ExecuteNonQuery(string sqlQuery, List<KeyValuePair<string, object>> paramList) => int.MinValue;

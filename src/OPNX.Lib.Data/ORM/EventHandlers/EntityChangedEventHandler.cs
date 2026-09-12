@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace OPNX.Lib.Data.ORM.EventHandlers
 {
@@ -202,18 +203,29 @@ namespace OPNX.Lib.Data.ORM.EventHandlers
 
         private static bool IsMappedProperty(PropertyInfo property)
         {
+            // 파생 클래스에서 제외한 속성은 변경 추적에도 포함하지 않습니다.
+            if (property.GetCustomAttribute<JsonIgnoreAttribute>(inherit: true)
+                is { Condition: JsonIgnoreCondition.Always })
+            {
+                return false;
+            }
+
             if (property.IsDefined(typeof(EntityColumnAttribute), inherit: true) ||
                 property.IsDefined(typeof(CustomEntityPropertyAttribute), inherit: true))
+            {
                 return true;
+            }
 
             MethodInfo? accessor = property.GetMethod ?? property.SetMethod;
             MethodInfo? baseAccessor = accessor?.GetBaseDefinition();
+
             if (accessor == null || baseAccessor == null || baseAccessor == accessor)
                 return false;
 
             PropertyInfo? baseProperty = baseAccessor.DeclaringType?.GetProperty(
                 property.Name,
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
             return baseProperty != null &&
                 (baseProperty.IsDefined(typeof(EntityColumnAttribute), inherit: true) ||
                  baseProperty.IsDefined(typeof(CustomEntityPropertyAttribute), inherit: true));

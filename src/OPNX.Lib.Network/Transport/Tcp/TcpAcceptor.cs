@@ -11,11 +11,12 @@ namespace OPNX.Lib.Network.Transport.Tcp
         private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
         #region Fields        
-        private int _started = 0;
+        private readonly object _lifecycleLock = new();
+        private int _started;
         private readonly string _address = address;
         private readonly int _port = port;
         private readonly TcpListener _listener = new(string.IsNullOrEmpty(address) ? IPAddress.Any : IPAddress.Parse(address), port);
-        private readonly CancellationTokenSource _listenerCancelTokenSource = new();
+        private CancellationTokenSource? _listenerCancelTokenSource;
         private Task? _listenTask;
         #endregion        
 
@@ -32,62 +33,75 @@ namespace OPNX.Lib.Network.Transport.Tcp
         #region Public Methods
         public void Start()
         {
-            if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
-                return;
+            lock (_lifecycleLock)
+            {
+                if (_started != 0)
+                    return;
 
-            try
-            {
-                _listener.Start();
-                _listenTask = Task.Run(() => ListenAsync(_listenerCancelTokenSource.Token));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Message}", ex.Message);
-                Interlocked.Exchange(ref _started, 0);
+                var cancellation = new CancellationTokenSource();
+                try
+                {
+                    _listener.Start();
+                    _listenerCancelTokenSource = cancellation;
+                    _listenTask = Task.Run(() => ListenAsync(cancellation.Token));
+                    _started = 1;
+                }
+                catch (Exception ex)
+                {
+                    cancellation.Dispose();
+                    _logger.LogError(ex, "{Message}", ex.Message);
+                }
             }
         }
 
         public void Stop()
         {
-            if (Interlocked.CompareExchange(ref _started, 0, 1) != 1)
-                return;
-
-            _listenerCancelTokenSource.Cancel();
-
-            try
+            lock (_lifecycleLock)
             {
-                _listener?.Stop();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Message}", ex.Message);
-            }
+                if (_started == 0)
+                    return;
 
-            // ListenAsync가 완료될 때까지 기다립니다.
-            if (_listenTask != null)
-            {
+                _started = 0;
+                CancellationTokenSource? cancellation = _listenerCancelTokenSource;
+                Task? listenTask = _listenTask;
+
+                cancellation?.Cancel();
+
                 try
                 {
-                    _listenTask.Wait(); // 비동기 listen 작업을 동기적으로 종료 대기
-                }
-                catch (Exception ex) when (ex is OperationCanceledException ||
-                                           ex.InnerException is OperationCanceledException ||
-                                           ex.InnerException is ObjectDisposedException)
-                {
-                    // 정상적인 취소 또는 종료 → 무시
+                    _listener.Stop();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "listenTask 처리 중 예외 발생. {Message}", ex.Message);
+                    _logger.LogError(ex, "{Message}", ex.Message);
                 }
+
+                if (listenTask != null)
+                {
+                    try
+                    {
+                        listenTask.Wait();
+                    }
+                    catch (Exception ex) when (ex is OperationCanceledException ||
+                                               ex.InnerException is OperationCanceledException ||
+                                               ex.InnerException is ObjectDisposedException)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "listenTask 처리 중 예외 발생. {Message}", ex.Message);
+                    }
+                }
+
+                _listenTask = null;
+                _listenerCancelTokenSource = null;
+                cancellation?.Dispose();
             }
         }
 
         public void Dispose()
         {
             Stop();
-
-            _listenerCancelTokenSource.Dispose();
 
             GC.SuppressFinalize(this);
         }

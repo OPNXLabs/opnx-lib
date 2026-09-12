@@ -1,4 +1,5 @@
-using OnEyes.DataBase.Datas;
+﻿using OnEyes.DataBase.Datas;
+using OPNX.Lib.Data.ORM.EventHandlers;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
@@ -321,6 +322,42 @@ namespace OPNX.Lib.Data.ORM
         //    }
         //    return result;
         //}
+
+        /// <summary>
+        /// Checks this entity and downward FK collections against an immutable change event.
+        /// Existing items match by type/ID; new items and ownership changes match by old/new FK.
+        /// The traversal filter is applied before reading a relationship. Call on the owning thread.
+        /// </summary>
+        public bool IsRelatedChange(EntityChangedEventArgs change,
+            Func<Entity, PropertyInfo, bool>? shouldTraverse = null)
+        {
+            ArgumentNullException.ThrowIfNull(change);
+            int changedId = (int)(EntityChangeTracker.ConvertValue(change.EntityID, typeof(int)) ?? 0);
+            if (changedId <= 0) return false;
+
+            var pending = new Stack<Entity>();
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            pending.Push(this);
+            while (pending.TryPop(out var entity))
+            {
+                if (!visited.Add(entity)) continue;
+                if (entity.GetType() == change.EntityType && entity.ID == changedId) return true;
+
+                foreach (var relation in entity.GetRelatedListProps())
+                {
+                    if (shouldTraverse?.Invoke(entity, relation.Property) == false) continue;
+                    var foreignKey = relation.ForeignKeyAttribs;
+                    if (entity.ID > 0 && foreignKey.RelatedType == change.EntityType
+                        && (change.GetOriginalValue<int?>(foreignKey.ForeignKeyField) == entity.ID
+                            || change.GetCurrentValue<int?>(foreignKey.ForeignKeyField) == entity.ID))
+                        return true;
+
+                    if (relation.Property.GetValue(entity) is System.Collections.IEnumerable children)
+                        foreach (var child in children.OfType<Entity>()) pending.Push(child);
+                }
+            }
+            return false;
+        }
 
         public IEnumerable<PropertySchema> GetRelatedListProps()
         {

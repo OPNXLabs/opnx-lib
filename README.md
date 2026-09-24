@@ -2,7 +2,33 @@
 
 [한국어](README.ko.md)
 
-> **License notice:** OPNX.Lib is source-available software, not open-source software. Commercial use and redistribution require prior written permission from OPNX. See [License.txt](License.txt).
+**A C#/.NET SDK for building real-time video and video-surveillance systems.**
+
+RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
+
+[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [Run the RTSP sample](https://github.com/OPNXLabs/opnx-samples#run-rtsp-multi-live-viewer) · [Explore all samples](https://github.com/OPNXLabs/opnx-samples) · [Commercial and OEM inquiries](#license-and-support)
+
+![OPNX.V multi-channel live monitoring built with OPNX.Lib and OPNX.UI](docs/images/opnx-v-live-monitoring.png)
+
+## Powering OPNX.V
+
+[OPNX.V](https://www.opnx.kr/) is a VMS/NVR application under active development on OPNX.Lib and OPNX.UI. It is the integration proving ground for multi-channel live monitoring, RTSP and ONVIF camera connectivity, scheduled recording, recorder-process recovery, recorded-video search, synchronized playback, user and permission management, layouts, tours, logs, events, and alarms.
+
+OPNX.V uses a unified C#/.NET application stack across its WPF clients, application and service logic, device integration, networking, recording and playback orchestration, data synchronization, and server infrastructure. Specialized native libraries such as FFmpeg are integrated where appropriate for media processing.
+
+The first OPNX.V release is currently targeted for 2026. Features are described as implemented, in active integration, or planned; the preview SDK should not be read as a claim that the complete product is production-ready.
+
+## Start Here
+
+Install the preview package:
+
+```powershell
+dotnet add package OPNX.Lib --prerelease
+```
+
+For the shortest path from package to working video, start with [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer). It demonstrates RTSP input, FFmpeg decoding, WPF video presentation, camera navigation, and a configurable multi-view using published OPNX packages.
+
+> **License:** OPNX.Lib is source-available, not open-source. Learning, research, testing, and non-commercial evaluation are permitted under [License.txt](License.txt). Commercial use, production use, redistribution, and OEM integration require prior written permission from OPNX.
 
 OPNX.Lib is a modular .NET infrastructure SDK for stateful video systems such as VMS, NVR, streaming servers, device gateways, media-processing services, and monitoring applications.
 

@@ -2,7 +2,33 @@
 
 [English](README.md)
 
-> **라이선스 안내:** OPNX.Lib는 오픈 소스 소프트웨어가 아닌 source-available 소프트웨어입니다. 상업적 사용과 재배포에는 OPNX의 사전 서면 허가가 필요합니다. 자세한 내용은 [License.txt](License.txt)를 확인하십시오.
+**실시간 영상 및 영상 보안 시스템을 구축하기 위한 C#/.NET SDK입니다.**
+
+RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
+
+[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [RTSP 샘플 실행](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#rtsp-multi-live-viewer-실행) · [전체 샘플 보기](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md) · [상업 라이선스 및 OEM 문의](#라이선스-및-지원)
+
+![OPNX.Lib와 OPNX.UI로 개발 중인 OPNX.V 다채널 라이브 모니터링](docs/images/opnx-v-live-monitoring.png)
+
+## OPNX.V를 구성하는 기반 기술
+
+[OPNX.V](https://www.opnx.kr/)는 OPNX.Lib와 OPNX.UI를 기반으로 개발 중인 VMS/NVR 애플리케이션입니다. 다채널 라이브 모니터링, RTSP 및 ONVIF 카메라 연동, 스케줄 녹화, Recorder 프로세스 장애 복구, 저장영상 검색, 동기 재생, 사용자·권한 관리, 레이아웃, 투어, 로그, 이벤트 및 알람을 실제 제품 구조 안에서 통합하고 검증합니다.
+
+OPNX.V는 WPF 클라이언트, 애플리케이션 및 서비스 로직, 장치 연동, 네트워크, 녹화·재생 오케스트레이션, 데이터 동기화와 서버 인프라를 C#/.NET 중심의 통합된 애플리케이션 스택으로 구성합니다. FFmpeg 같은 전문 네이티브 라이브러리는 미디어 처리에 적합한 영역에서 연동합니다.
+
+OPNX.V의 첫 릴리스는 현재 2026년을 목표로 개발 중입니다. 기능은 구현 완료, 통합 진행, 계획 단계로 구분하여 설명하며, preview SDK 공개가 완성된 제품의 production-ready 상태를 의미하지는 않습니다.
+
+## 여기서 시작하세요
+
+Preview 패키지를 설치합니다.
+
+```powershell
+dotnet add package OPNX.Lib --prerelease
+```
+
+패키지 설치 후 영상을 가장 빠르게 확인하려면 [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer)부터 시작하세요. 공개된 OPNX 패키지로 RTSP 입력, FFmpeg 디코딩, WPF 영상 표시, 카메라 탐색과 구성 가능한 MultiView를 실행할 수 있습니다.
+
+> **라이선스:** OPNX.Lib는 오픈 소스가 아닌 source-available 소프트웨어입니다. [License.txt](License.txt)에 따라 학습, 연구, 테스트 및 비상업적 평가에 사용할 수 있습니다. 상업적 사용, 운영 환경 사용, 재배포 및 OEM 통합에는 OPNX의 사전 서면 허가가 필요합니다.
 
 OPNX.Lib는 VMS, NVR, 스트리밍 서버, 장치 게이트웨이, 미디어 처리 서비스 및 모니터링 애플리케이션을 위한 모듈형 .NET 인프라 SDK입니다.
 

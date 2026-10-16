@@ -18,12 +18,17 @@ namespace OPNX.Lib.Network.Protocol.Tcp
         }
 
         public OPNXTcpClient(TcpClient tcpClient, TcpConnectionOptions connectionOptions, ILogger? logger = null)
-            : this(new TcpConnection(connectionOptions), tcpClient, logger)
+            : this(new TcpConnection(connectionOptions), tcpClient, ProtocolOptions.Default, logger)
         {
         }
 
-        private OPNXTcpClient(TcpConnection tcpConnection, TcpClient tcpClient, ILogger? logger = null)
-            : base(tcpConnection, logger: logger)
+        public OPNXTcpClient(TcpClient tcpClient, TcpConnectionOptions connectionOptions, ProtocolOptions? protocolOptions = null, ILogger? logger = null)
+            : this(new TcpConnection(connectionOptions), tcpClient, protocolOptions, logger)
+        {
+        }
+
+        private OPNXTcpClient(TcpConnection tcpConnection, TcpClient tcpClient, ProtocolOptions? protocolOptions = null, ILogger? logger = null)
+            : base(tcpConnection, options: protocolOptions, logger: logger)
         {
             _tcpConnection = tcpConnection;
             if (tcpClient != null)

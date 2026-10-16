@@ -227,6 +227,48 @@ namespace OPNX.Lib.Network.Protocol.Abstractions
             }
         }
 
+        public async ValueTask<bool> SendOwnedDataAsync(PacketHeader header, IMemoryOwner<byte> owner, int payloadSize, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            Packet? packet = null;
+
+            try
+            {
+                var outbound = _outboundChannel;
+                if (IsDisposed || outbound is null || !IsConnected || payloadSize <= 0 || payloadSize > owner.Memory.Length)
+                    return false;
+
+                var outboundHeader = new PacketHeader(header.Flags, header.PacketType, header.PayloadType, (uint)payloadSize, header.Version, header.Reserved);
+                packet = new Packet(outboundHeader, owner, payloadSize);
+                owner = null!;
+
+                if (!outbound.Writer.TryWrite(packet))
+                    await outbound.Writer.WriteAsync(packet, cancellationToken).ConfigureAwait(false);
+
+                MarkOutboundQueued(packet.Payload.Length);
+                packet = null;
+                return true;
+            }
+            catch (ChannelClosedException)
+            {
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                return false;
+            }
+            finally
+            {
+                packet?.Dispose();
+                owner?.Dispose();
+            }
+        }
+
         public void Connect(EndPoint endPoint)
         {
             if (IsDisposed)

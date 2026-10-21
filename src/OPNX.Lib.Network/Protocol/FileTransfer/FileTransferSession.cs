@@ -24,7 +24,8 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         #region Fields
         private readonly bool _ownsConnection;
         private readonly CancellationTokenSource _sessionCts = new();
-        private bool _disposed;
+        private readonly CancellationToken _sessionToken;
+        private int _disposed;
         #endregion
 
         #region Constructors
@@ -32,6 +33,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         {
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
             Role = role;
+            _sessionToken = _sessionCts.Token;
             _ownsConnection = ownsConnection;
             Logger = logger ?? NullLogger.Instance;
             Connection.PacketReceived += Connection_PacketReceived;
@@ -42,8 +44,8 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         #region Properties
         protected OPNXTcpClient Connection { get; }
         protected ILogger Logger { get; }
-        protected CancellationToken SessionToken => _sessionCts.Token;
-        protected bool IsDisposed => _disposed;
+        protected CancellationToken SessionToken => _sessionToken;
+        protected bool IsDisposed => Volatile.Read(ref _disposed) != 0;
         public Guid SessionID => Connection.SessionID;
         public bool IsConnected => Connection.IsConnected;
         public FileTransferSessionRole Role { get; }
@@ -56,9 +58,8 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         #region Public Methods
         public void Dispose()
         {
-            if (_disposed)
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
-            _disposed = true;
             _sessionCts.Cancel();
             Connection.PacketReceived -= Connection_PacketReceived;
             Connection.Disconnected -= Connection_Disconnected;
@@ -73,6 +74,8 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         #region Private / Protected Methods
         protected abstract void HandlePacket(PacketReceivedEventArgs e);
 
+        protected void CancelSession() => _sessionCts.Cancel();
+
         protected virtual void OnDisconnected(DisconnectedEventArgs e)
         {
         }
@@ -83,7 +86,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
 
         private void Connection_PacketReceived(object? sender, PacketReceivedEventArgs e)
         {
-            if (!FileTransferProtocol.IsFileTransferMessage(e.Header.PayloadType))
+            if (IsDisposed || SessionToken.IsCancellationRequested || !FileTransferProtocol.IsFileTransferMessage(e.Header.PayloadType))
                 return;
             try
             {

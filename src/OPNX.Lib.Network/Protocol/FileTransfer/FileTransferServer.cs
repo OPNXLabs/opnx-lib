@@ -62,6 +62,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
                 return;
             _disposed = true;
             _server.ClientAccepted -= Server_ClientAccepted;
+            _server.Stop();
             foreach (var session in _sessions.Values)
                 session.Dispose();
             _sessions.Clear();
@@ -109,7 +110,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         #endregion
     }
 
-    public sealed class FileTransferServerSession : FileTransferSession
+    public sealed class FileTransferServerSession : FileTransferSession, IAsyncDisposable
     {
         private sealed record PreparedFile(Guid FileID, string FilePath, string FileName, long Length, long LastWriteTimeUnixMS, FileTransferFileState State, string Message);
 
@@ -125,6 +126,10 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
         private CancellationTokenSource? _transferCts;
         private Task _transferTask = Task.CompletedTask;
         private TaskCompletionSource<Guid>? _continueSource;
+        private readonly Lock _operationSync = new();
+        private readonly HashSet<Task> _operations = [];
+        private Task? _stopTask;
+        private bool _stopping;
 
         public FileTransferServerSession(OPNXTcpClient connection, FileTransferServerOptions? options = null, SemaphoreSlim? transferSlots = null, bool ownsConnection = false, ILoggerFactory? loggerFactory = null)
             : base(connection, FileTransferSessionRole.Server, ownsConnection, (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<FileTransferServerSession>())
@@ -136,7 +141,10 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
             _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<FileTransferServerSession>();
         }
 
-        public async Task<FileTransferPrepareResult> RegisterTransferAsync(IEnumerable<FileTransferSource> files, CancellationToken cancellationToken = default)
+        public Task<FileTransferPrepareResult> RegisterTransferAsync(IEnumerable<FileTransferSource> files, CancellationToken cancellationToken = default)
+            => TrackOperation(() => RegisterTransferCoreAsync(files, cancellationToken));
+
+        private async Task<FileTransferPrepareResult> RegisterTransferCoreAsync(IEnumerable<FileTransferSource> files, CancellationToken cancellationToken)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             ArgumentNullException.ThrowIfNull(files);
@@ -178,6 +186,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
 
         protected override void OnSessionDispose()
         {
+            StopAsync().GetAwaiter().GetResult();
             lock (_syncRoot)
             {
                 _transferCts?.Cancel();
@@ -209,18 +218,19 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
                 {
                     case FileTransferMessageType.Prepare:
                         var (prepareTransferID, files) = ReadPrepareRequest(e.Payload);
-                        _ = PrepareAsync(prepareTransferID, files);
+                        _ = TrackOperation(() => PrepareAsync(prepareTransferID, files));
                         break;
                     case FileTransferMessageType.Start:
                         var (startTransferID, flowMode) = ReadStartRequest(e.Payload);
-                        _ = StartAsync(startTransferID, flowMode);
+                        _ = TrackOperation(() => StartAsync(startTransferID, flowMode));
                         break;
                     case FileTransferMessageType.Continue:
                         var (continueTransferID, fileID) = ReadContinueRequest(e.Payload);
                         Continue(continueTransferID, fileID);
                         break;
                     case FileTransferMessageType.Cancel:
-                        _ = CancelAsync(ReadTransferID(e.Payload));
+                        Guid cancelTransferID = ReadTransferID(e.Payload);
+                        _ = TrackOperation(() => CancelAsync(cancelTransferID));
                         break;
                 }
             }
@@ -228,6 +238,80 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
             {
                 _logger.LogWarning(ex, "Invalid file transfer request received.");
             }
+        }
+
+        public Task StopAsync()
+        {
+            lock (_operationSync)
+            {
+                if (_stopTask is not null)
+                    return _stopTask;
+                _stopping = true;
+                return _stopTask = StopCoreAsync(_operations.ToArray());
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await StopAsync().ConfigureAwait(false);
+            Dispose();
+        }
+
+        private async Task StopCoreAsync(Task[] operations)
+        {
+            CancelSession();
+            try
+            {
+                await Task.WhenAll(operations).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "A file transfer command failed during shutdown.");
+            }
+            try
+            {
+                await _transferTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "A file transfer failed during shutdown.");
+            }
+        }
+
+        private Task TrackOperation(Func<Task> operation)
+        {
+            lock (_operationSync)
+            {
+                ObjectDisposedException.ThrowIf(_stopping || IsDisposed, this);
+                Task task = operation();
+                ObserveOperation(task);
+                return task;
+            }
+        }
+
+        private Task<T> TrackOperation<T>(Func<Task<T>> operation)
+        {
+            lock (_operationSync)
+            {
+                ObjectDisposedException.ThrowIf(_stopping || IsDisposed, this);
+                Task<T> task = operation();
+                ObserveOperation(task);
+                return task;
+            }
+        }
+
+        private void ObserveOperation(Task task)
+        {
+            _operations.Add(task);
+            _ = task.ContinueWith(completed =>
+            {
+                lock (_operationSync)
+                    _operations.Remove(completed);
+                if (completed.Exception is { } exception)
+                    _logger.LogWarning(exception, "A file transfer command failed.");
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
 
         private async Task PrepareAsync(Guid transferID, FileTransferRequestItem[] files)
@@ -365,12 +449,12 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
             }
             catch (OperationCanceledException)
             {
-                await SendTransferEndAsync(transferID, FileTransferState.Canceled, completedCount, failedCount, "Transfer canceled.", CancellationToken.None).ConfigureAwait(false);
+                await SendTransferEndAsync(transferID, FileTransferState.Canceled, completedCount, failedCount, "Transfer canceled.", SessionToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "File transfer failed. TransferID={TransferID}.", transferID);
-                await SendTransferEndAsync(transferID, FileTransferState.Failed, completedCount, failedCount + 1, ex.Message, CancellationToken.None).ConfigureAwait(false);
+                await SendTransferEndAsync(transferID, FileTransferState.Failed, completedCount, failedCount + 1, ex.Message, SessionToken).ConfigureAwait(false);
             }
             finally
             {
@@ -473,7 +557,7 @@ namespace OPNX.Lib.Network.Protocol.FileTransfer
             }
             try
             {
-                if (!await SendStateResponseAsync(FileTransferMessageType.Cancel, transferID, FileTransferState.CancelRequested, string.Empty, CancellationToken.None).ConfigureAwait(false))
+                if (!await SendStateResponseAsync(FileTransferMessageType.Cancel, transferID, FileTransferState.CancelRequested, string.Empty, SessionToken).ConfigureAwait(false))
                     _logger.LogWarning("Failed to send the file transfer cancel response. TransferID={TransferID}.", transferID);
             }
             catch (Exception ex)

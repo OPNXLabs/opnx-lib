@@ -2,6 +2,7 @@ using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
+using System.Text;
 
 namespace OPNX.Lib.Media.FFMpeg
 {
@@ -12,25 +13,26 @@ namespace OPNX.Lib.Media.FFMpeg
     }
 
     /// <summary>
-    /// Single video track writer. The file extension selects the container (for example .mkv).
+    /// Video writer with an optional UTF-8 subtitle track. The file extension selects the container.
     /// </summary>
     public sealed unsafe class FFmpegVideoMuxer : DisposableObject
     {
         #region Fields
-        private readonly object _sync = new();
+        private readonly Lock _sync = new();
 
         private AVFormatContext* _formatContext;
-        private AVStream* _stream;
+        private AVStream* _videoStream;
+        private AVStream* _subtitleStream;
+        private string? _subtitleTitle;
+        private bool _subtitleDefault;
+        private long _subtitleEndMs;
 
         private FFmpegVideoEncoder? _encoder;
-        private AVRational _inputTimeBase;
+        private AVRational _videoTimeBase;
 
         private bool _headerWritten;
         private bool _completed;
         private bool _failed;
-
-        private double? _firstSeconds;
-        private double _endSeconds;
 
         private readonly ILogger _logger;
         #endregion
@@ -72,6 +74,47 @@ namespace OPNX.Lib.Media.FFMpeg
         #endregion
 
         #region Public Methods
+        /// <summary>Configures an optional SubRip track before Initialize. The container must support it.</summary>
+        public bool EnableSubtitles(string title = "Subtitles", bool isDefault = false)
+        {
+            lock (_sync)
+            {
+                if (!CanInitialize() || string.IsNullOrWhiteSpace(title))
+                    return false;
+                _subtitleTitle = title;
+                _subtitleDefault = isDefault;
+                return true;
+            }
+        }
+
+        /// <summary>Writes UTF-8 text with segment-relative millisecond timestamps. Cues must not overlap.</summary>
+        public bool TryMuxingSubtitle(string text, long startTimeMs, long durationMs)
+        {
+            lock (_sync)
+            {
+                if (!IsInitialized || _subtitleStream == null || string.IsNullOrWhiteSpace(text) || text.Contains('\0')
+                    || startTimeMs < _subtitleEndMs || durationMs <= 0 || startTimeMs > long.MaxValue - durationMs)
+                    return false;
+                AVPacket* packet = null;
+                try
+                {
+                    packet = ffmpeg.av_packet_alloc();
+                    if (packet == null) throw new OutOfMemoryException();
+                    int length = Encoding.UTF8.GetByteCount(text);
+                    ffmpeg.av_new_packet(packet, length).ThrowExceptionIfError();
+                    Encoding.UTF8.GetBytes(text.AsSpan(), new Span<byte>(packet->data, length));
+                    packet->pts = packet->dts = startTimeMs;
+                    packet->duration = durationMs;
+                    packet->flags = ffmpeg.AV_PKT_FLAG_KEY;
+                    if (!WritePacket(packet, _subtitleStream, new AVRational { num = 1, den = 1000 })) return false;
+                    _subtitleEndMs = startTimeMs + durationMs;
+                    return true;
+                }
+                catch (Exception ex) { return Fail(ex); }
+                finally { ffmpeg.av_packet_free(&packet); }
+            }
+        }
+
         public bool Initialize(AVCodecID codecID, AVPixelFormat pixelFormat, int width, int height,
             AVHWDeviceType hwDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
         {
@@ -88,9 +131,9 @@ namespace OPNX.Lib.Media.FFMpeg
                         30, 30, FFmpegHelper.CalculateMiddleBitrate(codecID, width, height), _logger, globalHeader);
                     if (_encoder.CodecContext == null || ffmpeg.avcodec_is_open(_encoder.CodecContext) == 0)
                         throw new InvalidOperationException("Video encoder could not be opened.");
-                    ffmpeg.avcodec_parameters_from_context(_stream->codecpar, _encoder.CodecContext).ThrowExceptionIfError();
-                    _stream->avg_frame_rate = _encoder.CodecContext->framerate;
-                    _inputTimeBase = _encoder.CodecContext->time_base;
+                    ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _encoder.CodecContext).ThrowExceptionIfError();
+                    _videoStream->avg_frame_rate = _encoder.CodecContext->framerate;
+                    _videoTimeBase = _encoder.CodecContext->time_base;
                     WriteHeader();
                     _encoder.VideoFrameEncoded += Encoder_VideoFrameEncoded;
                     return true;
@@ -120,8 +163,8 @@ namespace OPNX.Lib.Media.FFMpeg
                 try
                 {
                     AllocateOutput();
-                    ffmpeg.avcodec_parameters_copy(_stream->codecpar, parameters).ThrowExceptionIfError();
-                    _inputTimeBase = inputTimeBase;
+                    ffmpeg.avcodec_parameters_copy(_videoStream->codecpar, parameters).ThrowExceptionIfError();
+                    _videoTimeBase = inputTimeBase;
                     WriteHeader();
                     return true;
                 }
@@ -208,7 +251,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     packet->duration < 0)
                     return false;
 
-                return WritePacket(packet);
+                return WritePacket(packet, _videoStream, _videoTimeBase);
             }
         }
 
@@ -235,7 +278,7 @@ namespace OPNX.Lib.Media.FFMpeg
                     packet->dts = dts;
                     packet->duration = duration;
                     packet->flags = isKeyFrame ? ffmpeg.AV_PKT_FLAG_KEY : 0;
-                    return WritePacket(packet);
+                    return WritePacket(packet, _videoStream, _videoTimeBase);
                 }
                 catch (Exception ex)
                 {
@@ -245,14 +288,6 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     ffmpeg.av_packet_free(&packet);
                 }
-            }
-        }
-
-        public TimeSpan GetVideoDuration()
-        {
-            lock (_sync)
-            {
-                return _firstSeconds.HasValue ? TimeSpan.FromSeconds(Math.Max(0, _endSeconds - _firstSeconds.Value)) : TimeSpan.Zero;
             }
         }
 
@@ -284,7 +319,7 @@ namespace OPNX.Lib.Media.FFMpeg
                                 if (result == ffmpeg.AVERROR_EOF)
                                     break;
                                 result.ThrowExceptionIfError();
-                                if (!WritePacket(packet))
+                                if (!WritePacket(packet, _videoStream, _videoTimeBase))
                                     break;
                                 ffmpeg.av_packet_unref(packet);
                             }
@@ -313,8 +348,11 @@ namespace OPNX.Lib.Media.FFMpeg
 
         #region Private / Protected Methods
         private bool CanInitialize(FFmpegVideoMuxerMode mode)
+            => Mode == mode && CanInitialize();
+
+        private bool CanInitialize()
         {
-            return !IsDisposed && Mode == mode &&
+            return !IsDisposed &&
                 !_headerWritten && !_completed && !_failed && _formatContext == null;
         }
 
@@ -331,15 +369,32 @@ namespace OPNX.Lib.Media.FFMpeg
             result.ThrowExceptionIfError();
             if (context == null)
                 throw new OutOfMemoryException();
-            _stream = ffmpeg.avformat_new_stream(context, null);
-            if (_stream == null)
-                throw new OutOfMemoryException();
+            _videoStream = CreateStream();
+        }
+
+        private AVStream* CreateStream()
+        {
+            AVStream* stream = ffmpeg.avformat_new_stream(_formatContext, null);
+            if (stream == null) throw new OutOfMemoryException();
+            return stream;
         }
 
         private void WriteHeader()
         {
-            _stream->codecpar->codec_tag = 0;
-            _stream->time_base = _inputTimeBase;
+            _videoStream->codecpar->codec_tag = 0;
+            _videoStream->time_base = _videoTimeBase;
+            if (_subtitleTitle != null)
+            {
+                if (ffmpeg.avformat_query_codec(_formatContext->oformat, AVCodecID.AV_CODEC_ID_SUBRIP, ffmpeg.FF_COMPLIANCE_NORMAL) <= 0)
+                    throw new NotSupportedException("The selected container does not support UTF-8 SubRip subtitles.");
+                _subtitleStream = CreateStream();
+                _subtitleStream->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_SUBTITLE;
+                _subtitleStream->codecpar->codec_id = AVCodecID.AV_CODEC_ID_SUBRIP;
+                _subtitleStream->time_base = new AVRational { num = 1, den = 1000 };
+                _subtitleStream->disposition = _subtitleDefault ? ffmpeg.AV_DISPOSITION_DEFAULT : 0;
+                ffmpeg.av_dict_set(&_subtitleStream->metadata, "title", _subtitleTitle, 0).ThrowExceptionIfError();
+                ffmpeg.av_dict_set(&_subtitleStream->metadata, "language", "und", 0).ThrowExceptionIfError();
+            }
             if ((_formatContext->oformat->flags & ffmpeg.AVFMT_NOFILE) == 0)
                 ffmpeg.avio_open(&_formatContext->pb, FilePath, ffmpeg.AVIO_FLAG_WRITE).ThrowExceptionIfError();
             ffmpeg.avformat_write_header(_formatContext, null).ThrowExceptionIfError();
@@ -348,31 +403,23 @@ namespace OPNX.Lib.Media.FFMpeg
 
         private void Encoder_VideoFrameEncoded(object sender, EventHandlers.VideoFrameEncodedEventArgs e)
         {
-            if (!_failed)
-                WritePacket(e.EncodedPacket);
+            lock (_sync)
+                if (!_failed)
+                    WritePacket(e.EncodedPacket, _videoStream, _videoTimeBase);
         }
 
-        private bool WritePacket(AVPacket* source)
+        // Preserve the source packet because av_interleaved_write_frame consumes its reference.
+        private bool WritePacket(AVPacket* source, AVStream* stream, AVRational inputTimeBase)
         {
             AVPacket* packet = null;
-
             try
             {
                 packet = ffmpeg.av_packet_clone(source);
-                if (packet == null)
-                    throw new OutOfMemoryException();
-                ffmpeg.av_packet_rescale_ts(packet, _inputTimeBase, _stream->time_base);
-                packet->stream_index = _stream->index;
+                if (packet == null) throw new OutOfMemoryException();
+                ffmpeg.av_packet_rescale_ts(packet, inputTimeBase, stream->time_base);
+                packet->stream_index = stream->index;
                 packet->pos = -1;
-                long pts = packet->pts;
-                double seconds = pts * (double)_stream->time_base.num / _stream->time_base.den;
-                double end = seconds + packet->duration * (double)_stream->time_base.num / _stream->time_base.den;
                 ffmpeg.av_interleaved_write_frame(_formatContext, packet).ThrowExceptionIfError();
-                if (pts != ffmpeg.AV_NOPTS_VALUE)
-                {
-                    _endSeconds = _firstSeconds.HasValue ? Math.Max(_endSeconds, end) : end;
-                    _firstSeconds = _firstSeconds.HasValue ? Math.Min(_firstSeconds.Value, seconds) : seconds;
-                }
                 return true;
             }
             catch (Exception ex)
@@ -417,7 +464,8 @@ namespace OPNX.Lib.Media.FFMpeg
                 }
                 ffmpeg.avformat_free_context(_formatContext);
                 _formatContext = null;
-                _stream = null;
+                _videoStream = null;
+                _subtitleStream = null;
             }
         }
 
@@ -425,8 +473,7 @@ namespace OPNX.Lib.Media.FFMpeg
         {
             lock (_sync)
             {
-                Complete();
-                ReleaseOutput();
+                if (!Complete()) ReleaseOutput();
             }
         }
 

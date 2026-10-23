@@ -12,13 +12,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FFmpeg.AutoGen" Version="8.1.0" />
-    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260427" />
-    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="FFmpeg.AutoGen" Version="9.0.1.1" />
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260627" />
+    <PackageReference Include="SkiaSharp" Version="4.156.0-preview.1.26512.10" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0-rc.2.26504.105" />
   </ItemGroup>
 
 </Project>

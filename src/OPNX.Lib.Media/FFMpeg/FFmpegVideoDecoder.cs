@@ -70,6 +70,9 @@ namespace OPNX.Lib.Media.FFMpeg
             : base()
         {
             _logger = logger ?? NullLogger.Instance;
+            if (_logger.IsEnabled(LogLevel.Information))
+                _logger.LogInformation("[VideoDecoderInit] Native constructor entered. Codec={Codec}, RequestedHardware={Hardware}, ThreadID={ThreadID}.",
+                    codecID, hwDeviceType, Environment.CurrentManagedThreadId);
 
             try
             {
@@ -169,8 +172,14 @@ namespace OPNX.Lib.Media.FFMpeg
                             break;
                     }
 
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[VideoDecoderInit] Codec open started. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
+                            codecID, _codecContext->thread_count, Environment.CurrentManagedThreadId);
                     if (ffmpeg.avcodec_open2(_codecContext, _codec, &options) < 0)
                         throw new Exception("Failed to open the video codec.");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("[VideoDecoderInit] Codec open completed. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
+                            codecID, _codecContext->thread_count, Environment.CurrentManagedThreadId);
 
                     if (options != null)
                         ffmpeg.av_dict_free(&options);
@@ -200,7 +209,14 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     unsafe
                     {
-                        if (ffmpeg.av_hwdevice_ctx_create(&_codecContext->hw_device_ctx, hwDeviceType, null, null, 0) == 0)
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[VideoDecoderInit] Hardware device creation started. Hardware={Hardware}, ThreadID={ThreadID}.",
+                                hwDeviceType, Environment.CurrentManagedThreadId);
+                        int hardwareResult = ffmpeg.av_hwdevice_ctx_create(&_codecContext->hw_device_ctx, hwDeviceType, null, null, 0);
+                        if (_logger.IsEnabled(LogLevel.Information))
+                            _logger.LogInformation("[VideoDecoderInit] Hardware device creation completed. Hardware={Hardware}, Result={Result}, ThreadID={ThreadID}.",
+                                hwDeviceType, hardwareResult, Environment.CurrentManagedThreadId);
+                        if (hardwareResult == 0)
                             _hwDeviceType = hwDeviceType;
 
                         for (int i = 0; i < 64; i++)
@@ -242,6 +258,9 @@ namespace OPNX.Lib.Media.FFMpeg
                 }
 
                 this.PropertyChanged += FFmpegVideoDecoder_PropertyChanged;
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("[VideoDecoderInit] Native constructor completed. Codec={Codec}, Hardware={Hardware}, ThreadID={ThreadID}.",
+                        codecID, _hwDeviceType, Environment.CurrentManagedThreadId);
             }
             catch (Exception ex)
             {

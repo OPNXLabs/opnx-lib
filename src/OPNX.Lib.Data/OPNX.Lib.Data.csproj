@@ -10,12 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MySqlConnector" Version="2.5.0" />
-    <PackageReference Include="Npgsql" Version="10.0.2" />
+    <PackageReference Include="MySqlConnector" Version="2.6.2" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OPNX.Lib.Common\OPNX.Lib.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0-rc.2.26504.105" />
   </ItemGroup>
 
 </Project>

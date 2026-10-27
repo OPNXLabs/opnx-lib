@@ -172,6 +172,37 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
                 return false;
             }
         }
+        // Transfers ownership on every path, matching the TCP owned-payload API. Raw data is not recompressed.
+        public async ValueTask<bool> SendOwnedDataAsync(PacketHeader header, IMemoryOwner<byte> owner, int payloadSize, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            Packet? packet = null;
+            try
+            {
+                if (IsDisposed || Volatile.Read(ref _completionRequested) != 0 || cancellationToken.IsCancellationRequested ||
+                    payloadSize <= 0 || payloadSize > owner.Memory.Length || payloadSize > _endPoint.MaxMessageLength - PacketHeader.Size)
+                    return false;
+                packet = new Packet(CreatePayloadHeader(header, header.Flags, payloadSize), owner, payloadSize);
+                owner = null!;
+                if (!_outboundChannel.Writer.TryWrite(packet))
+                    await _outboundChannel.Writer.WriteAsync(packet, cancellationToken).ConfigureAwait(false);
+                packet = null;
+                return true;
+            }
+            catch (ChannelClosedException) { return false; }
+            catch (OperationCanceledException) { return false; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Message}", ex.Message);
+                return false;
+            }
+            finally
+            {
+                packet?.Dispose();
+                owner?.Dispose();
+            }
+        }
+
         public bool SendData<T>(PacketHeader header, T data)
         {
             if (IsDisposed || Volatile.Read(ref _completionRequested) != 0)
@@ -317,6 +348,11 @@ namespace OPNX.Lib.Network.Protocol.SharedMemory
             catch (Exception ex)
             {
                 _logger.LogError($"SendPacketProcessorAsync: {ex}");
+            }
+            finally
+            {
+                _outboundChannel.Writer.TryComplete();
+                while (_outboundChannel.Reader.TryRead(out var pending)) pending.Dispose();
             }
         }
 

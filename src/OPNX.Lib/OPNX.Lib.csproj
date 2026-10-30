@@ -50,6 +50,11 @@
     <None Include="..\..\third_party_licenses\FFmpeg-Native-Binaries-NOTICE.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\FFmpeg.AutoGen-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\Microsoft-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\MySqlConnector-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\ZstdSharp-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\SkiaSharp-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
+    <None Include="..\..\third_party_licenses\WebRTC-Native-NOTICE.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\PostgreSQL-License.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
     <None Include="..\..\third_party_licenses\SharpRTSP-MIT.txt" Pack="true" PackagePath="third_party_licenses/" Visible="false" />
   </ItemGroup>

@@ -1,0 +1,20 @@
+Native WebRTC Components
+
+DataChannelDotnet 1.3.1 is a managed wrapper whose NuGet metadata declares MIT.
+Its runtime assets include native libdatachannel libraries and Windows OpenSSL 3
+libssl/libcrypto libraries. Those native components retain their own licenses.
+
+libdatachannel: Mozilla Public License 2.0 (MPL-2.0)
+Project: https://github.com/paullouisageneau/libdatachannel
+License: https://github.com/paullouisageneau/libdatachannel/blob/master/LICENSE
+
+OpenSSL 3: Apache License 2.0
+Project and license: https://www.openssl.org/source/license.html
+Apache license text: Apache-2.0.txt in this directory
+
+For redistribution, identify the exact native build and preserve its original
+copyright and dependency notices. Provide MPL-covered source availability
+information corresponding to the native binary being shipped, including changes
+where applicable. The wrapper package version alone does not identify every
+native build revision. Do not describe all native assets as MIT merely because
+the wrapper package declares MIT. OPNX's license does not replace upstream terms.

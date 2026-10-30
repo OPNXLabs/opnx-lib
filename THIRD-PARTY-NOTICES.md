@@ -17,7 +17,7 @@ Users who redistribute, package, or deploy software based on OPNX.Lib are respon
 
 ## Direct NuGet Package References
 
-The following packages are directly referenced by OPNX.Lib projects.
+The following versions describe current repository source. Previously published packages can have a different graph. NuGet metadata and the restored assets for the shipped application determine its actual dependencies.
 
 ## ZstdSharp.Port
 
@@ -30,12 +30,12 @@ The following packages are directly referenced by OPNX.Lib projects.
 
 The full license text is provided in:
 
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/ZstdSharp-MIT.txt](third_party_licenses/ZstdSharp-MIT.txt)
 
 ## Npgsql
 
 - Component: `Npgsql`
-- Version: `10.0.2`
+- Version: `10.0.3`
 - Project: [https://www.npgsql.org/](https://www.npgsql.org/)
 - Package reference: [https://www.nuget.org/packages/Npgsql](https://www.nuget.org/packages/Npgsql)
 - License: `PostgreSQL License`
@@ -49,7 +49,7 @@ The full license text is provided in:
 ## MySqlConnector
 
 - Component: `MySqlConnector`
-- Version: `2.5.0`
+- Version: `2.6.2`
 - Project: [https://mysqlconnector.net/](https://mysqlconnector.net/)
 - Package reference: [https://www.nuget.org/packages/MySqlConnector](https://www.nuget.org/packages/MySqlConnector)
 - License: `MIT`
@@ -58,12 +58,12 @@ The full license text is provided in:
 
 The full license text is provided in:
 
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/MySqlConnector-MIT.txt](third_party_licenses/MySqlConnector-MIT.txt)
 
 ## FFmpeg.AutoGen
 
 - Component: `FFmpeg.AutoGen`
-- Version: `8.1.0`
+- Version: `9.0.1.1`
 - Project: [https://www.nuget.org/packages/FFmpeg.AutoGen](https://www.nuget.org/packages/FFmpeg.AutoGen)
 - Upstream source: [https://github.com/Ruslan-B/FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen)
 - License: `MIT`
@@ -77,7 +77,7 @@ The full license text is provided in:
 ## OpenCvSharp4
 
 - Component: `OpenCvSharp4`
-- Version: `4.13.0.20260427`
+- Version: `4.13.0.20260627`
 - Project: [https://www.nuget.org/packages/OpenCvSharp4](https://www.nuget.org/packages/OpenCvSharp4)
 - License: `Apache-2.0`
 - Used by: `OPNX.Lib.Media`
@@ -90,7 +90,7 @@ The full license text is provided in:
 ## SkiaSharp
 
 - Component: `SkiaSharp`
-- Version: `3.119.2`
+- Version: `4.156.0-preview.1.26512.10`
 - Project: [https://www.nuget.org/packages/SkiaSharp](https://www.nuget.org/packages/SkiaSharp)
 - License: `MIT`
 - Used by: `OPNX.Lib.Media`
@@ -98,7 +98,7 @@ The full license text is provided in:
 
 The full license text is provided in:
 
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/SkiaSharp-MIT.txt](third_party_licenses/SkiaSharp-MIT.txt)
 
 ## DataChannelDotnet
 
@@ -108,11 +108,22 @@ The full license text is provided in:
 - Package reference: [https://www.nuget.org/packages/DataChannelDotnet/1.3.1](https://www.nuget.org/packages/DataChannelDotnet/1.3.1)
 - License: `MIT`
 - Used by: `OPNX.Lib.Streaming`
-- Usage: WebRTC data channel support used by streaming components
+- Usage: Managed WebRTC peer connections, H.264/PCMU media tracks, and data channel interoperability
 
 The full license text is provided in:
 
 - [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+
+### Native WebRTC Components
+
+The MIT declaration of the managed `DataChannelDotnet` package does not relicense its native dependencies. Package `1.3.1` contains `datachannel` native libraries and, on Windows, OpenSSL 3 `libssl`/`libcrypto` binaries.
+
+- Native [libdatachannel](https://github.com/paullouisageneau/libdatachannel) is distributed under [MPL-2.0](https://github.com/paullouisageneau/libdatachannel/blob/master/LICENSE).
+- OpenSSL 3 is distributed under [Apache-2.0](https://www.openssl.org/source/license.html).
+- Preserve native upstream notices and provide the corresponding libdatachannel source availability information required by MPL-2.0 for the binary build being redistributed. A link to the latest upstream branch does not identify the exact shipped build.
+- The wrapper package metadata identifies the managed author as `ZetrocDev` and declares MIT. Native build revisions and their dependency notices must be checked separately when preparing a distribution.
+
+The OPNX license does not override these terms. See [third_party_licenses/WebRTC-Native-NOTICE.txt](third_party_licenses/WebRTC-Native-NOTICE.txt).
 
 ## Framework References
 
@@ -128,13 +139,13 @@ The full license text is provided in:
 
 ## Selected Transitive Components
 
-The following components are not all directly referenced by OPNX.Lib project files, but may be introduced through direct package dependencies and are included here for redistribution and attribution awareness.
+The following components are used directly or transitively. Exact resolved versions depend on the selected target and restore graph; preserve the notices delivered by those packages.
 
 ## Microsoft.Extensions.* Abstractions
 
 - Components:
-  - `Microsoft.Extensions.DependencyInjection.Abstractions` (`10.0.0`)
-  - `Microsoft.Extensions.Logging.Abstractions` (`10.0.0`)
+  - `Microsoft.Extensions.DependencyInjection.Abstractions` (resolved transitively; consult the selected target's assets file)
+  - `Microsoft.Extensions.Logging.Abstractions` (`11.0.0-rc.2.26504.105`, updated from the common `10.0.0` reference)
 - Project: [https://dot.net/](https://dot.net/)
 - License: `MIT`
 - Usage: logging and dependency-injection abstractions used directly or transitively by OPNX.Lib components
@@ -145,19 +156,20 @@ Important notes:
 
 The full license text is provided in:
 
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/Microsoft-MIT.txt](third_party_licenses/Microsoft-MIT.txt)
 
 ## SkiaSharp Native Assets
 
 - Components:
-  - `SkiaSharp.NativeAssets.Win32` (`3.119.2`)
-  - `SkiaSharp.NativeAssets.macOS` (`3.119.2`)
+  - `SkiaSharp.NativeAssets.Win32` (`4.156.0-preview.1.26512.10`)
+  - `SkiaSharp.NativeAssets.macOS` (`4.156.0-preview.1.26512.10`)
 - License: `MIT`
 - Usage: native asset packages referenced transitively by `SkiaSharp`
 
 The full license text is provided in:
 
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+- [third_party_licenses/SkiaSharp-MIT.txt](third_party_licenses/SkiaSharp-MIT.txt)
+- Native Skia assets also contain upstream notices; retain those from the selected runtime package.
 
 ## Source-Derived Components
 

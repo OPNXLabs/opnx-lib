@@ -12,7 +12,7 @@ RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
 
 ## Powering OPNX.V
 
-[OPNX.V](https://www.opnx.kr/) is a VMS/NVR application under active development on OPNX.Lib and OPNX.UI. It is the integration proving ground for multi-channel live monitoring, RTSP and ONVIF camera connectivity, scheduled recording, recorder-process recovery, recorded-video search, synchronized playback, user and permission management, layouts, tours, logs, events, and alarms.
+[OPNX.V](https://www.opnx.kr/) is a VMS/NVR application under active development on OPNX.Lib and OPNX.UI. It is the integration proving ground for multi-channel live monitoring, RTSP/ONVIF camera connectivity, scheduled/event recording, recorder recovery, recording retention, recorded-video search and synchronized playback, video export, RTSP/WebRTC distribution, user/permission management, layouts/tours, logs, and alarms.
 
 OPNX.V uses a unified C#/.NET application stack across its WPF clients, application and service logic, device integration, networking, recording and playback orchestration, data synchronization, and server infrastructure. Specialized native libraries such as FFmpeg are integrated where appropriate for media processing.
 
@@ -29,6 +29,7 @@ dotnet add package OPNX.Lib --prerelease
 For the shortest path from package to working video, start with [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer). It demonstrates RTSP input, FFmpeg decoding, WPF video presentation, camera navigation, and a configurable multi-view using published OPNX packages.
 
 > **License:** OPNX.Lib is source-available, not open-source. Learning, research, testing, and non-commercial evaluation are permitted under [License.txt](License.txt). Commercial use, production use, redistribution, and OEM integration require prior written permission from OPNX.
+> Internal non-production evaluation, proof of concept, and technical review by commercial organizations are also permitted. See the evaluation guidance below and the English license for scope.
 
 OPNX.Lib is a modular .NET infrastructure SDK for stateful video systems such as VMS, NVR, streaming servers, device gateways, media-processing services, and monitoring applications.
 
@@ -79,6 +80,12 @@ OPNX.Lib brings together capabilities that usually require several unrelated lib
 
 This makes the media layer useful for live viewers, transcoders, recorders, thumbnail generators, analytics preprocessing, and streaming gateways without embedding those product roles into the library itself.
 
+### Remux And Subtitles
+
+`FFmpegVideoMuxer` provides Encode and `FFmpegVideoMuxerMode.Remux` modes. Remux writes compressed video packets with their input time base to a container without decoding and re-encoding. `EnableSubtitles` and `TryMuxingSubtitle` add timed subtitles. The caller selects compatible output containers, codecs, and FFmpeg components.
+
+Current source references `FFmpeg.AutoGen 9.0.1.1`. Obtain native FFmpeg libraries separately and match the binding's ABI and process architecture. Native DLLs prepared for an older package must not be assumed compatible with current source.
+
 ## Unified Network And IPC Protocol
 
 `OPNX.Lib.Network` separates the application protocol from the underlying transport.
@@ -90,6 +97,14 @@ This makes the media layer useful for live viewers, transcoders, recorders, thum
 | Shared Memory | High-volume local transfer where avoiding unnecessary copies and socket overhead matters |
 
 The transports share common packet framing and protocol behavior, including typed serialization, request/response correlation, asynchronous send and receive, cancellation, timeout handling, connection lifecycle, and bounded payload rules. A service can therefore keep its message model while selecting the transport that fits its deployment boundary.
+
+### File Transfer And Buffer Ownership
+
+`Protocol.FileTransfer` provides `FileTransferServer`, `FileTransferClient`, and sessions for preparation, download, progress, and cancellation. Sessions can use a dedicated TCP connection or an existing OPNX TCP connection. Server options and request-handling policies determine file-access scope.
+
+TCP and SharedMemory `SendOwnedDataAsync` accept `IMemoryOwner<byte>` buffers. Ownership transfers to the send path on every outcome; callers must not reuse or dispose the transferred buffer again. SharedMemory raw-byte transport skips serialization and recompression while retaining packet framing.
+
+Windows common APIs also provide `Win32` helpers for taskbar application IDs and window notifications.
 
 ## Real-Time Streaming
 
@@ -107,7 +122,7 @@ WebRTC signaling uses the ASP.NET Core 10 shared framework. Install the ASP.NET 
 
 Portions of the RTSP, RTP/RTCP, SDP, and client/server handling code are derived from [SharpRTSP](https://github.com/ngraziano/SharpRTSP). SharpRTSP is distributed under the MIT License. OPNX has integrated the code into its namespaces and runtime structure and modified or extended areas including nullable annotations, logging abstractions, media-payload handling, and stability behavior. SharpRTSP copyright and MIT terms continue to apply to the upstream-derived portions; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt).
 
-The WebRTC and DataChannel components are preview adapters for later product integration. RTSP support in this README does not imply that all protocol code was authored independently by OPNX, and the OPNX.Lib source-available terms do not replace the MIT terms that apply to SharpRTSP-derived code.
+WebRTC components are integrated into OPNX.V StreamingServer while their public APIs remain preview quality. Current media tracks carry H.264 video and PCMU audio over RTP. RTSP payload support such as H.265/H.266 does not imply equivalent WebRTC support. RTSP support in this README does not imply that all protocol code was authored independently by OPNX, and the OPNX.Lib source-available terms do not replace the MIT terms that apply to SharpRTSP-derived code.
 
 ## ONVIF Device Integration
 
@@ -256,7 +271,7 @@ OPNX.Lib.Data is not intended to reproduce the complete surface area of EF Core.
 - Product-specific logic stays outside the reusable infrastructure layer.
 - Public services depend on logging abstractions rather than a concrete logging framework.
 - Native runtimes such as FFmpeg remain separate in licensing and distribution responsibility.
-- Modules can be referenced individually, while `OPNX.Lib` provides an aggregated package.
+- Source projects can be referenced individually; the current NuGet distribution is the aggregated `OPNX.Lib` package.
 
 ## Current Status
 
@@ -271,10 +286,22 @@ dotnet build OPNX.Lib.slnx -c Debug
 
 Requirements: .NET 10 SDK.
 
+## Source And Published Package Scope
+
+Capabilities in this README describe current repository source. Previously published preview NuGet packages may contain earlier APIs and dependencies; check the selected version and its dependency graph. Public Samples pin `0.1.0-preview.20260716.1` for reproducible execution and do not demonstrate every capability in current source.
+
 ## Samples And Documentation
 
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
 - [ONVIF client services](src/OPNX.Lib.Onvif/README.md)
+
+## Evaluation And Code Reuse
+
+- Personal learning, research, testing, and non-commercial evaluation are permitted.
+- Internal non-production evaluation, proof of concept, and technical review by a commercial organization are also permitted under the license without separate written permission.
+- Production use, customer-facing services, commercial/OEM integration, and redistribution require prior written permission.
+- Permission to modify evaluation code does not grant permission to include it in a commercial product or redistribute modified copies.
+- OPNX-owned code and dependencies have separate licenses. The repository's English license controls the final terms.
 
 ## License And Support
 

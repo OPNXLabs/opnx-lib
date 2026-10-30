@@ -12,7 +12,7 @@ RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
 
 ## OPNX.V를 구성하는 기반 기술
 
-[OPNX.V](https://www.opnx.kr/)는 OPNX.Lib와 OPNX.UI를 기반으로 개발 중인 VMS/NVR 애플리케이션입니다. 다채널 라이브 모니터링, RTSP 및 ONVIF 카메라 연동, 스케줄 녹화, Recorder 프로세스 장애 복구, 저장영상 검색, 동기 재생, 사용자·권한 관리, 레이아웃, 투어, 로그, 이벤트 및 알람을 실제 제품 구조 안에서 통합하고 검증합니다.
+[OPNX.V](https://www.opnx.kr/)는 OPNX.Lib와 OPNX.UI를 기반으로 개발 중인 VMS/NVR 애플리케이션입니다. 다채널 라이브 모니터링, RTSP 및 ONVIF 카메라 연동, 스케줄·이벤트 녹화, Recorder 장애 복구, 녹화 보관기간 관리, 저장영상 검색·동기 재생, 영상 반출, RTSP/WebRTC 송출, 사용자·권한 관리, 레이아웃·투어, 로그 및 알람을 실제 제품 구조 안에서 통합하고 검증합니다.
 
 OPNX.V는 WPF 클라이언트, 애플리케이션 및 서비스 로직, 장치 연동, 네트워크, 녹화·재생 오케스트레이션, 데이터 동기화와 서버 인프라를 C#/.NET 중심의 통합된 애플리케이션 스택으로 구성합니다. FFmpeg 같은 전문 네이티브 라이브러리는 미디어 처리에 적합한 영역에서 연동합니다.
 
@@ -29,6 +29,7 @@ dotnet add package OPNX.Lib --prerelease
 패키지 설치 후 영상을 가장 빠르게 확인하려면 [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer)부터 시작하세요. 공개된 OPNX 패키지로 RTSP 입력, FFmpeg 디코딩, WPF 영상 표시, 카메라 탐색과 구성 가능한 MultiView를 실행할 수 있습니다.
 
 > **라이선스:** OPNX.Lib는 오픈 소스가 아닌 source-available 소프트웨어입니다. [License.txt](License.txt)에 따라 학습, 연구, 테스트 및 비상업적 평가에 사용할 수 있습니다. 상업적 사용, 운영 환경 사용, 재배포 및 OEM 통합에는 OPNX의 사전 서면 허가가 필요합니다.
+> 기업 내부의 비운영 평가·PoC·기술 검토도 허용됩니다. 상세 범위는 아래 평가 안내와 영문 라이선스를 확인하세요.
 
 OPNX.Lib는 VMS, NVR, 스트리밍 서버, 장치 게이트웨이, 미디어 처리 서비스 및 모니터링 애플리케이션을 위한 모듈형 .NET 인프라 SDK입니다.
 
@@ -79,6 +80,12 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 
 따라서 제품 역할을 라이브러리에 고정하지 않으면서 Live Viewer, Transcoder, Recorder, Thumbnail 생성기, 영상 분석 전처리 및 Streaming Gateway의 미디어 계층으로 사용할 수 있습니다.
 
+### Remux와 자막
+
+`FFmpegVideoMuxer`는 Encode 모드와 `FFmpegVideoMuxerMode.Remux` 모드를 제공합니다. Remux는 압축된 영상 Packet과 입력 Time Base를 받아 디코딩·재인코딩 없이 컨테이너에 기록합니다. `EnableSubtitles`와 `TryMuxingSubtitle`을 통해 시간 정보를 가진 자막을 추가할 수 있습니다. 출력 컨테이너와 코덱의 호환성 및 필요한 FFmpeg 구성은 호출자가 선택합니다.
+
+현재 소스는 `FFmpeg.AutoGen 9.0.1.1`을 사용합니다. 네이티브 FFmpeg는 별도 준비하고 바인딩이 요구하는 ABI와 프로세스 아키텍처를 맞춰야 합니다. 예전 패키지용 FFmpeg DLL을 최신 소스에 그대로 사용하는 것으로 가정하지 마세요.
+
 ## 통합 Network 및 IPC Protocol
 
 `OPNX.Lib.Network`는 애플리케이션 Protocol과 실제 Transport를 분리합니다.
@@ -90,6 +97,14 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 | Shared Memory | 불필요한 복사와 Socket 비용을 줄여야 하는 대용량 로컬 전송 |
 
 각 Transport는 공통 Packet Framing과 Protocol 동작을 공유합니다. Typed Serialization, Request/Response 연결, 비동기 송수신, Cancellation, Timeout, Connection 수명주기 및 Payload 제한을 같은 방식으로 다룰 수 있으므로 배포 경계가 바뀌어도 메시지 모델을 유지할 수 있습니다.
+
+### 파일 전송과 버퍼 소유권
+
+`Protocol.FileTransfer`의 `FileTransferServer`, `FileTransferClient`와 Session은 파일 준비, 다운로드, 진행 상태 및 취소를 제공합니다. 독립 TCP 연결 또는 기존 OPNX TCP 연결에 Session을 구성할 수 있으며 파일 접근 범위는 서버의 옵션·요청 처리 정책으로 정합니다.
+
+TCP와 SharedMemory의 `SendOwnedDataAsync`는 `IMemoryOwner<byte>` 버퍼를 전달받습니다. 호출 후 성공·실패 여부와 관계없이 소유권은 송신 경로로 이전되므로 호출자가 반환된 버퍼를 재사용하거나 다시 Dispose하면 안 됩니다. SharedMemory의 원본 바이트 경로는 직렬화·재압축을 생략하고 기존 Packet Framing을 유지합니다.
+
+Windows 공통 API에는 작업표시줄 Application ID와 창 알림을 위한 `Win32` Helper도 포함됩니다.
 
 ## 실시간 Streaming
 
@@ -107,7 +122,7 @@ WebRTC 시그널링은 ASP.NET Core 10 공유 프레임워크를 사용합니다
 
 RTSP, RTP/RTCP, SDP 및 Client·Server 처리 코드의 일부는 [SharpRTSP](https://github.com/ngraziano/SharpRTSP)에서 파생되었습니다. SharpRTSP는 MIT License로 제공되며 OPNX는 이를 프로젝트 Namespace와 Runtime 구조에 통합하고, Nullable·Logging 추상화, Media Payload 처리와 안정성 관련 코드를 수정·확장했습니다. 원본에서 파생된 부분에는 SharpRTSP의 저작권과 MIT License가 계속 적용되며, 자세한 출처와 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)와 [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt)에서 확인할 수 있습니다.
 
-WebRTC와 DataChannel 구성요소는 후속 제품 통합을 위한 Preview Adapter입니다. 현재 README의 RTSP 지원 설명은 독립적인 모든 프로토콜 코드를 OPNX가 처음부터 작성했다는 의미가 아니며, OPNX.Lib의 source-available 정책이 SharpRTSP 원저작물의 MIT License를 대체하지 않습니다.
+WebRTC 구성요소는 OPNX.V StreamingServer에 통합되어 사용되며 공개 API는 Preview 상태입니다. 현재 미디어 Track은 H.264 영상과 PCMU 오디오를 RTP로 전달합니다. RTSP의 H.265/H.266 등 Payload 지원이 WebRTC에서도 동일하게 제공된다는 의미는 아닙니다. 현재 README의 RTSP 지원 설명은 독립적인 모든 프로토콜 코드를 OPNX가 처음부터 작성했다는 의미가 아니며, OPNX.Lib의 source-available 정책이 SharpRTSP 원저작물의 MIT License를 대체하지 않습니다.
 
 ## ONVIF 장치 연동
 
@@ -256,7 +271,7 @@ OPNX.Lib.Data는 EF Core 전체를 대체하기보다 상태 기반 서비스에
 - 제품 고유 로직과 재사용 가능한 인프라를 분리합니다.
 - 공개 서비스는 특정 Logging Framework 대신 Logging 추상화에 의존합니다.
 - FFmpeg 같은 Native Runtime은 라이선스와 배포 책임을 OPNX 코드와 분리합니다.
-- 모듈을 개별 참조할 수 있고 `OPNX.Lib`는 통합 패키지를 제공합니다.
+- 소스 프로젝트는 모듈별로 참조할 수 있으며 현재 NuGet 배포 단위는 통합 `OPNX.Lib` 패키지입니다.
 
 ## 현재 상태
 
@@ -271,10 +286,22 @@ dotnet build OPNX.Lib.slnx -c Debug
 
 요구 사항은 .NET 10 SDK입니다.
 
+## 소스와 배포 패키지의 기능 범위
+
+이 README의 기능 설명은 현재 저장소 소스를 기준으로 합니다. 이미 게시된 Preview NuGet 패키지는 이전 API와 의존성을 포함할 수 있습니다. 패키지 설치 시 선택한 버전의 릴리스와 의존성을 확인하세요. 공개 Samples는 재현 가능한 실행을 위해 `0.1.0-preview.20260716.1`에 고정되어 있으며, 최신 소스 기능 전체를 보여주는 샘플 모음은 아닙니다.
+
 ## 샘플 및 문서
 
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
 - [ONVIF 클라이언트 서비스](src/OPNX.Lib.Onvif/README.md)
+
+## 평가와 코드 활용 범위
+
+- 개인 학습, 연구, 테스트와 비상업적 평가에 사용할 수 있습니다.
+- 기업 내부의 비운영 평가, PoC와 기술 검토도 라이선스에 따라 별도 서면 허가 없이 가능합니다.
+- 실제 운영, 고객 대상 서비스, 상용 제품·OEM 통합과 재배포에는 사전 서면 허가가 필요합니다.
+- 평가용 코드 수정 권한이 상용 제품에 코드를 포함하거나 수정본을 재배포할 권한까지 부여하지는 않습니다.
+- OPNX 소유 코드와 의존성의 라이선스는 각각 적용됩니다. 최종 조건은 저장소의 영문 라이선스를 확인하세요.
 
 ## 라이선스 및 지원
 

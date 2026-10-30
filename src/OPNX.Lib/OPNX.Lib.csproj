@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -27,7 +27,6 @@
     <PackageReference Include="MySqlConnector" Version="2.6.2" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260627" />
-    <PackageReference Include="SIPSorcery" Version="8.0.14" />
     <PackageReference Include="SkiaSharp" Version="4.156.0-preview.1.26512.10" />
     <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
@@ -57,6 +56,10 @@
 
   <ItemGroup>
     <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0-rc.2.26504.105" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

@@ -101,7 +101,9 @@ The transports share common packet framing and protocol behavior, including type
 | RTP/RTCP | UDP and interleaved transports, packet processing, timestamps, and control flow |
 | Media payloads | H.264, H.265/HEVC, H.266/VVC, JPEG, AAC, and G.711-family processing |
 | SDP | Session-description parsing and media-information handling |
-| WebRTC | SIPSorcery and DataChannel-based signal-server and peer-connection adapters |
+| WebRTC | DataChannelDotnet peer connections with Kestrel and built-in .NET WebSocket signaling |
+
+WebRTC signaling uses the ASP.NET Core 10 shared framework. Install the ASP.NET Core 10 runtime with the application, or publish self-contained.
 
 Portions of the RTSP, RTP/RTCP, SDP, and client/server handling code are derived from [SharpRTSP](https://github.com/ngraziano/SharpRTSP). SharpRTSP is distributed under the MIT License. OPNX has integrated the code into its namespaces and runtime structure and modified or extended areas including nullable annotations, logging abstractions, media-payload handling, and stability behavior. SharpRTSP copyright and MIT terms continue to apply to the upstream-derived portions; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt).
 

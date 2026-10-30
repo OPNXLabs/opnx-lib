@@ -1,4 +1,4 @@
-﻿using OPNX.Lib.Common.Primitives.Media;
+using OPNX.Lib.Common.Primitives.Media;
 using System.Runtime.Serialization;
 
 namespace OPNX.Lib.Streaming.RTSP.Commons
@@ -32,7 +32,14 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         [DataMember(Order = 1)]
         public CodecId Codec { get; set; } = CodecId.H264;
 
-        public int PayloadType => (int)Codec; // enum 값을 바로 PayloadType으로 사용
+        public int PayloadType => Codec switch
+        {
+            CodecId.H264 => (int)VideoPayloadType.H264,
+            CodecId.H265 => (int)VideoPayloadType.H265,
+            CodecId.MJPEG => (int)VideoPayloadType.MJPEG,
+            CodecId.AV1 => (int)VideoPayloadType.AV1,
+            _ => throw new NotSupportedException($"Unsupported video codec: {Codec}")
+        };
     }
 
     [DataContract]
@@ -41,6 +48,12 @@ namespace OPNX.Lib.Streaming.RTSP.Commons
         [DataMember(Order = 1)]
         public CodecId Codec { get; set; } = CodecId.PCMU;
 
-        public int PayloadType => (int)Codec;
+        public int PayloadType => Codec switch
+        {
+            CodecId.PCMU => (int)AudioPayloadType.PCMU,
+            CodecId.PCMA => (int)AudioPayloadType.PCMA,
+            CodecId.AAC => (int)AudioPayloadType.AAC,
+            _ => throw new NotSupportedException($"Unsupported audio codec: {Codec}")
+        };
     }
 }

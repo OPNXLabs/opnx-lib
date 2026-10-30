@@ -1,4 +1,4 @@
-﻿using OPNX.Lib.Common.Primitives.Media;
+using OPNX.Lib.Common.Primitives.Media;
 
 namespace OPNX.Lib.Streaming.RTSP.Generic
 {
@@ -273,7 +273,7 @@ namespace OPNX.Lib.Streaming.RTSP.Generic
 
                 if (nextStart == -1)
                 {
-                    nalus.Add(stream[..pos]);
+                    nalus.Add(stream[pos..]);
                     break;
                 }
 

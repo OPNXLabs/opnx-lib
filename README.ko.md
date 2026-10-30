@@ -101,7 +101,9 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 | RTP/RTCP | UDP·Interleaved Transport, Packet 처리, Timestamp 및 Control 흐름 |
 | Media Payload | H.264, H.265/HEVC, H.266/VVC, JPEG, AAC 및 G.711 계열 처리 |
 | SDP | Session Description Parsing과 Media 정보 연결 |
-| WebRTC | SIPSorcery 및 DataChannel 기반 Signal Server·Peer Connection Adapter |
+| WebRTC | DataChannelDotnet Peer Connection 및 Kestrel·.NET 기본 WebSocket 시그널링 |
+
+WebRTC 시그널링은 ASP.NET Core 10 공유 프레임워크를 사용합니다. 설치 프로그램에 ASP.NET Core 10 런타임을 포함하거나 자체 포함 방식으로 게시하세요.
 
 RTSP, RTP/RTCP, SDP 및 Client·Server 처리 코드의 일부는 [SharpRTSP](https://github.com/ngraziano/SharpRTSP)에서 파생되었습니다. SharpRTSP는 MIT License로 제공되며 OPNX는 이를 프로젝트 Namespace와 Runtime 구조에 통합하고, Nullable·Logging 추상화, Media Payload 처리와 안정성 관련 코드를 수정·확장했습니다. 원본에서 파생된 부분에는 SharpRTSP의 저작권과 MIT License가 계속 적용되며, 자세한 출처와 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)와 [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt)에서 확인할 수 있습니다.
 

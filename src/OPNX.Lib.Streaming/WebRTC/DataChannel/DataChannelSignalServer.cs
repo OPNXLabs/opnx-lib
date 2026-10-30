@@ -1,248 +1,299 @@
-﻿using DataChannelDotnet.Bindings;
+using DataChannelDotnet.Bindings;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Abstractions;
 using OPNX.Lib.Streaming.WebRTC.Events;
 using System.Collections.Concurrent;
-using System.Net;
 using System.Text.Json;
-using WebSocketSharp.Net.WebSockets;
-using WebSocketSharp.Server;
 
 namespace OPNX.Lib.Streaming.WebRTC.DataChannel
 {
     public class DataChannelSignalServer : IWebRtcSignalServer
     {
-        private readonly WebSocketServer webSocketServer;
-        private readonly ConcurrentDictionary<Guid, DataChannelPeerConnection> connections = new();
+        #region Fields
+        private readonly WebApplication _application;
+        private readonly ConcurrentDictionary<Guid, DataChannelClientSession> _sessions = new();
+        private readonly ConcurrentDictionary<Guid, Task> _closingTasks = new();
+        private readonly Lock _connectionLock = new();
         private readonly ILogger _logger;
+        private bool _disposed;
+        #endregion
 
+        #region Constructors
         public DataChannelSignalServer(int port, ILogger? logger = null)
         {
             _logger = logger ?? NullLogger.Instance;
-
-            webSocketServer = new WebSocketServer(IPAddress.Any, port);
-
-            webSocketServer.AddWebSocketService<DataChannelClientSession>("/", client =>
+            var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
             {
-                client.SocketOpened += OnSocketOpened;
-                client.SocketClosed += OnSocketClosed;
-                client.MessageReceived += OnMessageReceived;
+                Args = [],
+                ApplicationName = typeof(DataChannelSignalServer).Assembly.GetName().Name
             });
-
-            webSocketServer.Start();
-        }
-
-        public delegate void WebSocketOpenedEventHandler(object sender, Uri requestUri, ref DataChannelPeerConnection pc);
-        public event WebSocketOpenedEventHandler? WebSocketOpened;
-
-        public delegate void WebSocketClosedEventHandler(object sender, Uri requestUri, int videosourceID, Guid connectionID);
-        public event WebSocketClosedEventHandler? WebSocketClosed;
-
-        public event EventHandler<WebRtcClientOpenedEventArgs>? ClientOpened;
-        public event EventHandler<WebRtcClientClosedEventArgs>? ClientClosed;
-
-        public int Port => webSocketServer.Port;
-
-        private void OnWebSocketOpened(WebSocketContext context, ref DataChannelPeerConnection pc)
-        {
-            WebSocketOpened?.Invoke(this, context.RequestUri, ref pc);
-
-            WebRtcClientOpenedEventArgs args = new(context.RequestUri, pc.SessionID, pc.VideoSourceID);
-            ClientOpened?.Invoke(this, args);
-            pc.VideoSourceID = args.VideoSourceID;
-        }
-
-        private void OnWebSocketClosed(WebSocketContext context, DataChannelPeerConnection? pc)
-        {
-            int videoSourceID = pc?.VideoSourceID ?? int.MinValue;
-            Guid connectionID = pc?.SessionID ?? Guid.Empty;
-
-            WebSocketClosed?.Invoke(this, context.RequestUri, videoSourceID, connectionID);
-            ClientClosed?.Invoke(this, new WebRtcClientClosedEventArgs(context.RequestUri, connectionID, videoSourceID));
-        }
-
-        private void OnMessageReceived(WebSocketContext context, DataChannelPeerConnection? pc, string message)
-        {
-            if (pc == null || string.IsNullOrWhiteSpace(message))
-                return;
-
+            builder.Configuration.Sources.Clear();
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(port));
+            _application = builder.Build();
+            _application.UseWebSockets();
+            _application.Run(HandleRequestAsync);
             try
             {
-                if (pc.RemoteDescription == null)
-                {
-                    pc.SetRemoteAnswer(message);
-                    return;
-                }
-
-                if (IsEndOfCandidates(message))
-                    return;
-
-                if (TryParseIceCandidate(message, out string? candidate, out string? mid))
-                    pc.AddRemoteCandidate(candidate, mid);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Message}", ex.Message);
-            }
-        }
-
-        private async Task<DataChannelPeerConnection?> OnSocketOpened(WebSocketContext context)
-        {
-            try
-            {
-                DataChannelPeerConnection resultPC = CreatePeerConnection(context);
-                resultPC.LocalCandidateCreated += (_, candidate) =>
-                {
-                    if (context.WebSocket.ReadyState == WebSocketSharp.WebSocketState.Open)
-                    {
-                        string json = JsonSerializer.Serialize(new
-                        {
-                            candidate = candidate.Content,
-                            sdpMid = candidate.Mid
-                        });
-                        context.WebSocket.Send(json);
-                    }
-                };
-
-                string sdpMessage = (await resultPC.CreateOfferAsync().ConfigureAwait(false)).Sdp;
-
-                if (!string.Equals(context.RequestUri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
-                    sdpMessage = SdpModifier.ModifySdpCandidateIP(sdpMessage, context.RequestUri.Host);
-
-                context.WebSocket.Send(sdpMessage);
-
-                OnWebSocketOpened(context, ref resultPC);
-
-                if (resultPC.VideoSourceID == int.MinValue)
-                {
-                    resultPC.Dispose();
-                    return null;
-                }
-
-                connections.TryAdd(resultPC.SessionID, resultPC);
-                return resultPC;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Exception in OnSocketOpened: {ex.Message}");
-                return null;
-            }
-        }
-
-        private void OnSocketClosed(WebSocketContext context, DataChannelPeerConnection? peerConnection)
-        {
-            try
-            {
-                if (peerConnection != null && connections.TryRemove(peerConnection.SessionID, out var removeItem))
-                    removeItem.Dispose();
+                _application.StartAsync().GetAwaiter().GetResult();
+                Port = new Uri(_application.Urls.First()).Port;
             }
             catch
             {
-            }
-
-            OnWebSocketClosed(context, peerConnection);
-        }
-
-#pragma warning disable IDE0060
-        private static DataChannelPeerConnection CreatePeerConnection(WebSocketContext context)
-        {
-            return new DataChannelPeerConnection();
-        }
-#pragma warning restore IDE0060
-
-        public void SendRtpData(string mediaType, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
-        {
-            foreach (var kvp in connections)
-            {
-                if (kvp.Value.ConnectionState == rtcState.RTC_CONNECTED)
-                    SendRtpData(kvp.Value, mediaType, payloadType, payload, timeStamp, markerBit);
+                _application.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                throw;
             }
         }
+        #endregion
 
-        public void SendRtpData(Guid connectionID, string mediaType, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
+        #region Events
+        public event EventHandler<WebRtcClientOpenedEventArgs>? ClientOpened;
+        public event EventHandler<WebRtcClientClosedEventArgs>? ClientClosed;
+        #endregion
+
+        #region Properties
+        public int Port { get; }
+        #endregion
+
+        #region Private / Protected Methods
+        private async Task HandleRequestAsync(HttpContext context)
         {
-            if (connections.TryGetValue(connectionID, out var connection) && connection.ConnectionState == rtcState.RTC_CONNECTED)
-                SendRtpData(connection, mediaType, payloadType, payload, timeStamp, markerBit);
-        }
-
-        public void SendRtpVideoData(int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
-            SendRtpData("video", payloadType, payload, timeStamp, markerBit);
-
-        public void SendRtpAudioData(int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
-            SendRtpData("audio", payloadType, payload, timeStamp, markerBit);
-
-        public void SendRtpVideoData(Guid connectionID, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
-            SendRtpData(connectionID, "video", payloadType, payload, timeStamp, markerBit);
-
-        public void SendRtpAudioData(Guid connectionID, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
-            SendRtpData(connectionID, "audio", payloadType, payload, timeStamp, markerBit);
-
-        public void CloseConnection(Guid connectionID)
-        {
-            if (connections.TryRemove(connectionID, out var removeItem))
-                removeItem.Dispose();
-        }
-
-        private static void SendRtpData(DataChannelPeerConnection connection, string mediaType, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
-        {
-            if (string.Equals(mediaType, "video", StringComparison.OrdinalIgnoreCase))
+            if (!context.WebSockets.IsWebSocketRequest)
             {
-                connection.SendRtpVideoData(payloadType, payload, timeStamp, markerBit);
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 return;
             }
 
-            if (string.Equals(mediaType, "audio", StringComparison.OrdinalIgnoreCase))
-                connection.SendRtpAudioData(payloadType, payload, timeStamp, markerBit);
-        }
-
-        private static bool IsEndOfCandidates(string message)
-        {
-            return message.Equals("a=end-of-candidates", StringComparison.OrdinalIgnoreCase) ||
-                   message.Equals("end-of-candidates", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool TryParseIceCandidate(string message, out string candidate, out string mid)
-        {
-            candidate = string.Empty;
-            mid = string.Empty;
+            var socket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
+            var request = context.Request;
+            Uri requestUri = new($"{(request.IsHttps ? "wss" : "ws")}://{request.Host}{request.PathBase}{request.Path}{request.QueryString}");
+            DataChannelClientSession session = new(socket, requestUri);
+            lock (_connectionLock)
+            {
+                if (_disposed)
+                {
+                    socket.Abort();
+                    socket.Dispose();
+                    return;
+                }
+                session.SocketOpened += OnSocketOpened;
+                session.MessageReceived += OnMessageReceived;
+                session.SocketClosed += client => CloseConnection(client.ConnectionID);
+                session.SocketFailed += (client, error) =>
+                {
+                    if (!client.IsClosed)
+                        _logger.LogWarning(error, "WebRTC signaling failed. ConnectionID={ConnectionID}.", client.ConnectionID);
+                };
+                _sessions.TryAdd(session.ConnectionID, session);
+            }
 
             try
             {
-                using JsonDocument document = JsonDocument.Parse(message);
-                JsonElement root = document.RootElement;
-
-                if (root.TryGetProperty("candidate", out JsonElement candidateElement))
-                    candidate = candidateElement.GetString() ?? string.Empty;
-
-                if (root.TryGetProperty("sdpMid", out JsonElement midElement))
-                    mid = midElement.GetString() ?? string.Empty;
-
-                return !string.IsNullOrWhiteSpace(candidate) && !string.IsNullOrWhiteSpace(mid);
+                await session.RunAsync(context.RequestAborted).ConfigureAwait(false);
             }
-            catch (JsonException)
+            finally
             {
-                return false;
+                CloseConnection(session.ConnectionID);
+                if (_closingTasks.TryGetValue(session.ConnectionID, out var closing))
+                    await closing.ConfigureAwait(false);
             }
+        }
+
+        private async Task OnSocketOpened(DataChannelClientSession session)
+        {
+            DataChannelPeerConnection peer;
+            lock (_connectionLock)
+            {
+                if (_disposed || session.IsClosed)
+                    return;
+                peer = new DataChannelPeerConnection(sessionID: session.ConnectionID);
+                session.PeerConnection = peer;
+            }
+            Lock candidateLock = new();
+            List<string> candidates = [];
+            bool offerSent = false;
+            peer.LocalCandidateCreated += (sender, candidate) =>
+            {
+                string message = JsonSerializer.Serialize(new { candidate = candidate.Content, sdpMid = candidate.Mid });
+                lock (candidateLock)
+                {
+                    if (!offerSent)
+                        candidates.Add(message);
+                    else
+                        _ = SendCandidateAsync(session, message);
+                }
+            };
+            peer.ConnectionStateChanged += (sender, state) =>
+            {
+                if (state is rtcState.RTC_FAILED or rtcState.RTC_CLOSED or rtcState.RTC_DISCONNECTED)
+                    CloseConnection(session.ConnectionID);
+            };
+            WebRtcClientOpenedEventArgs args = new(session.RequestUri, session.ConnectionID, int.MinValue);
+            ClientOpened?.Invoke(this, args);
+            peer.VideoSourceID = args.VideoSourceID;
+            if (peer.VideoSourceID == int.MinValue || session.IsClosed)
+            {
+                CloseConnection(session.ConnectionID);
+                return;
+            }
+            string sdp = (await peer.CreateOfferAsync().ConfigureAwait(false)).Sdp;
+            await session.SendAsync(sdp).ConfigureAwait(false);
+            lock (candidateLock)
+            {
+                offerSent = true;
+                foreach (string candidate in candidates)
+                    _ = SendCandidateAsync(session, candidate);
+                candidates.Clear();
+            }
+        }
+
+        private async Task SendCandidateAsync(DataChannelClientSession session, string message)
+        {
+            try
+            {
+                if (!session.IsClosed)
+                    await session.SendAsync(message).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (!session.IsClosed)
+                    _logger.LogWarning(ex, "Failed to send an ICE candidate. ConnectionID={ConnectionID}.", session.ConnectionID);
+                CloseConnection(session.ConnectionID);
+            }
+        }
+
+        private void OnMessageReceived(DataChannelClientSession session, string message)
+        {
+            var connection = session.PeerConnection;
+            if (connection == null || string.IsNullOrWhiteSpace(message))
+                return;
+            if (message.StartsWith("v=", StringComparison.Ordinal))
+            {
+                connection.SetRemoteAnswer(message);
+                return;
+            }
+            if (message.Equals("a=end-of-candidates", StringComparison.OrdinalIgnoreCase) ||
+                message.Equals("end-of-candidates", StringComparison.OrdinalIgnoreCase))
+                return;
+            using var document = JsonDocument.Parse(message);
+            var root = document.RootElement;
+            if (root.TryGetProperty("candidate", out var candidate) && root.TryGetProperty("sdpMid", out var mid) &&
+                candidate.ValueKind == JsonValueKind.String && mid.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(candidate.GetString()))
+                connection.AddRemoteCandidate(candidate.GetString()!, mid.GetString()!);
+        }
+
+        private void SendRtpData(Guid connectionID, bool video, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
+        {
+            if (!_sessions.TryGetValue(connectionID, out var session) || session.PeerConnection is not { IsConnected: true } connection)
+                return;
+            try
+            {
+                if (video)
+                    connection.SendRtpVideoData(payloadType, payload, timeStamp, markerBit);
+                else
+                    connection.SendRtpAudioData(payloadType, payload, timeStamp, markerBit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send WebRTC RTP data. ConnectionID={ConnectionID}.", connectionID);
+                CloseConnection(connectionID);
+            }
+        }
+
+        private async Task CloseSessionAsync(DataChannelClientSession session, TaskCompletionSource completion)
+        {
+            try
+            {
+                await session.Initialization.ConfigureAwait(false);
+                await session.SocketCloseTask.ConfigureAwait(false);
+                session.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to close a WebRTC connection. ConnectionID={ConnectionID}.", session.ConnectionID);
+            }
+            finally
+            {
+                try
+                {
+                    if (session.PeerConnection is { } peer)
+                        ClientClosed?.Invoke(this, new WebRtcClientClosedEventArgs(session.RequestUri, session.ConnectionID, peer.VideoSourceID));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to notify WebRTC connection close. ConnectionID={ConnectionID}.", session.ConnectionID);
+                }
+                completion.TrySetResult();
+                _closingTasks.TryRemove(session.ConnectionID, out _);
+            }
+        }
+        #endregion
+
+        #region Public Methods
+        public void SendRtpVideoData(int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
+        {
+            foreach (var id in _sessions.Keys)
+                SendRtpVideoData(id, payloadType, payload, timeStamp, markerBit);
+        }
+        public void SendRtpAudioData(int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit)
+        {
+            foreach (var id in _sessions.Keys)
+                SendRtpAudioData(id, payloadType, payload, timeStamp, markerBit);
+        }
+        public void SendRtpVideoData(Guid connectionID, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
+            SendRtpData(connectionID, true, payloadType, payload, timeStamp, markerBit);
+        public void SendRtpAudioData(Guid connectionID, int payloadType, ReadOnlySpan<byte> payload, uint timeStamp, int markerBit) =>
+            SendRtpData(connectionID, false, payloadType, payload, timeStamp, markerBit);
+
+        public void CloseConnection(Guid connectionID)
+        {
+            DataChannelClientSession? session;
+            TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_connectionLock)
+            {
+                if (!_sessions.TryRemove(connectionID, out session))
+                    return;
+                _closingTasks.TryAdd(connectionID, completion.Task);
+            }
+            try
+            {
+                session.Close();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to close a signaling socket. ConnectionID={ConnectionID}.", connectionID);
+            }
+            _ = Task.Run(() => CloseSessionAsync(session, completion));
         }
 
         public void Dispose()
         {
-            foreach (var item in connections.Values)
-                item.Dispose();
-
-            connections.Clear();
-            webSocketServer.Stop();
+            lock (_connectionLock)
+            {
+                if (_disposed)
+                    return;
+                _disposed = true;
+            }
+            foreach (var id in _sessions.Keys)
+                CloseConnection(id);
+            Task.WhenAll(_closingTasks.Values).GetAwaiter().GetResult();
+            try
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                _application.StopAsync(timeout.Token).GetAwaiter().GetResult();
+            }
+            finally
+            {
+                _application.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
             GC.SuppressFinalize(this);
         }
+        #endregion
     }
 }
-
-
-
-
-
-
-
-
-

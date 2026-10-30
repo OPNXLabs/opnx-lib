@@ -105,7 +105,7 @@ namespace OPNX.Lib.Streaming.RTSP
             _mainTask = Task.Factory.StartNew(async () => await DoJobAsync(_cancelationTokenSource.Token).ConfigureAwait(false),
                 _cancelationTokenSource.Token,
                 TaskCreationOptions.LongRunning,
-                TaskScheduler.Current);
+                TaskScheduler.Default).Unwrap();
         }
 
         /// <summary>
@@ -518,7 +518,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                     while (needMoreChar)
                     {
-                        int currentByte = commandStream.ReadByte();
+                        int currentByte = await ReadByteAsync(commandStream, token).ConfigureAwait(false);
 
                         switch (currentByte)
                         {

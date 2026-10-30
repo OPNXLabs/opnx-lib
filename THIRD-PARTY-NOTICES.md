@@ -100,25 +100,6 @@ The full license text is provided in:
 
 - [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
 
-## SIPSorcery
-
-- Component: `SIPSorcery`
-- Version: `8.0.14`
-- Project: [https://github.com/sipsorcery-org/sipsorcery](https://github.com/sipsorcery-org/sipsorcery)
-- Package reference: [https://www.nuget.org/packages/SIPSorcery/8.0.14](https://www.nuget.org/packages/SIPSorcery/8.0.14)
-- License: `BSD-3-Clause`
-- Used by: `OPNX.Lib.Streaming`
-- Usage: WebRTC and SIP/media-related support used by streaming components
-
-Important notes:
-
-- This notice applies to the version currently referenced by this repository.
-- Future versions may use different license terms and should be reviewed before upgrading.
-
-The full license text is provided in:
-
-- [third_party_licenses/BSD-3-Clause.txt](third_party_licenses/BSD-3-Clause.txt)
-
 ## DataChannelDotnet
 
 - Component: `DataChannelDotnet`
@@ -132,6 +113,18 @@ The full license text is provided in:
 The full license text is provided in:
 
 - [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
+
+## Framework References
+
+### Microsoft.AspNetCore.App
+
+- Component: ASP.NET Core shared framework (`Microsoft.AspNetCore.App`)
+- Target framework: .NET 10
+- Project: [https://github.com/dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
+- License: [MIT](https://github.com/dotnet/aspnetcore/blob/main/LICENSE.txt)
+- Used by: `OPNX.Lib.Streaming` and the `OPNX.Lib` aggregate package
+- Usage: Kestrel HTTP listener and the built-in .NET WebSocket signaling transport
+- Deployment: install the ASP.NET Core 10 runtime or publish the consuming application as self-contained.
 
 ## Selected Transitive Components
 
@@ -165,31 +158,6 @@ The full license text is provided in:
 The full license text is provided in:
 
 - [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
-
-## SIPSorcery Transitive Components
-
-- Components:
-  - `SIPSorceryMedia.Abstractions` (`8.0.10`)
-  - `SIPSorcery.WebSocketSharp` (`0.0.1`)
-  - `Concentus` (`2.2.2`)
-  - `DnsClient` (`1.8.0`)
-  - `Portable.BouncyCastle` (`1.9.0`)
-- Usage: transitive dependencies pulled in by `SIPSorcery`
-
-Licenses:
-
-- `SIPSorceryMedia.Abstractions`: `BSD-3-Clause`
-- `SIPSorcery.WebSocketSharp`: `MIT`
-- `Concentus`: BSD-style permissive license
-- `DnsClient`: `Apache-2.0`
-- `Portable.BouncyCastle`: MIT-style permissive license
-
-License texts used by this repository:
-
-- [third_party_licenses/BSD-3-Clause.txt](third_party_licenses/BSD-3-Clause.txt)
-- [third_party_licenses/MIT.txt](third_party_licenses/MIT.txt)
-- [third_party_licenses/Apache-2.0.txt](third_party_licenses/Apache-2.0.txt)
-- [third_party_licenses/Concentus-Opus-BSD.txt](third_party_licenses/Concentus-Opus-BSD.txt)
 
 ## Source-Derived Components
 

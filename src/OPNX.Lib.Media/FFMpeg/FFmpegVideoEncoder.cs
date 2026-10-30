@@ -1,4 +1,4 @@
-﻿using FFmpeg.AutoGen;
+using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.LifeCycle;
@@ -115,6 +115,13 @@ namespace OPNX.Lib.Media.FFMpeg
                     {
                         case AVCodecID.AV_CODEC_ID_H264:
                             {
+                                if (System.Runtime.InteropServices.Marshal.PtrToStringAnsi((IntPtr)_codec->name) == "libopenh264")
+                                {
+                                    _codecContext->gop_size = gop;
+                                    ffmpeg.av_opt_set(_codecContext->priv_data, "profile", "constrained_baseline", 0).ThrowExceptionIfError();
+                                    break;
+                                }
+
                                 ffmpeg.av_opt_set(_codecContext->priv_data, "profile", "baseline", 0).ThrowExceptionIfError();
 
                                 //CRF설정

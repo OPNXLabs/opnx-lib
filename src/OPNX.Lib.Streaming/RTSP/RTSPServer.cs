@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OPNX.Lib.Common.Primitives.Media;
 using OPNX.Lib.Streaming.RTSP.Commons;
@@ -40,6 +40,7 @@ namespace OPNX.Lib.Streaming.RTSP
         private CancellationTokenSource? _Stopping;
         //private Thread _ListenTread;
         private Task? _ListenTask;
+        private int _disposed;
 
         //byte[] rawSps;
         //byte[] rawPs;        
@@ -342,7 +343,7 @@ namespace OPNX.Lib.Streaming.RTSP
             _ListenTask = Task.Factory.StartNew(async () => await AcceptConnectionAsync(_Stopping.Token).ConfigureAwait(false),
                 _Stopping.Token,
                 TaskCreationOptions.LongRunning,
-                TaskScheduler.Current);
+                TaskScheduler.Default).Unwrap();
         }
 
         private void StopListen()
@@ -368,6 +369,7 @@ namespace OPNX.Lib.Streaming.RTSP
 
                         var newListener = new RTSPListener(rtsp_socket);
                         newListener.MessageReceived += RTSPMessageReceived;
+                        newListener.Closed += Listener_Closed;
 
                         RTSPConnection newConnection = new()
                         {
@@ -1157,10 +1159,18 @@ namespace OPNX.Lib.Streaming.RTSP
         //    return (rtp_packets, memoryOwners);
         //}
 
+        private void Listener_Closed(object? sender, EventArgs e)
+        {
+            if (sender is RTSPListener listener)
+                RemoveSession(listener.ConnectionID);
+        }
+
         private void RemoveSession(Guid connectionID)
         {
             if (dicRTSPConnection.TryRemove(connectionID, out var removeConnection))
             {
+                removeConnection.Listener.Closed -= Listener_Closed;
+                removeConnection.Listener.MessageReceived -= RTSPMessageReceived;
                 removeConnection.play = false; // stop sending data
                 removeConnection.video.rtpChannel?.Dispose();
                 removeConnection.video.rtpChannel = null;
@@ -1194,9 +1204,11 @@ namespace OPNX.Lib.Streaming.RTSP
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing)
+            if (disposing && Interlocked.Exchange(ref _disposed, 1) == 0)
             {
                 StopListen();
+                foreach (var connectionID in dicRTSPConnection.Keys)
+                    RemoveSession(connectionID);
                 _Stopping?.Dispose();
             }
         }

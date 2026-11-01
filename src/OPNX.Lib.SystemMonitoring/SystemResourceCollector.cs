@@ -63,6 +63,8 @@ public sealed class SystemResourceCollector : ISystemResourceCollector, IDisposa
 
         _disposed = true;
         _process.Dispose();
+        if (_operatingSystemMetricsProvider is IDisposable disposable)
+            disposable.Dispose();
     }
 
     private ProcessSnapshot GetProcessSnapshot(DateTimeOffset timestamp, long sampleTimestamp)

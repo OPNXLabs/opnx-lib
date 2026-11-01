@@ -6,6 +6,7 @@ namespace OPNX.Lib.SystemMonitoring.Platform.Windows;
 [SupportedOSPlatform("windows")]
 internal static class WindowsGpuAdapterEnumerator
 {
+    private const uint DxgiAdapterFlagSoftware = 2;
     private const int DxgiErrorNotFound = unchecked((int)0x887A0002);
     private static readonly Guid FactoryGuid = typeof(IDxgiFactory1).GUID;
 
@@ -31,6 +32,9 @@ internal static class WindowsGpuAdapterEnumerator
                 try
                 {
                     if (adapter.GetDesc1(out DxgiAdapterDescription description) < 0)
+                        continue;
+
+                    if ((description.Flags & DxgiAdapterFlagSoftware) != 0)
                         continue;
 
                     string luid = $"luid_0x{unchecked((uint)description.AdapterLuid.HighPart):x8}_0x{description.AdapterLuid.LowPart:x8}";

@@ -7,7 +7,7 @@ using System.Runtime.Versioning;
 namespace OPNX.Lib.SystemMonitoring.Platform.Windows;
 
 [SupportedOSPlatform("windows")]
-internal sealed class WindowsSystemMetricsProvider : IOperatingSystemMetricsProvider
+internal sealed class WindowsSystemMetricsProvider : IOperatingSystemMetricsProvider, IDisposable
 {
     private const string ProcessorRegistryPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
     private const string DisplayAdapterRegistryPath = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
@@ -140,6 +140,11 @@ internal sealed class WindowsSystemMetricsProvider : IOperatingSystemMetricsProv
         }
 
         return snapshots;
+    }
+
+    public void Dispose()
+    {
+        _gpuPerformanceCollector.Dispose();
     }
 
     private static string? ReadCpuName()

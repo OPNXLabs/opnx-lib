@@ -70,8 +70,8 @@ namespace OPNX.Lib.Media.FFMpeg
             : base()
         {
             _logger = logger ?? NullLogger.Instance;
-            if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation("[VideoDecoderInit] Native constructor entered. Codec={Codec}, RequestedHardware={Hardware}, ThreadID={ThreadID}.",
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("[VideoDecoderInit] Native constructor entered. Codec={Codec}, RequestedHardware={Hardware}, ThreadID={ThreadID}.",
                     codecID, hwDeviceType, Environment.CurrentManagedThreadId);
 
             try
@@ -172,13 +172,13 @@ namespace OPNX.Lib.Media.FFMpeg
                             break;
                     }
 
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        _logger.LogInformation("[VideoDecoderInit] Codec open started. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[VideoDecoderInit] Codec open started. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
                             codecID, _codecContext->thread_count, Environment.CurrentManagedThreadId);
                     if (ffmpeg.avcodec_open2(_codecContext, _codec, &options) < 0)
                         throw new Exception("Failed to open the video codec.");
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        _logger.LogInformation("[VideoDecoderInit] Codec open completed. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("[VideoDecoderInit] Codec open completed. Codec={Codec}, ThreadCount={ThreadCount}, ThreadID={ThreadID}.",
                             codecID, _codecContext->thread_count, Environment.CurrentManagedThreadId);
 
                     if (options != null)
@@ -209,12 +209,12 @@ namespace OPNX.Lib.Media.FFMpeg
                 {
                     unsafe
                     {
-                        if (_logger.IsEnabled(LogLevel.Information))
-                            _logger.LogInformation("[VideoDecoderInit] Hardware device creation started. Hardware={Hardware}, ThreadID={ThreadID}.",
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                            _logger.LogDebug("[VideoDecoderInit] Hardware device creation started. Hardware={Hardware}, ThreadID={ThreadID}.",
                                 hwDeviceType, Environment.CurrentManagedThreadId);
                         int hardwareResult = ffmpeg.av_hwdevice_ctx_create(&_codecContext->hw_device_ctx, hwDeviceType, null, null, 0);
-                        if (_logger.IsEnabled(LogLevel.Information))
-                            _logger.LogInformation("[VideoDecoderInit] Hardware device creation completed. Hardware={Hardware}, Result={Result}, ThreadID={ThreadID}.",
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                            _logger.LogDebug("[VideoDecoderInit] Hardware device creation completed. Hardware={Hardware}, Result={Result}, ThreadID={ThreadID}.",
                                 hwDeviceType, hardwareResult, Environment.CurrentManagedThreadId);
                         if (hardwareResult == 0)
                             _hwDeviceType = hwDeviceType;
@@ -258,8 +258,8 @@ namespace OPNX.Lib.Media.FFMpeg
                 }
 
                 this.PropertyChanged += FFmpegVideoDecoder_PropertyChanged;
-                if (_logger.IsEnabled(LogLevel.Information))
-                    _logger.LogInformation("[VideoDecoderInit] Native constructor completed. Codec={Codec}, Hardware={Hardware}, ThreadID={ThreadID}.",
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("[VideoDecoderInit] Native constructor completed. Codec={Codec}, Hardware={Hardware}, ThreadID={ThreadID}.",
                         codecID, _hwDeviceType, Environment.CurrentManagedThreadId);
             }
             catch (Exception ex)
@@ -878,7 +878,8 @@ namespace OPNX.Lib.Media.FFMpeg
 
                 if (ret < 0)
                 {
-                    Console.WriteLine($"Failed to decode the video frame. Error={FFmpegHelper.Av_strerror(ret)}.");
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("Failed to decode the video frame. Error={Error}.", FFmpegHelper.Av_strerror(ret));
                     return null;
                 }
 
@@ -896,7 +897,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "{Message}", ex.Message);
+                _logger.LogDebug(ex, "Video frame decoding failed.");
                 return null;
             }
             finally
@@ -1018,7 +1019,8 @@ namespace OPNX.Lib.Media.FFMpeg
 
                 if (ret < 0)
                 {
-                    Console.WriteLine($"Failed to decode the video frame. Error={FFmpegHelper.Av_strerror(ret)}.");
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("Failed to decode the video frame. Error={Error}.", FFmpegHelper.Av_strerror(ret));
                     return false;
                 }
 
@@ -1038,7 +1040,7 @@ namespace OPNX.Lib.Media.FFMpeg
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "{Message}", ex.Message);
+                _logger.LogDebug(ex, "Video frame decoding failed.");
                 return false;
             }
             finally

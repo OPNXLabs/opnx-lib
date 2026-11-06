@@ -104,6 +104,12 @@ The transports share common packet framing and protocol behavior, including type
 
 TCP and SharedMemory `SendOwnedDataAsync` accept `IMemoryOwner<byte>` buffers. Ownership transfers to the send path on every outcome; callers must not reuse or dispose the transferred buffer again. SharedMemory raw-byte transport skips serialization and recompression while retaining packet framing.
 
+### HTTP Proxy
+
+`Protocol.HttpProxy.HttpProxyServer` provides HTTP request forwarding and HTTPS `CONNECT` tunnels. `HttpProxyOptions` configures optional authentication, destination access policies, concurrent-connection and request-size limits, and header, connection, and idle timeouts. The server reuses outbound HTTP connections and closes active connections and asynchronous work on shutdown.
+
+The default listen address is loopback. Requests are denied unless `AuthorizeRequestAsync` is supplied; applications define the destinations they allow. `AuthenticateAsync` can additionally validate proxy credentials. HTTPS `CONNECT` relays a tunnel rather than decrypting TLS traffic. This is a separate HTTP proxy API, not a transport for the OPNX packet protocol.
+
 Windows common APIs also provide `Win32` helpers for taskbar application IDs and window notifications.
 
 ## Real-Time Streaming
@@ -266,6 +272,8 @@ OPNX.Lib.Data is not intended to reproduce the complete surface area of EF Core.
 
 `OPNX.Lib.SystemMonitoring` periodically collects CPU, memory, process, network-interface, disk-volume, and platform-specific GPU data. It separates point-in-time `SystemResourceSnapshot` data from operational `SystemResourceState<TKey>`, while `SystemResourceStore<TKey>` shares the latest state for multiple servers or devices by key. Windows and Linux providers are available; individual metrics depend on platform support.
 
+On Windows, GPU utilization is collected from GPU Engine performance counters. Process usage is summed per physical engine, and the busiest engine determines GPU utilization. Counter instances are refreshed as processes start and stop, and software adapters such as Microsoft Basic Render Driver are excluded from the GPU list. Available metrics depend on the operating system and driver.
+
 ## Design Direction
 
 - Product-specific logic stays outside the reusable infrastructure layer.
@@ -285,6 +293,16 @@ dotnet build OPNX.Lib.slnx -c Debug
 ```
 
 Requirements: .NET 10 SDK.
+
+To create a distribution package, use the Release configuration:
+
+```powershell
+dotnet pack .\src\OPNX.Lib\OPNX.Lib.csproj -c Release -p:Platform=x64 -p:PreviewDate=20261106 -p:PreviewRevision=1
+```
+
+This example creates `OPNX.Lib.0.1.0-preview.20261106.1.nupkg`. Release controls build optimization; the `-preview` version suffix keeps the NuGet package a prerelease. By default, the date follows the local build date. Set the date and revision explicitly to keep the version consistent across packaging and validation, and choose a new revision for another published package on the same date.
+
+Before publishing, add the output directory as a local NuGet source and restore/build a consuming application with that exact package version. Validate OPNX.UI.WPF in package-reference mode; Dev solutions referencing Lib source projects do not validate the package. Check native runtime requirements when running media and WebRTC features. After changing packaged documentation, rebuild the package so it includes the updated files.
 
 ## Source And Published Package Scope
 

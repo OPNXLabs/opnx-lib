@@ -104,6 +104,12 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 
 TCP와 SharedMemory의 `SendOwnedDataAsync`는 `IMemoryOwner<byte>` 버퍼를 전달받습니다. 호출 후 성공·실패 여부와 관계없이 소유권은 송신 경로로 이전되므로 호출자가 반환된 버퍼를 재사용하거나 다시 Dispose하면 안 됩니다. SharedMemory의 원본 바이트 경로는 직렬화·재압축을 생략하고 기존 Packet Framing을 유지합니다.
 
+### HTTP 프록시
+
+`Protocol.HttpProxy.HttpProxyServer`는 HTTP 요청 전달과 HTTPS `CONNECT` 터널을 제공합니다. `HttpProxyOptions`로 선택적 인증, 목적지 접근 정책, 동시 연결·요청 크기 제한과 Header·연결·유휴 시간제한을 설정합니다. 외부 HTTP 연결을 재사용하며 서버 종료 시 활성 연결과 비동기 작업을 정리합니다.
+
+기본 수신 주소는 Loopback입니다. `AuthorizeRequestAsync`를 지정하지 않으면 요청을 거부하므로 애플리케이션에서 허용할 목적지를 정의해야 합니다. `AuthenticateAsync`로 프록시 자격 증명을 추가 검증할 수 있습니다. HTTPS `CONNECT`는 TLS 트래픽을 복호화하지 않고 터널로 전달합니다. OPNX Packet Protocol의 Transport와는 별도의 HTTP 프록시 API입니다.
+
 Windows 공통 API에는 작업표시줄 Application ID와 창 알림을 위한 `Win32` Helper도 포함됩니다.
 
 ## 실시간 Streaming
@@ -266,6 +272,8 @@ OPNX.Lib.Data는 EF Core 전체를 대체하기보다 상태 기반 서비스에
 
 `OPNX.Lib.SystemMonitoring`은 Platform Provider를 통해 CPU, 메모리, Process, 네트워크 Interface, 디스크 Volume 및 플랫폼별 GPU 자원을 주기적으로 수집합니다. 수집 시점의 `SystemResourceSnapshot`과 운영 상태인 `SystemResourceState<TKey>`를 분리하고, `SystemResourceStore<TKey>`를 통해 여러 서버·장치의 최신 상태를 Key 기준으로 공유할 수 있습니다. Windows와 Linux Provider가 있으며 세부 Metric 지원 범위는 플랫폼에 따라 다릅니다.
 
+Windows GPU 사용률은 GPU Engine 성능 카운터에서 수집합니다. 같은 물리 엔진의 프로세스 사용률을 합산하고 가장 바쁜 엔진을 GPU 사용률로 반영합니다. 프로세스 시작·종료에 따라 카운터 목록을 갱신하며 Microsoft Basic Render Driver 같은 소프트웨어 어댑터는 GPU 목록에서 제외합니다. 사용 가능한 Metric은 운영체제와 Driver에 따라 다릅니다.
+
 ## 설계 방향
 
 - 제품 고유 로직과 재사용 가능한 인프라를 분리합니다.
@@ -285,6 +293,16 @@ dotnet build OPNX.Lib.slnx -c Debug
 ```
 
 요구 사항은 .NET 10 SDK입니다.
+
+배포 패키지는 Release 구성으로 생성합니다.
+
+```powershell
+dotnet pack .\src\OPNX.Lib\OPNX.Lib.csproj -c Release -p:Platform=x64 -p:PreviewDate=20261106 -p:PreviewRevision=1
+```
+
+위 예시는 `OPNX.Lib.0.1.0-preview.20261106.1.nupkg`를 생성합니다. Release는 빌드 최적화를 위한 구성이며 버전의 `-preview` 접미사는 NuGet 패키지를 사전 릴리스로 유지합니다. 날짜 기본값은 로컬 빌드 날짜입니다. 패키징과 검증에 같은 버전을 사용하도록 날짜와 Revision을 명시하고, 같은 날짜에 다른 패키지를 게시할 때는 Revision을 올립니다.
+
+게시 전에는 출력 디렉터리를 로컬 NuGet Source로 추가하고 소비 애플리케이션이 해당 패키지의 정확한 버전을 사용하도록 Restore·Build합니다. OPNX.UI.WPF는 PackageReference 모드로 검증해야 하며, Lib 소스를 직접 참조하는 Dev 솔루션만으로는 패키지를 검증할 수 없습니다. Media·WebRTC 기능 실행 시에는 네이티브 런타임 요구사항도 확인합니다. 패키지에 포함되는 문서를 수정했다면 변경된 파일이 반영되도록 패키지를 다시 생성해야 합니다.
 
 ## 소스와 배포 패키지의 기능 범위
 

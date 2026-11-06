@@ -8,7 +8,7 @@ RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
 
 [NuGet](https://www.nuget.org/packages/OPNX.Lib) · [RTSP 샘플 실행](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#rtsp-multi-live-viewer-실행) · [전체 샘플 보기](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md) · [상업 라이선스 및 OEM 문의](#라이선스-및-지원)
 
-![OPNX.Lib와 OPNX.UI로 개발 중인 OPNX.V 다채널 라이브 모니터링](docs/images/opnx-v-live-monitoring.png)
+![OPNX.Lib와 OPNX.UI로 개발 중인 OPNX.V 다채널 라이브 모니터링](https://raw.githubusercontent.com/OPNXLabs/opnx-lib/master/docs/images/opnx-v-live-monitoring.png)
 
 ## OPNX.V를 구성하는 기반 기술
 

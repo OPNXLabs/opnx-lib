@@ -1,6 +1,6 @@
 # OPNX.Lib
 
-[한국어](README.ko.md)
+[한국어](https://github.com/OPNXLabs/opnx-lib/blob/master/README.ko.md)
 
 **A C#/.NET SDK for building real-time video and video-surveillance systems.**
 
@@ -28,7 +28,7 @@ dotnet add package OPNX.Lib --prerelease
 
 For the shortest path from package to working video, start with [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer). It demonstrates RTSP input, FFmpeg decoding, WPF video presentation, camera navigation, and a configurable multi-view using published OPNX packages.
 
-> **License:** OPNX.Lib is source-available, not open-source. Learning, research, testing, and non-commercial evaluation are permitted under [License.txt](License.txt). Commercial use, production use, redistribution, and OEM integration require prior written permission from OPNX.
+> **License:** OPNX.Lib is source-available, not open-source. Learning, research, testing, and non-commercial evaluation are permitted under [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt). Commercial use, production use, redistribution, and OEM integration require prior written permission from OPNX.
 > Internal non-production evaluation, proof of concept, and technical review by commercial organizations are also permitted. See the evaluation guidance below and the English license for scope.
 
 OPNX.Lib is a modular .NET infrastructure SDK for stateful video systems such as VMS, NVR, streaming servers, device gateways, media-processing services, and monitoring applications.
@@ -126,7 +126,7 @@ Windows common APIs also provide `Win32` helpers for taskbar application IDs and
 
 WebRTC signaling uses the ASP.NET Core 10 shared framework. Install the ASP.NET Core 10 runtime with the application, or publish self-contained.
 
-Portions of the RTSP, RTP/RTCP, SDP, and client/server handling code are derived from [SharpRTSP](https://github.com/ngraziano/SharpRTSP). SharpRTSP is distributed under the MIT License. OPNX has integrated the code into its namespaces and runtime structure and modified or extended areas including nullable annotations, logging abstractions, media-payload handling, and stability behavior. SharpRTSP copyright and MIT terms continue to apply to the upstream-derived portions; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt).
+Portions of the RTSP, RTP/RTCP, SDP, and client/server handling code are derived from [SharpRTSP](https://github.com/ngraziano/SharpRTSP). SharpRTSP is distributed under the MIT License. OPNX has integrated the code into its namespaces and runtime structure and modified or extended areas including nullable annotations, logging abstractions, media-payload handling, and stability behavior. SharpRTSP copyright and MIT terms continue to apply to the upstream-derived portions; see [THIRD-PARTY-NOTICES.md](https://github.com/OPNXLabs/opnx-lib/blob/master/THIRD-PARTY-NOTICES.md) and the [SharpRTSP MIT License](https://github.com/OPNXLabs/opnx-lib/blob/master/third_party_licenses/SharpRTSP-MIT.txt).
 
 WebRTC components are integrated into OPNX.V StreamingServer while their public APIs remain preview quality. Current media tracks carry H.264 video and PCMU audio over RTP. RTSP payload support such as H.265/H.266 does not imply equivalent WebRTC support. RTSP support in this README does not imply that all protocol code was authored independently by OPNX, and the OPNX.Lib source-available terms do not replace the MIT terms that apply to SharpRTSP-derived code.
 
@@ -156,7 +156,7 @@ await client.Ptz!.ContinuousMoveAsync(profile.Token, 0.5f, 0, 0);
 await client.Ptz.StopAsync(profile.Token);
 ```
 
-Use the service addresses resolved by `InitializeAsync`. Optional services are `null` when a device does not advertise them. See the [ONVIF module documentation](src/OPNX.Lib.Onvif/README.md).
+Use the service addresses resolved by `InitializeAsync`. Optional services are `null` when a device does not advertise them. See the [ONVIF module documentation](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md).
 
 ONVIF is a trademark of ONVIF, Inc. This project is not affiliated with or endorsed by ONVIF.
 
@@ -311,7 +311,7 @@ Capabilities in this README describe current repository source. Previously publi
 ## Samples And Documentation
 
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
-- [ONVIF client services](src/OPNX.Lib.Onvif/README.md)
+- [ONVIF client services](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md)
 
 ## Evaluation And Code Reuse
 
@@ -323,12 +323,12 @@ Capabilities in this README describe current repository source. Previously publi
 
 ## License And Support
 
-OPNX.Lib is source-available but is not permissively licensed open-source software. Commercial use, redistribution, OEM integration, or inclusion in commercial products requires prior written permission from OPNX. See [License.txt](License.txt), [License.ko.txt](License.ko.txt), and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+OPNX.Lib is source-available but is not permissively licensed open-source software. Commercial use, redistribution, OEM integration, or inclusion in commercial products requires prior written permission from OPNX. See [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt), [License.ko.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.ko.txt), and [THIRD-PARTY-NOTICES.md](https://github.com/OPNXLabs/opnx-lib/blob/master/THIRD-PARTY-NOTICES.md).
 
 - Website: [https://www.opnx.kr/](https://www.opnx.kr/)
 - Contact: `opnx@opnx.kr`
-- Security: [SECURITY.md](SECURITY.md)
-- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security: [SECURITY.md](https://github.com/OPNXLabs/opnx-lib/blob/master/SECURITY.md)
+- Contributions: [CONTRIBUTING.md](https://github.com/OPNXLabs/opnx-lib/blob/master/CONTRIBUTING.md)
 
 ## Related Projects
 

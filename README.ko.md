@@ -1,6 +1,6 @@
 # OPNX.Lib
 
-[English](README.md)
+[English](https://github.com/OPNXLabs/opnx-lib/blob/master/README.md)
 
 **실시간 영상 및 영상 보안 시스템을 구축하기 위한 C#/.NET SDK입니다.**
 
@@ -28,7 +28,7 @@ dotnet add package OPNX.Lib --prerelease
 
 패키지 설치 후 영상을 가장 빠르게 확인하려면 [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer)부터 시작하세요. 공개된 OPNX 패키지로 RTSP 입력, FFmpeg 디코딩, WPF 영상 표시, 카메라 탐색과 구성 가능한 MultiView를 실행할 수 있습니다.
 
-> **라이선스:** OPNX.Lib는 오픈 소스가 아닌 source-available 소프트웨어입니다. [License.txt](License.txt)에 따라 학습, 연구, 테스트 및 비상업적 평가에 사용할 수 있습니다. 상업적 사용, 운영 환경 사용, 재배포 및 OEM 통합에는 OPNX의 사전 서면 허가가 필요합니다.
+> **라이선스:** OPNX.Lib는 오픈 소스가 아닌 source-available 소프트웨어입니다. [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt)에 따라 학습, 연구, 테스트 및 비상업적 평가에 사용할 수 있습니다. 상업적 사용, 운영 환경 사용, 재배포 및 OEM 통합에는 OPNX의 사전 서면 허가가 필요합니다.
 > 기업 내부의 비운영 평가·PoC·기술 검토도 허용됩니다. 상세 범위는 아래 평가 안내와 영문 라이선스를 확인하세요.
 
 OPNX.Lib는 VMS, NVR, 스트리밍 서버, 장치 게이트웨이, 미디어 처리 서비스 및 모니터링 애플리케이션을 위한 모듈형 .NET 인프라 SDK입니다.
@@ -126,7 +126,7 @@ Windows 공통 API에는 작업표시줄 Application ID와 창 알림을 위한 
 
 WebRTC 시그널링은 ASP.NET Core 10 공유 프레임워크를 사용합니다. 설치 프로그램에 ASP.NET Core 10 런타임을 포함하거나 자체 포함 방식으로 게시하세요.
 
-RTSP, RTP/RTCP, SDP 및 Client·Server 처리 코드의 일부는 [SharpRTSP](https://github.com/ngraziano/SharpRTSP)에서 파생되었습니다. SharpRTSP는 MIT License로 제공되며 OPNX는 이를 프로젝트 Namespace와 Runtime 구조에 통합하고, Nullable·Logging 추상화, Media Payload 처리와 안정성 관련 코드를 수정·확장했습니다. 원본에서 파생된 부분에는 SharpRTSP의 저작권과 MIT License가 계속 적용되며, 자세한 출처와 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)와 [SharpRTSP MIT License](third_party_licenses/SharpRTSP-MIT.txt)에서 확인할 수 있습니다.
+RTSP, RTP/RTCP, SDP 및 Client·Server 처리 코드의 일부는 [SharpRTSP](https://github.com/ngraziano/SharpRTSP)에서 파생되었습니다. SharpRTSP는 MIT License로 제공되며 OPNX는 이를 프로젝트 Namespace와 Runtime 구조에 통합하고, Nullable·Logging 추상화, Media Payload 처리와 안정성 관련 코드를 수정·확장했습니다. 원본에서 파생된 부분에는 SharpRTSP의 저작권과 MIT License가 계속 적용되며, 자세한 출처와 고지는 [THIRD-PARTY-NOTICES.md](https://github.com/OPNXLabs/opnx-lib/blob/master/THIRD-PARTY-NOTICES.md)와 [SharpRTSP MIT License](https://github.com/OPNXLabs/opnx-lib/blob/master/third_party_licenses/SharpRTSP-MIT.txt)에서 확인할 수 있습니다.
 
 WebRTC 구성요소는 OPNX.V StreamingServer에 통합되어 사용되며 공개 API는 Preview 상태입니다. 현재 미디어 Track은 H.264 영상과 PCMU 오디오를 RTP로 전달합니다. RTSP의 H.265/H.266 등 Payload 지원이 WebRTC에서도 동일하게 제공된다는 의미는 아닙니다. 현재 README의 RTSP 지원 설명은 독립적인 모든 프로토콜 코드를 OPNX가 처음부터 작성했다는 의미가 아니며, OPNX.Lib의 source-available 정책이 SharpRTSP 원저작물의 MIT License를 대체하지 않습니다.
 
@@ -156,7 +156,7 @@ await client.Ptz!.ContinuousMoveAsync(profile.Token, 0.5f, 0, 0);
 await client.Ptz.StopAsync(profile.Token);
 ```
 
-항상 `InitializeAsync`가 확인한 서비스 주소를 사용해야 합니다. 장치가 광고하지 않는 선택 서비스는 `null`로 제공됩니다. 자세한 내용은 [ONVIF 모듈 문서](src/OPNX.Lib.Onvif/README.md)를 참고하십시오.
+항상 `InitializeAsync`가 확인한 서비스 주소를 사용해야 합니다. 장치가 광고하지 않는 선택 서비스는 `null`로 제공됩니다. 자세한 내용은 [ONVIF 모듈 문서](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md)를 참고하십시오.
 
 ONVIF는 ONVIF, Inc.의 상표입니다. 이 프로젝트는 ONVIF와 제휴하거나 보증받은 프로젝트가 아닙니다.
 
@@ -311,7 +311,7 @@ dotnet pack .\src\OPNX.Lib\OPNX.Lib.csproj -c Release -p:Platform=x64 -p:Preview
 ## 샘플 및 문서
 
 - [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
-- [ONVIF 클라이언트 서비스](src/OPNX.Lib.Onvif/README.md)
+- [ONVIF 클라이언트 서비스](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md)
 
 ## 평가와 코드 활용 범위
 
@@ -323,12 +323,12 @@ dotnet pack .\src\OPNX.Lib\OPNX.Lib.csproj -c Release -p:Platform=x64 -p:Preview
 
 ## 라이선스 및 지원
 
-OPNX.Lib는 source-available이지만 permissive 오픈 소스 라이선스가 아닙니다. 상업적 사용, 재배포, OEM 통합 또는 상용 제품 포함에는 OPNX의 사전 서면 허가가 필요합니다. [License.txt](License.txt), [License.ko.txt](License.ko.txt), [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)를 확인하십시오.
+OPNX.Lib는 source-available이지만 permissive 오픈 소스 라이선스가 아닙니다. 상업적 사용, 재배포, OEM 통합 또는 상용 제품 포함에는 OPNX의 사전 서면 허가가 필요합니다. [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt), [License.ko.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.ko.txt), [THIRD-PARTY-NOTICES.md](https://github.com/OPNXLabs/opnx-lib/blob/master/THIRD-PARTY-NOTICES.md)를 확인하십시오.
 
 - 웹사이트: [https://www.opnx.kr/](https://www.opnx.kr/)
 - 문의: `opnx@opnx.kr`
-- 보안: [SECURITY.ko.md](SECURITY.ko.md)
-- 기여: [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md)
+- 보안: [SECURITY.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/SECURITY.ko.md)
+- 기여: [CONTRIBUTING.ko.md](https://github.com/OPNXLabs/opnx-lib/blob/master/CONTRIBUTING.ko.md)
 
 ## 관련 프로젝트
 

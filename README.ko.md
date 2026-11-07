@@ -6,7 +6,7 @@
 
 RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
 
-[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [RTSP 샘플 실행](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#rtsp-multi-live-viewer-실행) · [전체 샘플 보기](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md) · [상업 라이선스 및 OEM 문의](#라이선스-및-지원)
+[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [RTSP 샘플 실행](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#rtsp-viewer-실행) · [전체 샘플 보기](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md) · [상업 라이선스 및 OEM 문의](#라이선스-및-지원)
 
 ![OPNX.Lib와 OPNX.UI로 개발 중인 OPNX.V 다채널 라이브 모니터링](https://raw.githubusercontent.com/OPNXLabs/opnx-lib/master/docs/images/opnx-v-live-monitoring.png)
 
@@ -26,7 +26,7 @@ Preview 패키지를 설치합니다.
 dotnet add package OPNX.Lib --prerelease
 ```
 
-패키지 설치 후 영상을 가장 빠르게 확인하려면 [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer)부터 시작하세요. 공개된 OPNX 패키지로 RTSP 입력, FFmpeg 디코딩, WPF 영상 표시, 카메라 탐색과 구성 가능한 MultiView를 실행할 수 있습니다.
+패키지 설치 후 영상을 가장 빠르게 확인하려면 [`OPNX.Samples.RtspViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspViewer)부터 시작하세요. 공개된 OPNX 패키지로 RTSP 입력, FFmpeg 디코딩, WPF 영상 표시, 카메라 탐색과 구성 가능한 MultiView를 실행할 수 있습니다. 브라우저 기반 H.264 재생은 [`WebRtcViewer`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#webrtc-viewer-실행)에서 확인할 수 있습니다.
 
 > **라이선스:** OPNX.Lib는 오픈 소스가 아닌 source-available 소프트웨어입니다. [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt)에 따라 학습, 연구, 테스트 및 비상업적 평가에 사용할 수 있습니다. 상업적 사용, 운영 환경 사용, 재배포 및 OEM 통합에는 OPNX의 사전 서면 허가가 필요합니다.
 > 기업 내부의 비운영 평가·PoC·기술 검토도 허용됩니다. 상세 범위는 아래 평가 안내와 영문 라이선스를 확인하세요.
@@ -306,11 +306,24 @@ dotnet pack .\src\OPNX.Lib\OPNX.Lib.csproj -c Release -p:Platform=x64 -p:Preview
 
 ## 소스와 배포 패키지의 기능 범위
 
-이 README의 기능 설명은 현재 저장소 소스를 기준으로 합니다. 이미 게시된 Preview NuGet 패키지는 이전 API와 의존성을 포함할 수 있습니다. 패키지 설치 시 선택한 버전의 릴리스와 의존성을 확인하세요. 공개 Samples는 재현 가능한 실행을 위해 `0.1.0-preview.20260716.1`에 고정되어 있으며, 최신 소스 기능 전체를 보여주는 샘플 모음은 아닙니다.
+이 README의 기능 설명은 현재 저장소 소스를 기준으로 합니다. 이미 게시된 Preview NuGet 패키지는 이전 API와 의존성을 포함할 수 있습니다. 패키지 설치 시 선택한 버전의 릴리스와 의존성을 확인하세요. 공개 Samples는 재현 가능한 실행을 위해 OPNX.Lib `0.1.0-preview.20261106.3`과 OPNX.UI.WPF `0.1.0-preview.20261107.1`을 사용합니다. 현재 기준 버전은 Samples의 [Directory.Build.props](https://github.com/OPNXLabs/opnx-samples/blob/master/Directory.Build.props)를 확인하세요. 최신 소스 기능 전체를 보여주는 샘플 모음은 아닙니다.
 
 ## 샘플 및 문서
 
-- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
+공개 NuGet을 사용하는 7개 실행 예제와 현재 UI 캡처는 [OPNX Samples](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md)에서 확인할 수 있습니다. 비공개 OPNX.V 프로젝트는 필요하지 않습니다.
+
+| 샘플 | 확인할 기능 |
+| --- | --- |
+| [`RtspViewer`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#rtsp-viewer-실행) | RTSP 수신·FFmpeg 디코딩·MultiView 배치·줌·캡처·영상 창 분리 |
+| [`WebRtcViewer`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#webrtc-viewer-실행) | H.264 RTSP→WebRTC 중계·WebView2/브라우저 재생·수신 통계 |
+| [`PlaybackTimeline`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#playback-timeline-실행) | 모의 다채널 녹화·이벤트·시간 탐색·선택·표시 설정 |
+| [`ControlGallery`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#control-gallery-실행) | WPF 입력·선택·날짜/시간·트리/목록 검색·페이징·알림·트레이 |
+| [`SystemMonitoring`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#system-monitoring-실행) | 실시간 CPU·메모리·현재 프로세스·네트워크·디스크 용량·지원 GPU 지표 |
+| [`ProtocolChat`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#protocol-chat-실행) | TCP·Named Pipe·SharedMemory 공통 채팅·요청응답·시간 초과·취소 |
+| [`EntityStore`](https://github.com/OPNXLabs/opnx-samples/blob/master/README.ko.md#entitystore-실행) | 인메모리 CRUD·불변 변경 정보·속성 알림·추적 객체 동일성 |
+
+다섯 WPF 샘플은 OPNX.UI 공통 스타일과 OPNX.V Dark / Graphite / Light 테마, Blue / Teal / Amber 강조색을 사용합니다. WebRtcViewer의 영상 재생은 WebView2의 HTML `<video>`가 담당하며, ProtocolChat과 EntityStore는 콘솔 예제입니다. RtspViewer는 호환되는 FFmpeg 네이티브 DLL이 필요하고 WebRtcViewer는 WebView2 Runtime과 H.264 소스가 필요합니다. PlaybackTimeline은 모의 데이터 UI이며 실제 녹화 영상은 재생하지 않습니다.
+
 - [ONVIF 클라이언트 서비스](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md)
 
 ## 평가와 코드 활용 범위

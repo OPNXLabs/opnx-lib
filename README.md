@@ -6,7 +6,7 @@
 
 RTSP · RTP/RTCP · ONVIF · FFmpeg · H.264/H.265/H.266 · WebRTC · VMS · NVR
 
-[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [Run the RTSP sample](https://github.com/OPNXLabs/opnx-samples#run-rtsp-multi-live-viewer) · [Explore all samples](https://github.com/OPNXLabs/opnx-samples) · [Commercial and OEM inquiries](#license-and-support)
+[NuGet](https://www.nuget.org/packages/OPNX.Lib) · [Run the RTSP sample](https://github.com/OPNXLabs/opnx-samples#run-rtsp-viewer) · [Explore all samples](https://github.com/OPNXLabs/opnx-samples) · [Commercial and OEM inquiries](#license-and-support)
 
 ![OPNX.V multi-channel live monitoring built with OPNX.Lib and OPNX.UI](https://raw.githubusercontent.com/OPNXLabs/opnx-lib/master/docs/images/opnx-v-live-monitoring.png)
 
@@ -26,7 +26,7 @@ Install the preview package:
 dotnet add package OPNX.Lib --prerelease
 ```
 
-For the shortest path from package to working video, start with [`OPNX.Samples.RtspMultiLiveViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspMultiLiveViewer). It demonstrates RTSP input, FFmpeg decoding, WPF video presentation, camera navigation, and a configurable multi-view using published OPNX packages.
+For the shortest path from package to working video, start with [`OPNX.Samples.RtspViewer`](https://github.com/OPNXLabs/opnx-samples/tree/master/src/OPNX.Samples.RtspViewer). It demonstrates RTSP input, FFmpeg decoding, WPF video presentation, camera navigation, and a configurable multi-view using published OPNX packages. For H.264 browser playback, try [`WebRtcViewer`](https://github.com/OPNXLabs/opnx-samples#run-webrtc-viewer).
 
 > **License:** OPNX.Lib is source-available, not open-source. Learning, research, testing, and non-commercial evaluation are permitted under [License.txt](https://github.com/OPNXLabs/opnx-lib/blob/master/License.txt). Commercial use, production use, redistribution, and OEM integration require prior written permission from OPNX.
 > Internal non-production evaluation, proof of concept, and technical review by commercial organizations are also permitted. See the evaluation guidance below and the English license for scope.
@@ -306,11 +306,24 @@ Before publishing, add the output directory as a local NuGet source and restore/
 
 ## Source And Published Package Scope
 
-Capabilities in this README describe current repository source. Previously published preview NuGet packages may contain earlier APIs and dependencies; check the selected version and its dependency graph. Public Samples pin `0.1.0-preview.20260716.1` for reproducible execution and do not demonstrate every capability in current source.
+Capabilities in this README describe current repository source. Previously published preview NuGet packages may contain earlier APIs and dependencies; check the selected version and its dependency graph. Public Samples use OPNX.Lib `0.1.0-preview.20261106.3` and OPNX.UI.WPF `0.1.0-preview.20261107.1` for reproducible execution. Check the Samples [Directory.Build.props](https://github.com/OPNXLabs/opnx-samples/blob/master/Directory.Build.props) for the current pins; the samples do not demonstrate every capability in current source.
 
 ## Samples And Documentation
 
-- [OPNX Samples](https://github.com/OPNXLabs/opnx-samples)
+Find seven runnable examples and current UI screenshots in [OPNX Samples](https://github.com/OPNXLabs/opnx-samples). They consume published NuGet packages and do not require private OPNX.V projects.
+
+| Sample | What to evaluate |
+| --- | --- |
+| [`RtspViewer`](https://github.com/OPNXLabs/opnx-samples#run-rtsp-viewer) | RTSP input, FFmpeg decoding, MultiView layout, zoom, capture and detached video windows |
+| [`WebRtcViewer`](https://github.com/OPNXLabs/opnx-samples#run-webrtc-viewer) | H.264 RTSP-to-WebRTC bridge, embedded WebView2/browser playback and receive statistics |
+| [`PlaybackTimeline`](https://github.com/OPNXLabs/opnx-samples#run-playback-timeline) | Simulated multi-channel recordings/events, time navigation, selection and appearance settings |
+| [`ControlGallery`](https://github.com/OPNXLabs/opnx-samples#run-control-gallery) | WPF input, selection, dates/time, tree/list search, paging, notifications and tray integration |
+| [`SystemMonitoring`](https://github.com/OPNXLabs/opnx-samples#run-system-monitoring) | Live CPU, memory, current-process, network, disk-capacity and supported GPU metrics |
+| [`ProtocolChat`](https://github.com/OPNXLabs/opnx-samples#run-protocol-chat) | TCP / Named Pipe / SharedMemory chat, shared request/response, timeout and cancellation logic |
+| [`EntityStore`](https://github.com/OPNXLabs/opnx-samples#run-entitystore) | In-memory CRUD, immutable row changes, property notifications and tracked-instance identity |
+
+The five WPF samples share OPNX.UI styles, OPNX.V Dark / Graphite / Light themes and Blue / Teal / Amber accents. WebRtcViewer uses an HTML `<video>` player in WebView2; ProtocolChat and EntityStore are console examples. RtspViewer requires compatible FFmpeg native DLLs; WebRtcViewer requires the WebView2 Runtime and an H.264 source. PlaybackTimeline uses simulated data and does not play recorded media.
+
 - [ONVIF client services](https://github.com/OPNXLabs/opnx-lib/blob/master/src/OPNX.Lib.Onvif/README.md)
 
 ## Evaluation And Code Reuse

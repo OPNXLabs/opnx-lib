@@ -9,6 +9,6 @@
     <Description>Cross-platform system resource monitoring for OPNX applications.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0-rc.2.26504.105" />
+    <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
   </ItemGroup>
 </Project>

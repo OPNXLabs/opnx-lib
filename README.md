@@ -59,12 +59,19 @@ OPNX.Lib brings together capabilities that usually require several unrelated lib
 | --- | --- |
 | `OPNX.Lib.Common` | Shared primitives, lifecycle management, serialization, reflection, and utilities |
 | `OPNX.Lib.Network` | TCP, named pipes, shared memory, framing, packets, and connection management |
+| `OPNX.Lib.Maps` | UI-independent map contracts, coordinates, shapes, marker styles and interaction events |
 | `OPNX.Lib.Media` | Encoding, decoding, conversion, filtering, muxing, and media data handling |
 | `OPNX.Lib.Streaming` | SharpRTSP-derived RTSP/RTP plus WebRTC and DataChannel transport components |
 | `OPNX.Lib.Onvif` | ONVIF discovery and SOAP client services for network video devices |
 | `OPNX.Lib.Data` | EntityStore and ORM-style persistence for PostgreSQL and MySQL |
 | `OPNX.Lib.SystemMonitoring` | System-resource collection, state models, and stores |
 | `OPNX.Lib` | Aggregated SDK package containing the primary modules |
+
+## Map Contracts And HTTP Proxy
+
+`OPNX.Lib.Maps` provides UI-independent `IMapView` contracts, geographic/image coordinates, bounds, markers, shapes, styles, interaction events, item tracking and marker blinking. It does not render maps or bundle a provider SDK or map dataset. It is included by the aggregate SDK source project and is not a standalone NuGet package. Check the selected published package before assuming these newer APIs are present.
+
+`OPNX.Lib.Network.Protocol.HttpProxy` provides reusable HTTP proxy server/session support, including HTTPS CONNECT, request authorization and concurrent-connection limits. Provider/domain policy and device registration belong to the application. In OPNX.V, MapServer supplies this route to the WPF map adapter; provider authentication and usage terms still apply. An HTTP proxy is not an offline tile generator or an unrestricted Internet gateway by default.
 
 ## Media Processing
 

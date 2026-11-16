@@ -212,3 +212,13 @@ Reference materials included in this repository:
 
 - [third_party_licenses/FFmpeg-License-Reference.txt](third_party_licenses/FFmpeg-License-Reference.txt)
 - [third_party_licenses/FFmpeg-Native-Binaries-NOTICE.txt](third_party_licenses/FFmpeg-Native-Binaries-NOTICE.txt)
+
+## Map Contracts And Proxy Infrastructure
+
+`OPNX.Lib.Maps` provides provider-independent contracts and models; it does not
+bundle GMap.NET, a proprietary map SDK, OpenStreetMap datasets or pre-generated
+tiles. The HTTP proxy implementation in `OPNX.Lib.Network` is transport
+infrastructure. A downstream map adapter, browser runtime or dataset has its own
+licensing and service conditions; routing requests through the proxy does not
+transfer rights to those external resources. Consult the UI/application notices
+for the provider and native runtime actually selected.

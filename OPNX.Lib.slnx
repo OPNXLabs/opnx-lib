@@ -21,6 +21,9 @@
   <Project Path="src/OPNX.Lib.Data/OPNX.Lib.Data.csproj">
     <Platform Solution="*|x64" Project="x64" />
   </Project>
+  <Project Path="src/OPNX.Lib.Maps/OPNX.Lib.Maps.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
   <Project Path="src/OPNX.Lib.Media/OPNX.Lib.Media.csproj">
     <Platform Solution="*|x64" Project="x64" />
   </Project>

@@ -1,4 +1,4 @@
-﻿using System.Runtime.Serialization;
+using System.Runtime.Serialization;
 
 namespace OPNX.Lib.Data.ORM.Datas
 {
@@ -217,7 +217,7 @@ namespace OPNX.Lib.Data.ORM.Datas
     }
 
     [Serializable]
-    public class FieldValueChange(FieldKey field, object oldValue, object newValue)
+    public class FieldValueChange(FieldKey field, object? oldValue, object? newValue)
     {
         //public FieldValueChange() { }
 
@@ -229,7 +229,7 @@ namespace OPNX.Lib.Data.ORM.Datas
         //}
 
         public FieldKey Field { get; set; } = field;
-        public object OldValue { get; set; } = oldValue;
-        public object NewValue { get; set; } = newValue;
+        public object? OldValue { get; set; } = oldValue;
+        public object? NewValue { get; set; } = newValue;
     }
 }

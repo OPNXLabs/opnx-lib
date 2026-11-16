@@ -1,4 +1,4 @@
-﻿using OnEyes.DataBase.Datas;
+using OnEyes.DataBase.Datas;
 using OPNX.Lib.Common.Serialization;
 using OPNX.Lib.Data.ORM.Datas;
 using OPNX.Lib.Data.ORM.Datas.Attributes;
@@ -391,25 +391,20 @@ namespace OPNX.Lib.Data.ORM
 
         public EntityChanges GetChangedFields<T>(T comparedEntity) where T : IEntity
         {
-            Dictionary<FieldKey, object> fieldValues = GetFieldValues();
-            Dictionary<FieldKey, object> comparedValues = comparedEntity.GetFieldValues();
+            ArgumentNullException.ThrowIfNull(comparedEntity);
             EntityChanges changedValues = [];
 
-            foreach (FieldKey fieldKey in fieldValues.Keys)
+            // GetFieldValues omits nulls for persistence defaults. Compare columns
+            // directly so both null-to-value and value-to-null updates are retained.
+            foreach (ColumnSchema column in ColumnSchemas)
             {
-                //if (!includeCustomFields && fieldKey.IsCustomProp)
-                //    continue; // skip custom props if specified
+                object? oldValue = column.Property.GetValue(this);
+                object? newValue = column.Property.GetValue(comparedEntity);
+                if (Object.Equals(oldValue, newValue))
+                    continue;
 
-                foreach (FieldKey compareKey in comparedValues.Keys)
-                {
-                    if (fieldKey.FieldName != compareKey.FieldName)
-                        continue;
-
-                    if (!Object.Equals(fieldValues[fieldKey], comparedValues[compareKey]))
-                        changedValues.Add(fieldKey.FieldName, new FieldValueChange(fieldKey, fieldValues[fieldKey], comparedValues[compareKey]));
-
-                    break;
-                }
+                FieldKey fieldKey = new(column.ColumnName, false, column.Attributes.ForeignType != null);
+                changedValues.Add(fieldKey.FieldName, new FieldValueChange(fieldKey, oldValue, newValue));
             }
 
             return changedValues;

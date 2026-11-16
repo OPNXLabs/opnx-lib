@@ -59,12 +59,19 @@ OPNX.Lib는 일반적으로 여러 라이브러리와 많은 제품별 통합 �
 | --- | --- |
 | `OPNX.Lib.Common` | 공통 자료형, 수명주기, 직렬화, 리플렉션 및 유틸리티 |
 | `OPNX.Lib.Network` | TCP, Named Pipe, Shared Memory, 패킷과 연결 관리 |
+| `OPNX.Lib.Maps` | UI 독립 지도 계약, 좌표·도형·마커 스타일 및 상호작용 이벤트 |
 | `OPNX.Lib.Media` | 인코딩, 디코딩, 변환, 필터링, Muxing 및 미디어 데이터 처리 |
 | `OPNX.Lib.Streaming` | SharpRTSP 파생 RTSP/RTP와 WebRTC·DataChannel 전송 구성요소 |
 | `OPNX.Lib.Onvif` | ONVIF 검색과 네트워크 영상 장치 SOAP 클라이언트 |
 | `OPNX.Lib.Data` | PostgreSQL/MySQL용 EntityStore 및 경량 ORM |
 | `OPNX.Lib.SystemMonitoring` | 시스템 자원 수집, 상태 모델 및 저장소 |
 | `OPNX.Lib` | 주요 모듈을 포함하는 통합 SDK 패키지 |
+
+## 지도 공통 계약 및 HTTP 프록시
+
+`OPNX.Lib.Maps`는 UI와 독립적인 `IMapView`, 지리·이미지 좌표, 범위, 마커·도형·스타일, 상호작용 이벤트, 아이템 추적 및 마커 깜빡임 계약을 제공합니다. 지도 렌더러·공급자 SDK·지도 데이터는 포함하지 않습니다. 통합 SDK 소스 프로젝트에 포함되며 별도 NuGet 패키지는 아닙니다. 최신 API가 필요한 경우 선택한 게시 패키지에 실제로 포함되어 있는지 확인하십시오.
+
+`OPNX.Lib.Network.Protocol.HttpProxy`는 HTTPS CONNECT, 요청 허가 및 동시 연결 제한을 포함하는 범용 HTTP 프록시 서버·세션 기반입니다. 공급자·도메인 정책과 장치 등록은 애플리케이션에서 담당합니다. OPNX.V의 MapServer가 WPF 지도 어댑터에 이 경로를 제공하며 공급자의 인증과 이용 조건은 그대로 적용됩니다. HTTP 프록시는 오프라인 타일 생성기나 기본 무제한 인터넷 게이트웨이가 아닙니다.
 
 ## 미디어 처리
 

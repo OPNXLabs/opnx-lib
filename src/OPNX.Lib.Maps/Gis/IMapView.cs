@@ -1,7 +1,7 @@
-using OPNX.Lib.Maps.Events;
-using OPNX.Lib.Maps.Models;
+using OPNX.Lib.Maps.Gis.Events;
+using OPNX.Lib.Maps.Gis.Models;
 
-namespace OPNX.Lib.Maps
+namespace OPNX.Lib.Maps.Gis
 {
     /// <summary>
     /// One independent map view, implemented by a UI/provider adapter.

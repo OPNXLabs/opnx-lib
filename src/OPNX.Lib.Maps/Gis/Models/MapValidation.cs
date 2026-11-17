@@ -1,4 +1,4 @@
-namespace OPNX.Lib.Maps.Models
+namespace OPNX.Lib.Maps.Gis.Models
 {
     internal static class MapValidation
     {

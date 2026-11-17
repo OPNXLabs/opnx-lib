@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace OPNX.Lib.Maps.Models
+namespace OPNX.Lib.Maps.Gis.Models
 {
     public sealed record MapViewState
     {

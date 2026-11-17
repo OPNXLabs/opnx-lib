@@ -1,6 +1,6 @@
-using OPNX.Lib.Maps.Models;
+using OPNX.Lib.Maps.Gis.Models;
 
-namespace OPNX.Lib.Maps.Events
+namespace OPNX.Lib.Maps.Gis.Events
 {
     public enum MapInteractionKind
     {
